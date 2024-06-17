@@ -11,9 +11,10 @@ https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.3.tar.gz
 tar -zxvf openmpi-5.0.3.tar.gz 
 cd openmpi-5.0.3/
 mkdir -p install
-./configure --prefix=/home/user/libraries/openmpi-5.0.3/install/
+FC=gfortran ./configure --prefix=/home/user/libraries/openmpi-5.0.3/install/
 make
 make install
+export PATH=$PATH:~/libraries/openmpi-5.0.3/install/bin (needed for NCEPlibs and UPP at least.)
 
 #Zlib:
 cd /home/user/libraries
@@ -117,9 +118,7 @@ export JASPERLIB=/home/user/libraries/jasper-1.900.1/install/lib
 export JASPERINC=/home/user/libraries/jasper-1.900.1/install/include
 export WRF_DA_CORE=0
 export WRFIO_NCD_LARGE_FILE_SUPPORT=1
-./configure
-32 #Enter selection [1-83], serial GNU(gfortran,gcc)
-0 #no nesting
+./configure #serial GNU(gfortran,gcc) no nesting
 ./compile em_real >& compile.log &
 
 #WPS:
@@ -133,6 +132,60 @@ export JASPERLIB=/home/user/libraries/jasper-1.900.1/install/lib
 export JASPERINC=/home/user/libraries/jasper-1.900.1/install/include
 export WRF_DIR=../WRF
 export NETCDF=/home/user/libraries/netcdf-c-4.9.2/install
-./configure
-1 #Enter selection [1-44] (serial, gfortran)
+./configure #(serial, gfortran)
 ./compile >& compile.log &
+
+#WRFPLUS (needed for data assimilation, needs same environment variables than WRF)
+cd /home/user/
+wget https://github.com/wrf-model/WRF/releases/download/v4.6.0/v4.6.0.tar.gz #(same WRF tar-file)
+tar -zxvf v4.6.0.tar.gz
+mv WRFV4.6.0/ WRFPLUS
+cd WRFPLUS
+./configure wrfplus #(gfortran serial)
+./compile wrfplus >& compile.log &
+
+#WRFDA 4DVAR (same environment variables than WRF, not needed to recompile for 3DVAR)
+cd /home/user/
+wget https://github.com/wrf-model/WRF/releases/download/v4.6.0/v4.6.0.tar.gz #(same WRF tar-file)
+tar -zxvf v4.6.0.tar.gz
+mv WRFV4.6.0/ WRFDA
+cd WRFDA
+export NETCDF=/home/user/libraries/netcdf-c-4.9.2/install
+export NETCDF4=1
+export HDF5=/home/user/libraries/hdf5-1.14.4-3/install/
+export WRFIO_NCD_LARGE_FILE_SUPPORT=1
+export WRFPLUS_DIR=/home/user/WRFPLUS/
+./configure 4dvar #(gfortran, serial)
+./compile -j 10 all_wrfvar >& compile.log &
+
+#ARWpost (needed for GrADS visualizations)
+cd /home/user/
+wget http://www2.mmm.ucar.edu/wrf/src/ARWpost_V3.tar.gz
+tar -xvzf ARWpost_V3.tar.gz
+cd ARWpost
+vi src/Makefile #before -lnetcdf add -lnetcdff
+./configure #gfortran dmpar
+vi configure.arwp #For FFLAGS row add -fallow-argument-mismatch to end of line. Also remove -C flag from CPP line.
+./compile
+
+#NCEPlibs
+cd /home/user/
+git clone https://github.com/NCAR/NCEPlibs.git
+cd NCEPlibs
+mkdir -p install
+export NETCDF=/home/user/libraries/netcdf-c-4.9.2/install
+export PNG_INC=/home/user/libraries/libpng-1.6.43/install/include/
+export JASPER_INC=/home/user/libraries/jasper-1.900.1/install/include/
+vi macros.make.linux.gnu #To lines 24 28 32 36 40 45 49 53 56 60 64 68 69 73 74 79 add following two flags after equal sign (-fallow-argument-mismatch -fallow-invalid-boz)
+./make_ncep_libs.sh -s linux -c gnu -d /home/user/NCEPlibs/install/ -o 0 -m 1 -a upp
+
+#UPP
+cd /home/user/
+git clone -b dtc_post_v4.1.0 --recurse-submodules https://github.com/NOAA-EMC/EMC_post UPPV4.1
+cd UPPV4.1
+export NETCDF=/home/user/libraries/netcdf-c-4.9.2/install
+export NCEPLIBS_DIR=/home/user/NCEPlibs/install/
+./configure (gfortran dmpar)
+vi configure #To end of the lines 58 63 add following two flags (-fallow-argument-mismatch -fallow-invalid-boz)
+./compile
+
