@@ -3,6 +3,8 @@ sudo dnf install gcc
 sudo dnf install gfortran
 sudo dnf install g++
 
+#For file paths, be sure to replace "user" with the specific username you are using.
+
 mkdir -p /home/user/libraries
 cd /home/user/libraries
 
