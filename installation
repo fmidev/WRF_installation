@@ -120,7 +120,7 @@ export JASPERLIB=/home/user/libraries/jasper-1.900.1/install/lib
 export JASPERINC=/home/user/libraries/jasper-1.900.1/install/include
 export WRF_DA_CORE=0
 export WRFIO_NCD_LARGE_FILE_SUPPORT=1
-./configure #serial GNU(gfortran,gcc) no nesting
+./configure #dmpar GNU(gfortran,gcc) basic nesting
 ./compile em_real >& compile.log &
 
 #WPS:
@@ -134,7 +134,7 @@ export JASPERLIB=/home/user/libraries/jasper-1.900.1/install/lib
 export JASPERINC=/home/user/libraries/jasper-1.900.1/install/include
 export WRF_DIR=../WRF
 export NETCDF=/home/user/libraries/netcdf-c-4.9.2/install
-./configure #(serial, gfortran)
+./configure #(dmpar, gfortran)
 ./compile >& compile.log &
 
 #WRFPLUS (needed for data assimilation, needs same environment variables than WRF)
@@ -143,7 +143,7 @@ wget https://github.com/wrf-model/WRF/releases/download/v4.6.0/v4.6.0.tar.gz #(s
 tar -zxvf v4.6.0.tar.gz
 mv WRFV4.6.0/ WRFPLUS
 cd WRFPLUS
-./configure wrfplus #(gfortran serial)
+./configure wrfplus #(gfortran dmpar)
 ./compile wrfplus >& compile.log &
 
 #WRFDA 4DVAR (same environment variables than WRF, not needed to recompile for 3DVAR)
@@ -157,7 +157,7 @@ export NETCDF4=1
 export HDF5=/home/user/libraries/hdf5-1.14.4-3/install/
 export WRFIO_NCD_LARGE_FILE_SUPPORT=1
 export WRFPLUS_DIR=/home/user/WRFPLUS/
-./configure 4dvar #(gfortran, serial)
+./configure 4dvar #(gfortran, dmpar)
 ./compile -j 10 all_wrfvar >& compile.log &
 
 #ARWpost (needed for GrADS visualizations)
