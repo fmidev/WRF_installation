@@ -15,7 +15,7 @@ Scripts how to use WPS
 ### The model
 Scripts for running the model, possibly DA as well 
 ### Postprocessing
-ARWpost for visualizations, UPP for NETCDF to grib conversion, Data to smarmet scripts
+Unified Post Processor (UPP) can be used to convert WRF NetCDF output to Grib. Instructions how to compile UPP can be found from the `installation`. The text file `setup_upp` describes how to setup UPP as a WRF postprosessing tool and with `execute_upp` the UPP can be easily used to automated NETCDF -> GRIB conversion.      
 ### Cleaning and automization
-Scripts for cleaning and automization (cronjobs...)
+`clean_wrf` script cleans GFS boundary files, WRF and UPP output files.
 

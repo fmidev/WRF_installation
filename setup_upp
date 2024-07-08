@@ -1,0 +1,39 @@
+#How to setup UPP
+
+mkdir -p /home/user/UPP_out
+mkdir -p /home/user/UPP_wrk
+cd /home/user/UPP_wrk
+mkdir parm
+mkdir postprd
+mkdir wrfprd
+cp /home/user/libs/UPP4.1/scripts/run_unipost /home/user/UPP_wrk/postprd/
+cp /home/user/libs/UPP4.1/parm/wrf_cntrl.parm /home/user/UPP_wrk/parm/ #for grib1
+
+#####edit these lines in /home/user/UPP_wrk/postprd/run_unipost:
+
+export TOP_DIR=/home/user/libs
+export DOMAINPATH=/home/user/UPP_wrk
+export UNIPOST_HOME=${TOP_DIR}/UPP4.1
+export POSTEXEC=${UNIPOST_HOME}/exec
+export SCRIPTS=${UNIPOST_HOME}/scripts
+export modelDataPath=${DOMAINPATH}/wrfprd
+export paramFile=${DOMAINPATH}/parm/wrf_cntrl.parm # grib1 (WRF only)
+
+export dyncore="ARW"
+
+export inFormat="netcdf"
+export outFormat="grib"
+
+#we are using different script to fill correct date/hour with sed command. Use these as a initial values.
+export startdate=2024070800 
+export fhr=00
+export lastfhr=48
+
+export incrementhr=01
+export domain_list="d01 d02"
+
+export RUN_COMMAND="mpirun -np 10 ${POSTEXEC}/unipost.exe "
+
+########
+
+#Now UPP can be used with execute_upp script.
