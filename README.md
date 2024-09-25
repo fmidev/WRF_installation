@@ -5,7 +5,7 @@ This repository provides documentation on how to compile and install the WRF mod
 The text file `installation` provides a step-by-step guide on how to install and compile all the needed libraries. Similar instructions are also provided for the WRF source code and its pre/post-processing tools. Following these instructions will ensure that all the necessary binaries for running the WRF model are installed correctly. When running the WRF model or its tools, it is necessary to define some environment variables. By running `source wrf_env.sh` before executing the model, the correct variables and paths are ensured to be in place. Note that in paths, `user` has to be replaced with the correct username.
 
 ## Domain maker
-
+Desired domains can be easily drawn with [WRF Domain Wizard](https://wrfdomainwizard.net/)
 ## Work flow
 
 ### Boundaries
