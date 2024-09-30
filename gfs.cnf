@@ -1,0 +1,20 @@
+AREA="eastafrica"
+
+TOP=15
+BOTTOM=-15
+LEFT=1
+RIGHT=60
+
+# Default: ("0 3 126" "132 6 240")
+# ("start step end")"
+INTERVALS=("0 3 126" "132 6 240")
+
+# Values 0p25 0p50
+RESOLUTION=0p25
+
+# all possible boundaries
+VALID_HOURS="00|06|12|18"
+#only 00UTC boundaries are downloaded
+#VALID_HOURS="00|12"
+
+WRF_COPY_DEST=wrf@server:/home/wrf/GFS/
