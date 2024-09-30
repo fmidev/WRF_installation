@@ -66,31 +66,29 @@ cd ${main_dir}
 
 	  #       ./download_gfs.sh $year $month $day $hour $leadtime 
 	  #2.WPS
-	  ./test_WPS.sh $year $month $day $hour $leadtime $prod_dir 
+	  ./run_WPS.sh $year $month $day $hour $leadtime $prod_dir 
 	  echo "WPS finished">> ${main_dir}/logs/main.log 
 	  date >>  ${main_dir}/logs/main.log 
 	  #3.WRF
-	  ./test_WRF.sh $year $month $day $hour $leadtime $prod_dir
+	  ./run_WRF.sh $year $month $day $hour $leadtime $prod_dir
 	  echo $year$month$day$hour "Run finished"  >> ${main_dir}/logs/main.log 
 	  date >> ${main_dir}/logs/main.log 
 	  tail -2  ${prod_dir}/$year$month$day$hour/rsl.out.0000 | head -1 >> ${main_dir}/logs/main.log
 
 	  #Go to Verification directory  and read from model output to SQlite-files in selected observation points.
           
-	  cd $verification_dir
-          ./verification.sh $year $month $day $hour
+	  #cd $verification_dir
+          #./verification.sh $year $month $day $hour
 
 	  
 	  echo "NetCDF to Grib conversion with UPP"
           /home/wrf/scripts/execute_upp $hour
 
-	  echo "Copy files to SmartMet"
-	  rsync -e ssh -av --include='*/' --include="*d01*" --exclude="*" /home/wrf/UPP_out/$year$month$day$hour smartmet@10.10.233.145:/smartmet/data/incoming/wrf/d01/
-	  rsync -e ssh -av --include='*/' --include="*d02*" --exclude="*" /home/wrf/UPP_out/$year$month$day$hour smartmet@10.10.233.145:/smartmet/data/incoming/wrf/d02/
-	  #rsync -e ssh -av --include='*/' --include="*wrfout_d01*" --exclude="*" ${prod_dir}/$year$month$day$hour smartmet@10.10.233.145:/smartmet/data/incoming/wrf/
-          ssh smartmet@10.10.233.145 /smartmet/run/data/wrf/bin/wrf.sh $hour d01 
-	  ssh smartmet@10.10.233.145 /smartmet/run/data/wrf/bin/wrf.sh $hour d02 	
-	  #ssh smartmet@10.10.233.145 /smartmet/run/data/wrf/bin/dowrf.sh &
+	  #echo "Copy files to SmartMet"
+	  #rsync -e ssh -av --include='*/' --include="*d01*" --exclude="*" /home/wrf/UPP_out/$year$month$day$hour smartmet@10.10.233.145:/smartmet/data/incoming/wrf/d01/
+	  #rsync -e ssh -av --include='*/' --include="*d02*" --exclude="*" /home/wrf/UPP_out/$year$month$day$hour smartmet@10.10.233.145:/smartmet/data/incoming/wrf/d02/
+          #ssh smartmet@10.10.233.145 /smartmet/run/data/wrf/bin/wrf.sh $hour d01 
+	  #ssh smartmet@10.10.233.145 /smartmet/run/data/wrf/bin/wrf.sh $hour d02 	
 
           echo "FINISHED !! WE ARE FREE NOW !! YEAH"
 
