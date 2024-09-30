@@ -5,7 +5,13 @@ This repository provides documentation on how to compile and install the WRF mod
 The text file `installation` provides a step-by-step guide on how to install and compile all the needed libraries. Similar instructions are also provided for the WRF source code and its pre/post-processing tools. Following these instructions will ensure that all the necessary binaries for running the WRF model are installed correctly. When running the WRF model or its tools, it is necessary to define some environment variables. By running `source wrf_env.sh` before executing the model, the correct variables and paths are ensured to be in place. Note that in paths, `user` has to be replaced with the correct username.
 
 ## Domain maker
-Desired domains can be easily drawn with [WRF Domain Wizard](https://wrfdomainwizard.net/)
+Desired domains can be easily drawn with [WRF Domain Wizard](https://wrfdomainwizard.net/).
+
+1. Select option "New" from the sidebar and draw the domain on the map. Keep in mind that this will be the outermost domain, which will be calculated with a resolution based on dx/dy (default 12 km).
+2. Once you're done, add an inner domain by clicking "Add Nest" and modify it on map.
+3. Adjust the resolution of the inner domain by using the "Parent_grid_ratio" setting. The default value is 3, which corresponds to a resolution of 4 km (12 km / 3).
+4. To download the finalized domain namelist for WRF, click "Save".
+
 ## Work flow
 
 ### Boundaries
