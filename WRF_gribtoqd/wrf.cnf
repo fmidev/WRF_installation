@@ -1,0 +1,8 @@
+# 1: Potential Temperature [K]
+#0002;8;Potential Temperature [K];-275.15;1
+# 59 CAPE
+59;59;CAPE;0;1
+
+# 66 CIN
+228001;66;CIN;0;1
+
