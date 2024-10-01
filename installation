@@ -5,6 +5,10 @@ sudo dnf install g++
 
 #For file paths, be sure to replace "user" with the specific username you are using.
 
+
+*********Libraries*********
+
+
 mkdir -p /home/user/libraries
 cd /home/user/libraries
 
@@ -101,7 +105,7 @@ make
 make install
 
 
-***************************
+***********Model Binaries****************
 
 
 #WRF:
@@ -191,3 +195,4 @@ export NCEPLIBS_DIR=/home/user/NCEPlibs/install/
 vi configure #To end of the lines 58 63 add following two flags (-fallow-argument-mismatch -fallow-invalid-boz)
 ./compile
 
+###Everything what is needed for running WRF should be now downloaded and compiled correctly. Good job! 
