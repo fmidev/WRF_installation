@@ -13,7 +13,7 @@ mkdir -p /home/user/libraries
 cd /home/user/libraries
 
 #Openmpi:
-https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.3.tar.gz
+wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.3.tar.gz
 tar -zxvf openmpi-5.0.3.tar.gz 
 cd openmpi-5.0.3/
 mkdir -p install
@@ -45,6 +45,7 @@ make install
 #HDF5:
 cd /home/user/libraries
 wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.4/src/hdf5-1.14.4-3.tar.gz
+tar -zxvf hdf5-1.14.4-3.tar.gz
 cd hdf5-1.14.4-3/
 mkdir -p install
 ./configure --prefix=/home/user/libraries/hdf5-1.14.4-3/install/ --with-zlib=/home/user/libraries/zlib-1.3.1/install/ --with-szlib=/home/user/libraries/szip-2.1.1/install/ --enable-fortran
@@ -150,7 +151,7 @@ cd WRFPLUS
 ./configure wrfplus #(gfortran dmpar)
 ./compile wrfplus >& compile.log &
 
-#WRFDA 4DVAR (same environment variables than WRF, not needed to recompile for 3DVAR)
+#WRFDA 3DVAR (same environment variables than WRF)
 cd /home/user/
 wget https://github.com/wrf-model/WRF/releases/download/v4.6.0/v4.6.0.tar.gz #(same WRF tar-file)
 tar -zxvf v4.6.0.tar.gz
@@ -161,7 +162,7 @@ export NETCDF4=1
 export HDF5=/home/user/libraries/hdf5-1.14.4-3/install/
 export WRFIO_NCD_LARGE_FILE_SUPPORT=1
 export WRFPLUS_DIR=/home/user/WRFPLUS/
-./configure 4dvar #(gfortran, dmpar)
+./configure wrfda #(gfortran, dmpar)
 ./compile -j 10 all_wrfvar >& compile.log &
 
 #ARWpost (needed for GrADS visualizations)
