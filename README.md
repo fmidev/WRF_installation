@@ -19,8 +19,8 @@ WRF requires boundary files in GRIB format. The script `Download_GFS/get_gfs.sh`
 ### Preprosessing
 In order to use preprocessing tool WPS, a static geographical dataset needs to be downloaded. 
 ```
-wget https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_high_res_mandatory.tar.gz .
-tar -zxvf geog_high_res_mandatory.tar.gz /home/{user}/Data/geog/
+wget https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.gz .
+tar -zxvf geog_complete.tar.gz
 ```
 Along with the mandatory datasets above, additional datasets may be required for specific applications. ([see here](https://www2.mmm.ucar.edu/wrf/users/download/get_sources_wps_geog.html#specific))
 
