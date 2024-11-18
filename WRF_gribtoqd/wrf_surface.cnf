@@ -41,8 +41,8 @@
 
 # Changed to 353 to make WeatherAndCloudines work
 # 50: Total Precipitation [kg m**-2]
-#228228;50;Total Precipitation (tp);0;1
-228228;353;Precipitation;0;1
+228228;50;Total Precipitation (tp);0;1
+#228228;353;Precipitation;0;1
 
 # 51: Snow Depth [m]
 3066;51;Snow Depth (sde);0;1
@@ -90,7 +90,7 @@
 168;10;2 Metre Dewpoint Temperature;-273.15;1;105;2
 
 # 472: Surface Pressure [Pa]
-#134;472;Surface Pressure (sp);0;0.01
+134;472;Surface Pressure (sp);0;0.01
 
 # 532: Sea Ice Area Fraction [(0 - 1)]
 #31;532;Sea Ice Area Fraction (ci);0;1

@@ -50,7 +50,8 @@ exec &> $LOGFILE
 
 echo $(date)
 
-#mkdir -p $OUT/surface/querydata
+mkdir -p $OUT/surface/querydata
+mkdir -p $OUT/pressure/querydata
 
 # Check that we don't already have this analysis time
 if [ -e $OUT/surface/querydata/${OUTNAME}_surface.sqd ]; then
@@ -82,19 +83,36 @@ echo "Converting grib files to qd files..."
 #gribtoqd -n -t -L 1,100 -p "${PRODUCER},WRF Surface,WRF Pressure" -o $TMP/${OUTNAME}.sqd $TMP/grib/
 # Surface parameters
 gribtoqd -d -c $CNF/wrf_surface.cnf -n -t -L 1 -p "${PRODUCER},WRF Surface" -o $TMP/${OUTNAME}.sqd $TMP/grib/
-# Pressure levels 
+# Pressure levels
 gribtoqd -d -c $CNF/wrf_pressure.cnf -n -t -L 100 -p "${PRODUCER},WRF Pressure" -o $TMP/${OUTNAME}.sqd $TMP/grib/
-
 echo "done"
 
-# Takin the surface and pressure data 
-mv -f $TMP/$OUTNAME.sqd_levelType_1 $TMP/${OUTNAME}_surface.sqd.tmp
+echo "Analysis time: $DATE"
+echo "Model Run: $RUN"
+
+echo "Converting grib files to qd files..."
+#gribtoqd -n -t -L 1,2,10,100,101,103,105,200 -p "${PRODUCER},WRF Surface,WRF Pressure" -o $TMP/${OUTNAME}.sqd $TMP/grib/
+#gribtoqd -n -t -L 1,100 -p "${PRODUCER},WRF Surface,WRF Pressure" -o $TMP/${OUTNAME}.sqd $TMP/grib/
+# Surface parameters
+gribtoqd -d -c $CNF/wrf_surface.cnf -n -t -L 1 -p "${PRODUCER},WRF Surface" -o $TMP/${OUTNAME}.sqd $TMP/grib/
+# Pressure levels
+gribtoqd -d -c $CNF/wrf_pressure.cnf -n -t -L 100 -p "${PRODUCER},WRF Pressure" -o $TMP/${OUTNAME}.sqd $TMP/grib/
+echo "done"
+
+
+# Postproces surface
+qdscript -a 1,353 -i $TMP/${OUTNAME}.sqd_levelType_1 $CNF/wrf_surface.st > $TMP/${OUTNAME}.sqd_levelType_1_tmp
+qdset -n "Pressure Reduced To MSL (prmsl)" $TMP/${OUTNAME}.sqd_levelType_1_tmp 1
+qdset -n "Precipitation mm/h" $TMP/${OUTNAME}.sqd_levelType_1_tmp 353
+
+
+# Takin the surface and pressure data
+mv -f $TMP/$OUTNAME.sqd_levelType_1_tmp $TMP/${OUTNAME}_surface.sqd.tmp
 mv -f $TMP/$OUTNAME.sqd_levelType_100 $TMP/${OUTNAME}_pressure.sqd.tmp
 
 #
 # Create querydata totalWind and WeatherAndCloudiness objects
-#
-echo -n "Creating Wind objects:..."
+#echo -n "Creating Wind objects:..."
 qdversionchange -a 7 < $TMP/${OUTNAME}_surface.sqd.tmp > $TMP/${OUTNAME}_surface.sqd
 echo "done"
 qdversionchange -w 0 7 < $TMP/${OUTNAME}_pressure.sqd.tmp > $TMP/${OUTNAME}_pressure.sqd
@@ -102,19 +120,19 @@ qdversionchange -w 0 7 < $TMP/${OUTNAME}_pressure.sqd.tmp > $TMP/${OUTNAME}_pres
 # Crop unnecessary parameters
 #echo -n "Cropping parameters..."
 
-#Modified qdcrop -command by removing param 326. This script should be renewed so 
+#Modified qdcrop -command by removing param 326. This script should be renewed so
 #that conversion is done only for parameters actually exists in the grib-file
-#Now it tries to convert all and removes unwanted parameters. 
+#Now it tries to convert all and removes unwanted parameters.
 #qdcrop -p 1,4,10,13,19,50,51,59,66,281,326,407,472 $TMP/${OUTNAME}_surface.sqd.NO_CROP $TMP/${OUTNAME}_surface.sqd
 #qdcrop -p 1,4,10,13,19,50,51,59,66,281,407,472 $TMP/${OUTNAME}_surface.sqd.NO_CROP $TMP/${OUTNAME}_surface.sqd
 #qdcrop -p 2,4,8,13,19,43 -l 100,150,200,250,300,350,400,450,500,550,600,650,700,750,800,850,900,925,950,1000 $TMP/${OUTNAME}_pressure.sqd.NO_CROP $TMP/${OUTNAME}_pressure.sqd
 #echo "done"
 
-# Correct the Origin time for d02(small) domain. 
+# Correct the Origin time for d02(small) domain.
 if [ $DOMAIN = d02 ]; then
-  echo -n "Changing origin time for d02 files"
-  qdset -T ${DATE} $TMP/${OUTNAME}_surface.sqd
-  qdset -T ${DATE} $TMP/${OUTNAME}_pressure.sqd
+  echo -n "Changing origin time (${DATE}) for d02 files"
+  qdset -T ${DATE}00 $TMP/${OUTNAME}_surface.sqd
+  qdset -T ${DATE}00 $TMP/${OUTNAME}_pressure.sqd
 else
   echo -n "No need to change origin time for d01 files"
 fi
