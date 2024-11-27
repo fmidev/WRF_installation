@@ -9,46 +9,46 @@ sudo dnf install g++
 *********Libraries*********
 
 
-mkdir -p /home/user/libraries
-cd /home/user/libraries
+mkdir -p /home/user/WRF_Model/libraries
+cd /home/user/WRF_Model/libraries
 
 #Openmpi:
 wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.3.tar.gz
 tar -zxvf openmpi-5.0.3.tar.gz 
 cd openmpi-5.0.3/
 mkdir -p install
-FC=gfortran ./configure --prefix=/home/user/libraries/openmpi-5.0.3/install/
+FC=gfortran ./configure --prefix=/home/user/WRF_Model/libraries/openmpi-5.0.3/install/
 make
 make install
-export PATH=$PATH:~/libraries/openmpi-5.0.3/install/bin (needed for NCEPlibs and UPP at least.)
+export PATH=$PATH:~/WRF_Model/libraries/openmpi-5.0.3/install/bin (needed for NCEPlibs and UPP at least.)
 
 #Zlib:
-cd /home/user/libraries
+cd /home/user/WRF_Model/libraries
 wget  https://zlib.net/current/zlib.tar.gz
 tar -zxvf zlib.tar.gz
 cd zlib-1.3.1/ (zlib.tar.gz contains always the current version (now 1.3.1.))
 mkdir -p install
-./configure --prefix=/home/user/libraries/zlib-1.3.1/install/
+./configure --prefix=/home/user/WRF_Model/libraries/zlib-1.3.1/install/
 make
 make install
 
 #Szip:
-cd /home/user/libraries
+cd /home/user/WRF_Model/libraries
 wget https://support.hdfgroup.org/ftp/lib-external/szip/2.1.1/src/szip-2.1.1.tar.gz
 tar -zxvf szip-2.1.1.tar.gz
 cd szip-2.1.1/
 mkdir -p install
-./configure --prefix=/home/user/libraries/szip-2.1.1/install
+./configure --prefix=/home/user/WRF_Model/libraries/szip-2.1.1/install
 make
 make install
 
 #HDF5:
-cd /home/user/libraries
+cd /home/user/WRF_Model/libraries
 wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.4/src/hdf5-1.14.4-3.tar.gz
 tar -zxvf hdf5-1.14.4-3.tar.gz
 cd hdf5-1.14.4-3/
 mkdir -p install
-./configure --prefix=/home/user/libraries/hdf5-1.14.4-3/install/ --with-zlib=/home/user/libraries/zlib-1.3.1/install/ --with-szlib=/home/user/libraries/szip-2.1.1/install/ --enable-fortran
+./configure --prefix=/home/user/WRF_Model/libraries/hdf5-1.14.4-3/install/ --with-zlib=/home/user/WRF_Model/libraries/zlib-1.3.1/install/ --with-szlib=/home/user/WRF_Model/libraries/szip-2.1.1/install/ --enable-fortran
 make
 make install
 
@@ -56,52 +56,52 @@ make install
 sudo dnf install libxml2-devel
 sudo dnf install m4
 sudo dnf install libcurl-devel
-cd /home/user/libraries
+cd /home/user/WRF_Model/libraries
 wget https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz
 tar -zxvf netcdf-c-4.9.2.tar.gz
 cd netcdf-c-4.9.2/
 mkdir -p install
-./configure --prefix=/home/user/libraries/netcdf-c-4.9.2/install/ --enable-netcdf-4 LDFLAGS="-L/home/user/libraries/hdf5-1.14.4-3/install/lib" CPPFLAGS="-I/home/user/libraries/hdf5-1.14.4-3/install/include" CC=gcc
+./configure --prefix=/home/user/WRF_Model/libraries/netcdf-c-4.9.2/install/ --enable-netcdf-4 LDFLAGS="-L/home/user/WRF_Model/libraries/hdf5-1.14.4-3/install/lib" CPPFLAGS="-I/home/user/WRF_Model/libraries/hdf5-1.14.4-3/install/include" CC=gcc
 make
 make install
 
 #NetCDF Fortran:
-cd /home/user/libraries
-export LD_LIBRARY_PATH=/home/user/libraries/netcdf-c-4.9.2/install/lib
+cd /home/user/WRF_Model/libraries
+export LD_LIBRARY_PATH=/home/user/WRF_Model/libraries/netcdf-c-4.9.2/install/lib
 wget https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.1/netcdf-fortran-4.6.1.tar.gz
 tar -zxvf netcdf-fortran-4.6.1.tar.gz
 cd netcdf-fortran-4.6.1/
-./configure --prefix=/home/user/libraries/netcdf-c-4.9.2/install/ LDFLAGS="-L/home/user/libraries/netcdf-c-4.9.2/install/lib/" CPPFLAGS="-I/home/user/libraries/netcdf-c-4.9.2/install/include/" FC=gfortran F77=gfortran
+./configure --prefix=/home/user/WRF_Model/libraries/netcdf-c-4.9.2/install/ LDFLAGS="-L/home/user/WRF_Model/libraries/netcdf-c-4.9.2/install/lib/" CPPFLAGS="-I/home/user/libraries/WRF_Model/netcdf-c-4.9.2/install/include/" FC=gfortran F77=gfortran
 make
 make install
 
 #LibJpeg:
-cd /home/user/libraries
+cd /home/user/WRF_Model/libraries
 wget http://www.ijg.org/files/jpegsrc.v9f.tar.gz
 tar -zxvf jpegsrc.v9f.tar.gz
 cd jpeg-9f/
 mkdir -p install
-./configure --prefix=/home/user/libraries/jpeg-9f/install/
+./configure --prefix=/home/user/WRF_Model/libraries/jpeg-9f/install/
 make
 make install
 
 #LibPNG:
-cd /home/user/libraries
+cd /home/user/WRF_Model/libraries
 wget https://sourceforge.net/projects/libpng/files/libpng16/1.6.43/libpng-1.6.43.tar.gz
 tar -zxvf libpng-1.6.43.tar.gz 
 cd libpng-1.6.43/
 mkdir -p install
-./configure --prefix=/home/user/libraries/libpng-1.6.43/install/
+./configure --prefix=/home/user/WRF_Model/libraries/libpng-1.6.43/install/
 make
 make install
 
 #Jasper:
-cd /home/user/libraries
+cd /home/user/WRF_Model/libraries
 wget https://www.ece.uvic.ca/~frodo/jasper/software/jasper-1.900.1.zip
 unzip jasper-1.900.1.zip
 cd jasper-1.900.1
 mkdir -p install
-./configure --prefix=/home/user/libraries/jasper-1.900.1/install/ --enable-shared --enable-libjpeg
+./configure --prefix=/home/user/WRF_Model/libraries/jasper-1.900.1/install/ --enable-shared --enable-libjpeg
 make
 make install
 
@@ -110,40 +110,40 @@ make install
 
 
 #WRF:
-cd /home/user/
+cd /home/user/WRF_Model/
 sudo dnf install csh #(or tcsh)
 wget https://github.com/wrf-model/WRF/releases/download/v4.6.0/v4.6.0.tar.gz
 tar -zxvf v4.6.0.tar.gz
 mv WRFV4.6.0 WRF
 cd WRF/
 export WRF_EM_CORE=1
-export NETCDF=/home/user/libraries/netcdf-c-4.9.2/install
+export NETCDF=/home/user/WRF_Model/libraries/netcdf-c-4.9.2/install
 export NETCDF4=1
-export HDF5=/home/user/libraries/hdf5-1.14.4-3/install/
-export jasper=/home/user/libraries/jasper-1.900.1/install/
-export JASPERLIB=/home/user/libraries/jasper-1.900.1/install/lib
-export JASPERINC=/home/user/libraries/jasper-1.900.1/install/include
+export HDF5=/home/user/WRF_Model/libraries/hdf5-1.14.4-3/install/
+export jasper=/home/user/WRF_Model/libraries/jasper-1.900.1/install/
+export JASPERLIB=/home/user/WRF_Model/libraries/jasper-1.900.1/install/lib
+export JASPERINC=/home/user/WRF_Model/libraries/jasper-1.900.1/install/include
 export WRF_DA_CORE=0
 export WRFIO_NCD_LARGE_FILE_SUPPORT=1
 ./configure #dmpar GNU(gfortran,gcc) basic nesting
 ./compile em_real >& compile.log &
 
 #WPS:
-cd /home/user/
+cd /home/user/WRF_Model/
 wget https://github.com/wrf-model/WPS/archive/refs/tags/v4.6.0.tar.gz
 tar -zxvf v4.6.0.tar.gz
 mv WPS-4.6.0/ WPS
 cd WPS/
-export jasper=/home/user/libraries/jasper-1.900.1/install/
-export JASPERLIB=/home/user/libraries/jasper-1.900.1/install/lib
-export JASPERINC=/home/user/libraries/jasper-1.900.1/install/include
+export jasper=/home/user/WRF_Model/libraries/jasper-1.900.1/install/
+export JASPERLIB=/home/user/WRF_Model/libraries/jasper-1.900.1/install/lib
+export JASPERINC=/home/user/WRF_Model/libraries/jasper-1.900.1/install/include
 export WRF_DIR=../WRF
-export NETCDF=/home/user/libraries/netcdf-c-4.9.2/install
+export NETCDF=/home/user/WRF_Model/libraries/netcdf-c-4.9.2/install
 ./configure #(dmpar, gfortran)
 ./compile >& compile.log &
 
-#WRFPLUS (needed for data assimilation, needs same environment variables than WRF)
-cd /home/user/
+#WRFPLUS (needed for 4DVAR (not needed if only using 3DVAR), needs same environment variables than WRF)
+cd /home/user/WRF_Model/
 wget https://github.com/wrf-model/WRF/releases/download/v4.6.0/v4.6.0.tar.gz #(same WRF tar-file)
 tar -zxvf v4.6.0.tar.gz
 mv WRFV4.6.0/ WRFPLUS
@@ -152,21 +152,21 @@ cd WRFPLUS
 ./compile wrfplus >& compile.log &
 
 #WRFDA 3DVAR (same environment variables than WRF)
-cd /home/user/
+cd /home/user/WRF_Model/
 wget https://github.com/wrf-model/WRF/releases/download/v4.6.0/v4.6.0.tar.gz #(same WRF tar-file)
 tar -zxvf v4.6.0.tar.gz
 mv WRFV4.6.0/ WRFDA
 cd WRFDA
-export NETCDF=/home/user/libraries/netcdf-c-4.9.2/install
+export NETCDF=/home/user/WRF_Model/libraries/netcdf-c-4.9.2/install
 export NETCDF4=1
-export HDF5=/home/user/libraries/hdf5-1.14.4-3/install/
+export HDF5=/home/user/WRF_Model/libraries/hdf5-1.14.4-3/install/
 export WRFIO_NCD_LARGE_FILE_SUPPORT=1
-export WRFPLUS_DIR=/home/user/WRFPLUS/
+export WRFPLUS_DIR=/home/user/WRF_Model/WRFPLUS/
 ./configure wrfda #(gfortran, dmpar)
 ./compile -j 10 all_wrfvar >& compile.log &
 
-#ARWpost (needed for GrADS visualizations)
-cd /home/user/
+#ARWpost (optional, needed for GrADS visualizations)
+cd /home/user/WRF_Model/
 wget http://www2.mmm.ucar.edu/wrf/src/ARWpost_V3.tar.gz
 tar -xvzf ARWpost_V3.tar.gz
 cd ARWpost
@@ -176,22 +176,22 @@ vi configure.arwp #For FFLAGS row add -fallow-argument-mismatch to end of line. 
 ./compile
 
 #NCEPlibs
-cd /home/user/
+cd /home/user/WRF_Model/
 git clone https://github.com/NCAR/NCEPlibs.git
 cd NCEPlibs
 mkdir -p install
-export NETCDF=/home/user/libraries/netcdf-c-4.9.2/install
-export PNG_INC=/home/user/libraries/libpng-1.6.43/install/include/
-export JASPER_INC=/home/user/libraries/jasper-1.900.1/install/include/
+export NETCDF=/home/user/WRF_Model/libraries/netcdf-c-4.9.2/install
+export PNG_INC=/home/user/WRF_Model/libraries/libpng-1.6.43/install/include/
+export JASPER_INC=/home/user/WRF_Model/libraries/jasper-1.900.1/install/include/
 vi macros.make.linux.gnu #To lines 24 28 32 36 40 45 49 53 56 60 64 68 69 73 74 79 add following two flags after equal sign (-fallow-argument-mismatch -fallow-invalid-boz)
-./make_ncep_libs.sh -s linux -c gnu -d /home/user/NCEPlibs/install/ -o 0 -m 1 -a upp
+./make_ncep_libs.sh -s linux -c gnu -d /home/user/WRF_Model/NCEPlibs/install/ -o 0 -m 1 -a upp
 
 #UPP
-cd /home/user/
+cd /home/user/WRF_Model/
 git clone -b dtc_post_v4.1.0 --recurse-submodules https://github.com/NOAA-EMC/EMC_post UPPV4.1
 cd UPPV4.1
-export NETCDF=/home/user/libraries/netcdf-c-4.9.2/install
-export NCEPLIBS_DIR=/home/user/NCEPlibs/install/
+export NETCDF=/home/user/WRF_Model/libraries/netcdf-c-4.9.2/install
+export NCEPLIBS_DIR=/home/user/WRF_Model/NCEPlibs/install/
 ./configure (gfortran dmpar)
 vi configure #To end of the lines 58 63 add following two flags (-fallow-argument-mismatch -fallow-invalid-boz)
 ./compile

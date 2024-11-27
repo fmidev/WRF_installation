@@ -1,18 +1,18 @@
 #How to setup UPP
 
-mkdir -p /home/user/UPP_out
-mkdir -p /home/user/UPP_wrk
-cd /home/user/UPP_wrk
+mkdir -p /home/user/WRF_Model/UPP_out
+mkdir -p /home/user/WRF_Model/UPP_wrk
+cd /home/user/WRF_Model/UPP_wrk
 mkdir parm
 mkdir postprd
 mkdir wrfprd
-cp /home/user/libs/UPP4.1/scripts/run_unipost /home/user/UPP_wrk/postprd/
-cp /home/user/libs/UPP4.1/parm/wrf_cntrl.parm /home/user/UPP_wrk/parm/ #for grib1
+cp /home/user/WRF_Model/libraries/UPP4.1/scripts/run_unipost /home/user/WRF_Model/UPP_wrk/postprd/
+cp /home/user/libraries/UPP4.1/parm/wrf_cntrl.parm /home/user/WRF_Model/UPP_wrk/parm/ #for grib1
 
 #####edit these lines in /home/user/UPP_wrk/postprd/run_unipost:
 
-export TOP_DIR=/home/user/libs
-export DOMAINPATH=/home/user/UPP_wrk
+export TOP_DIR=/home/user/WRF_Model/libraries
+export DOMAINPATH=/home/user/WRF_Model/UPP_wrk
 export UNIPOST_HOME=${TOP_DIR}/UPP4.1
 export POSTEXEC=${UNIPOST_HOME}/exec
 export SCRIPTS=${UNIPOST_HOME}/scripts

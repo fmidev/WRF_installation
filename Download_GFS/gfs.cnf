@@ -1,13 +1,13 @@
-AREA="eastafrica"
+AREA="Nordics"
 
-TOP=15
-BOTTOM=-15
+TOP=75
+BOTTOM=45
 LEFT=1
-RIGHT=60
+RIGHT=55
 
 # Default: ("0 3 126" "132 6 240")
 # ("start step end")"
-INTERVALS=("0 3 126" "132 6 240")
+INTERVALS=("0 3 72")
 
 # Values 0p25 0p50
 RESOLUTION=0p25
@@ -17,4 +17,4 @@ VALID_HOURS="00|06|12|18"
 #only 00UTC boundaries are downloaded
 #VALID_HOURS="00|12"
 
-WRF_COPY_DEST=wrf@server:/home/wrf/GFS/
+WRF_COPY_DEST=/lustre/home/hasu/WRF_Model/GFS/
