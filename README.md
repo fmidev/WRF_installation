@@ -1,5 +1,5 @@
-# WRF_installation 
-This repository provides documentation on how to compile and install the WRF model, along with the necessary tools. It also outlines the workflow and explains how to set it up for automated, operational model runs. If you are testing WRF on your own computer, check how many CPUs are available. While the model can run on a single core, these instructions are intended for parallel computation. Also, ensure you have sufficient disk space - static geographical data requires approximately 100GB, and the model input/output/temporary files take up a similar amount, depending on your domain. For testing, 200-300GB should be sufficient, while around 1TB is recommended for operational runs.
+# WRF installation 
+This repository provides documentation on how to compile and install the WRF model, along with the necessary tools. It also outlines the workflow and explains how to set it up for automated, operational model runs. If you are testing WRF on your own computer, check how many CPUs are available. While the model can run on a single core, these instructions are intended for parallel computation. Also, ensure you have sufficient disk space - static geographical data requires approximately 100GB, and the model input/output/temporary files take up a similar amount, depending on your domain. For testing, 200-300GB should be sufficient, while around 1TB is recommended for operational runs. More comprehensive documentation about WRF model can be found [here](https://www2.mmm.ucar.edu/wrf/users/wrf_users_guide/build/html/index.html) 
 
 ## Downloading of libraries and compiling of source code
 The text file `installation` provides a step-by-step guide on how to install and compile all the needed libraries. Similar instructions are also provided for the WRF source code and its pre/post-processing tools. Following these instructions will ensure that all the necessary binaries for running the WRF model are installed correctly. When running the WRF model or its tools, it is necessary to define some environment variables. These are controlled by `env.sh` which is executed within the model run scripts. Note that in paths (both in installation and `env.sh`), `user` has to be replaced with the correct username. 
@@ -35,24 +35,53 @@ After setting up the namelist parameters, it is necessary to go through the scri
 
 WPS setup can be tested from command line by running:
 ```
-./Run_WPS.sh $year $month $day $hour $leadtime $prod_dir
+./Run_WPS.sh <year> <month> <day> <hour> <leadtime> <prod_dir>
 ./Run_WPS.sh 2024 09 10 01 00 48 /home/{user}/WRF_Model/out/ 
 ```
 If the script runs successfully, all the necessary input data for the WRF model run should be ready.
 
-### Observations
+### Observations (optional)
 Observations are essential for data assimilation and verification. Currently, the `get_obs.sh` script gathers observations (primarily satellite radiances) available from the [NCEP real-time data](https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/). The script does not yet support radar or local synoptic observations, as these raw observations need to be processed first into the Little_R format. 
 
 The usage of the script is as follows:
 ```
 ./get_obs $year $month $day $hour
 ```
-Note that NCEP real-time data only includes the most recent couple of days.
+Note that NCEP real-time data archive only includes the most recent couple of days.
 
 ### The model
-Scripts for running the model, possibly DA as well 
+The `Run_WRF.sh` script automates the preparation, execution, and optional data assimilation (WRFDA) for WRF model simulations. It is important to review the configuration and ensure that every path in the script is correct. Additionally, the namelist variables must be updated to correspond to the variables in the WPS namelist. For other changes in the namelist, refer to this [site](https://www2.mmm.ucar.edu/wrf/users/wrf_users_guide/build/html/namelist_variables.html)
+
+To execute the script, provide the required arguments:
+```
+./Run_WRF.sh <year> <month> <day> <hour> <leadtime> <prod_dir>
+```
+Enable data assimilation (DA) by setting `WRFDA=true` in the `env.sh` file. WRFDA namelist variables can also be modified within the same `Run_WRF.sh` script. For DA, it is essential to download CRTM coefficients for satellite assimilation. Additionally, background error (BE) must be calculated or a generic BE can be used from the WRFDA source code. Below is an example of how to download coefficients and use the generic BE.
+
+CRTM:
+```
+mkdir -p /home/wrf/WRF_Model/CRTM_coef
+cd /home/wrf/WRF_Model/CRTM_coef
+wget https://www2.mmm.ucar.edu/wrf/users/wrfda/download/crtm_coeffs_2.3.0.tar.gz 
+tar -xvf crtm_coeffs_2.3.0.tar.gz
+cp -p $WRFDA_DIR/var/run/be.dat.cv3 $WORK_DIR_DA/be.dat
+```
+BE:
+```
+cp -p $WRFDA_DIR/var/run/be.dat.cv3 $WORK_DIR_DA/be.dat
+```
+
 ### Postprocessing
-Unified Post Processor (UPP) can be used to convert WRF NetCDF output to Grib. Instructions how to compile UPP can be found from the `installation`. The text file `setup_upp` describes how to setup UPP as a WRF postprosessing tool and with `Run_scripts/execute_upp.sh` the UPP can be easily used to automated NETCDF -> GRIB conversion.      
+Unified Post Processor (UPP) can be used to convert WRF NetCDF output to Grib. Instructions how to compile UPP can be found from the `installation`. The text file `setup_upp` describes how to setup UPP as a WRF postprosessing tool and with `Run_scripts/execute_upp.sh` the UPP can be easily used to automated NETCDF -> GRIB conversion. 
+
+### Verification
+Instruction how to use HARP verification for WRF here...
+
 ### Cleaning and automization
-`clean_wrf` script cleans GFS boundary files, WRF and UPP output files.
+The `clean_wrf` script cleans GFS boundary files, WRF, and UPP output files. This can be set up as a cron job, for example, to clean the files once a day.
+
+For an automated run, the `control_run_WRF.sh` script can be used to execute all the steps mentioned above. However, it is recommended to test each part of the workflow independently before using this control script to run WRF. The script can be executed as follows:
+```
+./control_run_WRF.sh <analysis_hour>
+```
 
