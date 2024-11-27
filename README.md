@@ -75,7 +75,7 @@ cp -p $WRFDA_DIR/var/run/be.dat.cv3 $WORK_DIR_DA/be.dat
 Unified Post Processor (UPP) can be used to convert WRF NetCDF output to Grib. Instructions how to compile UPP can be found from the `installation`. The text file `setup_upp` describes how to setup UPP as a WRF postprosessing tool and with `Run_scripts/execute_upp.sh` the UPP can be easily used to automated NETCDF -> GRIB conversion. 
 
 ### Verification
-Instruction how to use HARP verification for WRF here...
+Instruction how to use HARP verification for WRF here... (some day)
 
 ### Cleaning and automization
 The `clean_wrf` script cleans GFS boundary files, WRF, and UPP output files. This can be set up as a cron job, for example, to clean the files once a day.
