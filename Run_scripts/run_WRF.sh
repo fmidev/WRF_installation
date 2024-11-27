@@ -256,7 +256,7 @@ if $WRFDA; then
     var4d_lbc          = .false.
   /
 EOF
-    srun --ntasks=1 --cpus-per-task=1 --mem-per-cpu=1G ./da_update_bc.exe
+    time mpirun -np 1 ./da_update_bc.exe
   done
 
   # Link updated input files
