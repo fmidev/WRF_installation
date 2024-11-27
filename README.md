@@ -2,7 +2,7 @@
 This repository provides documentation on how to compile and install the WRF model, along with the necessary tools. It also outlines the workflow and explains how to set it up for automated, operational model runs. If you are testing WRF on your own computer, check how many CPUs are available. While the model can run on a single core, these instructions are intended for parallel computation. Also, ensure you have sufficient disk space - static geographical data requires approximately 100GB, and the model input/output/temporary files take up a similar amount, depending on your domain. For testing, 200-300GB should be sufficient, while around 1TB is recommended for operational runs.
 
 ## Downloading of libraries and compiling of source code
-The text file `installation` provides a step-by-step guide on how to install and compile all the needed libraries. Similar instructions are also provided for the WRF source code and its pre/post-processing tools. Following these instructions will ensure that all the necessary binaries for running the WRF model are installed correctly. When running the WRF model or its tools, it is necessary to define some environment variables. These are controlled by `env.sh` which is executed within the model run scripts. Note that in paths (both installation and 'env.sh'), `user` has to be replaced with the correct username. 
+The text file `installation` provides a step-by-step guide on how to install and compile all the needed libraries. Similar instructions are also provided for the WRF source code and its pre/post-processing tools. Following these instructions will ensure that all the necessary binaries for running the WRF model are installed correctly. When running the WRF model or its tools, it is necessary to define some environment variables. These are controlled by `env.sh` which is executed within the model run scripts. Note that in paths (both in installation and `env.sh`), `user` has to be replaced with the correct username. 
 
 ## Domain maker
 Desired domains for WRF can be easily drawn with [WRF Domain Wizard](https://wrfdomainwizard.net/).
@@ -15,7 +15,12 @@ Desired domains for WRF can be easily drawn with [WRF Domain Wizard](https://wrf
 ## Work flow
 
 ### Boundaries
-WRF requires boundary files in GRIB format. The script `Download_GFS/get_gfs.sh` is used to download GFS data to SmartMet and to copy the data to the WRF server. The configuration file `Download_GFS/gfs.cnf` specifies the desired GFS area, resolution, valid hours, and other parameters for the download. Note that the script `get_gfs.sh` also includes functionality to convert GRIB data to SQD format, but this step is commented out, as it is not needed for WRF purposes. The paths may need adjustment to work correctly for the specific case. The key is to place the GFS data in the directory specified in the running scripts (default `/home/{user}/WRF_Model/GFS`) 
+WRF requires boundary files in GRIB format. The script `Download_GFS/get_gfs.sh` is used to download GFS data to the WRF server. The configuration file `Download_GFS/gfs.cnf` specifies the desired GFS area, resolution, valid hours, and other parameters for the download. The paths may need adjustment to work correctly for the specific case. The key is to place the GFS data in the directory specified in the running scripts (default `/home/{user}/WRF_Model/GFS`). Script is always downloading the most recent boundaries.
+
+```
+./get_gfs.sh
+```
+
 ### Preprosessing
 In order to use preprocessing tool WPS, a static geographical dataset needs to be downloaded. 
 ```
@@ -34,6 +39,15 @@ WPS setup can be tested from command line by running:
 ./Run_WPS.sh 2024 09 10 01 00 48 /home/{user}/WRF_Model/out/ 
 ```
 If the script runs successfully, all the necessary input data for the WRF model run should be ready.
+
+### Observations
+Observations are essential for data assimilation and verification. Currently, the `get_obs.sh` script gathers observations (primarily satellite radiances) available from the [NCEP real-time data](https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/). The script does not yet support radar or local synoptic observations, as these raw observations need to be processed first into the Little_R format. 
+
+The usage of the script is as follows:
+```
+./get_obs $year $month $day $hour
+```
+Note that NCEP real-time data only includes the most recent couple of days.
 
 ### The model
 Scripts for running the model, possibly DA as well 
