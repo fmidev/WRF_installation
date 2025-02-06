@@ -26,7 +26,7 @@ export WRFIO_NCD_LARGE_FILE_SUPPORT=1
 export GRIBNUM=20 # Number of GFS GRIB files needed to be found
 export LEADTIME=48 # Forecast lead time in hours
 export WRFDA=true # true|false
-export INTERVAL=6; # Interval between the cycles in hours (needed for WRFDA)
+export INTERVAL=6 # Interval between the cycles in hours (needed for WRFDA)
 
 # Paths to run directories
 export DAT_DIR=$BASE_DIR/DA_input/
