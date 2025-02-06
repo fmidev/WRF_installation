@@ -6,8 +6,10 @@
 # Date: November 2024
 # ===============================================
 
-anhour=$1
-hour=$anhour
+# Load environment
+source /home/wrf/WRF_Model/scripts/env.sh
+
+hour=$1
 
 # Set the date based on the hour for daily runs
 # If the hour is 18, adjust the date to yesterday
@@ -21,39 +23,32 @@ else
   day=$(date "+%d")
 fi
 
-# Forecast lead time and directory paths
-leadtime=48  # Length of the forecast in hours
-main_dir="/home/wrf/WRF_Model/scripts"
-prod_dir="/home/wrf/WRF_Model/out"
-data_dir="/home/wrf/WRF_Model/GFS"
-verification_dir="/home/wrf/WRF_Model/Verification/Scripts"
-
 # Change to the main directory
-cd ${main_dir}
+cd ${MAIN_DIR}
 
 # Log the start of the process
-echo "*************" > ${main_dir}/logs/main.log
-echo "$year$month$day$hour WRF Run started" >> ${main_dir}/logs/main.log
-date >> ${main_dir}/logs/main.log
+echo "*************" > ${MAIN_DIR}/logs/main.log
+echo "$year$month$day$hour WRF Run started" >> ${MAIN_DIR}/logs/main.log
+date >> ${MAIN_DIR}/logs/main.log
 
 # Initialize variables for checking boundary files
-gribnum=20  # Minimum required number of GRIB files
 files_found=false
+
 
 # ===============================================
 # Step 1: Check boundary files
 # ===============================================
-echo "1) Checking for boundary files before running ems_prep:" >> ${main_dir}/logs/main.log
-echo "   $(date +"%H:%M %Y%m%d")" >> ${main_dir}/logs/main.log
+echo "1) Checking for boundary files before running ems_prep:" >> ${MAIN_DIR}/logs/main.log
+echo "   $(date +"%H:%M %Y%m%d")" >> ${MAIN_DIR}/logs/main.log
 
 for ((i=1; i<=15; i++)); do
   # Count the number of GRIB files in the directory
-  file_count=$(find "$data_dir/$year$month$day$hour" -maxdepth 1 -type f -name "gfs.t${anhour}z.pgrb2.0p25.f*" | wc -l)
+  file_count=$(find "$DATA_DIR/$year$month$day$hour" -maxdepth 1 -type f -name "gfs.t${hour}z.pgrb2.0p25.f*" | wc -l)
   echo $file_count
   
-  if [ "$file_count" -ge "$gribnum" ]; then
+  if [ "$file_count" -ge "$GRIBNUM" ]; then
     # Files are sufficient, proceed
-    echo "Sufficient GRIB files found. Continuing execution." >> ${main_dir}/logs/main.log
+    echo "Sufficient GRIB files found. Continuing execution." >> ${MAIN_DIR}/logs/main.log
     files_found=true
     break
   else
@@ -64,57 +59,63 @@ done
 
 # Exit if the required files are not found after retries
 if [ "$files_found" = false ]; then
-  echo "Maximum retries exceeded. Not enough boundary files. Terminating the run!" >> ${main_dir}/logs/main.log
-  echo "   $(date +"%H:%M %Y%m%d")" >> ${main_dir}/logs/main.log
+  echo "Maximum retries exceeded. Not enough boundary files. Terminating the run!" >> ${MAIN_DIR}/logs/main.log
+  echo "   $(date +"%H:%M %Y%m%d")" >> ${MAIN_DIR}/logs/main.log
   exit 1
 fi
+
 
 # ===============================================
 # Step 2: Get observations (optional, needed for data assimilation)
 # ===============================================
 ./get_obs.sh $year $month $day $hour
-echo "Downloaded observations" >> ${main_dir}/logs/main.log
-date >> ${main_dir}/logs/main.log
+echo "Downloaded observations" >> ${MAIN_DIR}/logs/main.log
+date >> ${MAIN_DIR}/logs/main.log
+
 
 # ===============================================
 # Step 2: Run the WPS
 # ===============================================
-./run_WPS.sh $year $month $day $hour $leadtime $prod_dir
-echo "WPS completed" >> ${main_dir}/logs/main.log
-date >> ${main_dir}/logs/main.log
+./run_WPS.sh $year $month $day $hour $LEADTIME $PROD_DIR
+echo "WPS completed" >> ${MAIN_DIR}/logs/main.log
+date >> ${MAIN_DIR}/logs/main.log
+
 
 # ===============================================
 # Step 3: Run the WRF
 # ===============================================
-./run_WRF.sh $year $month $day $hour $leadtime $prod_dir
-echo "$year$month$day$hour WRF Run finished" >> ${main_dir}/logs/main.log
-date >> ${main_dir}/logs/main.log
+./run_WRF.sh $year $month $day $hour $LEADTIME $PROD_DIR
+echo "$year$month$day$hour WRF Run finished" >> ${MAIN_DIR}/logs/main.log
+date >> ${MAIN_DIR}/logs/main.log
 
 # Log a key output message from the WRF run
-tail -2 ${prod_dir}/$year$month$day$hour/rsl.out.0000 | head -1 >> ${main_dir}/logs/main.log
+tail -2 ${PROD_DIR}/$year$month$day$hour/rsl.out.0000 | head -1 >> ${MAIN_DIR}/logs/main.log
+
 
 # ===============================================
 # Step 4: Run the UPP (NetCDF -> GRIB) 
 # ===============================================
-echo "Converting NetCDF to GRIB with UPP" >> ${main_dir}/logs/main.log
+echo "Converting NetCDF to GRIB with UPP" >> ${MAIN_DIR}/logs/main.log
 ./execute_upp.sh $hour
+
 
 # ===============================================
 # Step 5: Run the Verification 
 # ===============================================
 echo "Starting verification process"
-cd $verification_dir
+cd $VERIFICATION_DIR
 ./verification.sh $year $month $day $hour
+
 
 # ===============================================
 # Step 6: Copy GRIB files to SmartMet 
 # ===============================================
 echo "Copying GRIB files to SmartMet for visualization"
-rsync -e ssh -av --include='*/' --include="*d01*" --exclude="*" /home/wrf/WRF_Model/UPP_out/$year$month$day$hour smartmet@10.10.233.145:/smartmet/data/incoming/wrf/d01/
-rsync -e ssh -av --include='*/' --include="*d02*" --exclude="*" /home/wrf/WRF_Model/UPP_out/$year$month$day$hour smartmet@10.10.233.145:/smartmet/data/incoming/wrf/d02/
+rsync -e ssh -av --include='*/' --include="*d01*" --exclude="*" $BASE_DIR/UPP_out/$year$month$day$hour smartmet@10.10.233.145:/smartmet/data/incoming/wrf/d01/
+rsync -e ssh -av --include='*/' --include="*d02*" --exclude="*" $BASE_DIR/UPP_out/$year$month$day$hour smartmet@10.10.233.145:/smartmet/data/incoming/wrf/d02/
 #ssh smartmet@10.10.233.145 /smartmet/run/data/wrf/bin/wrf.sh $hour d01
 #ssh smartmet@10.10.233.145 /smartmet/run/data/wrf/bin/wrf.sh $hour d02
 
 
-echo "WRF Run completed successfully! All tasks finished." >> ${main_dir}/logs/main.log
+echo "WRF Run completed successfully! All tasks finished." >> ${MAIN_DIR}/logs/main.log
 echo "FINISHED !! WE ARE FREE NOW !! YEAH"

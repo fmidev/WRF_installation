@@ -64,7 +64,6 @@ mkdir -p /home/wrf/WRF_Model/CRTM_coef
 cd /home/wrf/WRF_Model/CRTM_coef
 wget https://www2.mmm.ucar.edu/wrf/users/wrfda/download/crtm_coeffs_2.3.0.tar.gz 
 tar -xvf crtm_coeffs_2.3.0.tar.gz
-cp -p $WRFDA_DIR/var/run/be.dat.cv3 $WORK_DIR_DA/be.dat
 ```
 BE:
 ```

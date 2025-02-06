@@ -17,12 +17,7 @@ hour=$4
 leadtime=$5
 prod_dir=$6
 
-# Configuration variables
-interval=3                                          # Interval in hours
-res="0p025"                                         # Data resolution
-data_dir="/home/wrf/WRF_Model/GFS/"         # GFS data directory
-wps_dir="/home/wrf/WRF_Model/WPS/"          # WPS directory
-run_dir="${prod_dir}/${year}${month}${day}${hour}"  # Run directory
+run_dir="${PROD_DIR}/${year}${month}${day}${hour}"  # Run directory
 
 # Calculate start and end dates for the simulation
 s_date="$year-$month-$day ${hour}:00:00"
@@ -65,8 +60,8 @@ cat << EOF > namelist.wps
  pole_lat          = 90,
  pole_lon          = 0,
  stand_lon         = 24.873,
- geog_data_path    = '/home/wrf/WRF_Model/WPS_GEOG/',
- opt_geogrid_tbl_path = '/home/wrf/WRF_Model/WPS/geogrid/',
+ geog_data_path    = '${BASE_DIR}/WPS_GEOG/',
+ opt_geogrid_tbl_path = '${WPS_DIR}/geogrid/',
 /
 &ungrib
  out_format                 = 'WPS'
@@ -75,7 +70,7 @@ cat << EOF > namelist.wps
 &metgrid
  fg_name                    = 'GFS'
  io_form_metgrid            = 2
- opt_metgrid_tbl_path       = '/home/wrf/WRF_Model/WPS/metgrid/'
+ opt_metgrid_tbl_path       = '${WPS_DIR}/metgrid/'
 /
 EOF
 echo "Generated namelist.wps"
@@ -83,14 +78,14 @@ echo "Generated namelist.wps"
 # ===============================================
 # Step 1: Run Geogrid
 # ===============================================
-Vtable_dir="/home/wrf/WRF_Model/WPS/ungrib/Variable_Tables"
+Vtable_dir="${WPS_DIR}/ungrib/Variable_Tables"
 ln -sf ${Vtable_dir}/Vtable.GFS Vtable
 echo "link Vtable finish"
 
 cat << EOF > run_geogrid.bash
 #!/bin/bash
 cd ${run_dir}
-time mpirun -np 1 ${wps_dir}geogrid.exe
+time mpirun -np 1 ${WPS_DIR}geogrid.exe
 EOF
 
 chmod +x run_geogrid.bash
@@ -106,7 +101,7 @@ echo "Geogrid execution completed."
 # ===============================================
 # Step 2: Link Grib Files
 # ===============================================
-${wps_dir}/link_grib.csh ${data_dir}/${year}${month}${day}${hour}/gfs*
+${WPS_DIR}/link_grib.csh ${DATA_DIR}/${year}${month}${day}${hour}/gfs*
 echo "Grib files linked."
 
 # ===============================================
@@ -115,7 +110,7 @@ echo "Grib files linked."
 cat << EOF > run_ungrib.bash
 #!/bin/bash
 cd ${run_dir}
-time mpirun -np 1 ${wps_dir}ungrib.exe
+time mpirun -np 1 ${WPS_DIR}ungrib.exe
 EOF
 
 chmod +x run_ungrib.bash
@@ -135,7 +130,7 @@ echo "Ungrib execution completed."
 cat << EOF > run_metgrid.bash
 #!/bin/bash
 cd ${run_dir}
-time mpirun -np 24 ${wps_dir}metgrid.exe
+time mpirun -np 24 ${WPS_DIR}metgrid.exe
 EOF
 
 chmod +x run_metgrid.bash

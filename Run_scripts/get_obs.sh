@@ -6,6 +6,9 @@
 # Date: November 2024
 # ===============================================
 
+# Load the environment setup script
+source /home/wrf/WRF_Model/scripts/env.sh
+
 # Input variables
 YYYY=$1  # Year
 MM=$2    # Month
@@ -28,8 +31,8 @@ FILES=(
 )
 
 # Download the files
-mkdir -p /home/wrf/WRF_Model/DA_input/ob
-cd /home/wrf/WRF_Model/DA_input/ob
+mkdir -p $BASE_DIR/DA_input/ob
+cd $BASE_DIR/DA_input/ob
 for FILE in "${FILES[@]}"; do
     URL="${BASE_URL}${FILE}"
     echo "Downloading ${FILE}..."
