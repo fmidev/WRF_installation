@@ -30,8 +30,6 @@ cp $BASE_DIR/out/$year$month$day$hour/wrfout_d0* $BASE_DIR/UPP_wrk/wrfprd/
 cd $BASE_DIR/UPP_wrk/postprd
 
 sed -i "s/\(export startdate=\)[0-9]\{10\}/\1${year}${month}${day}${hour}/" run_unipost
-#sed -i "s/\(export fhr=\)[0-9]\{2\}/\100/" run_unipost
-#sed -i "s/\(export lastfhr=\)[0-9]\{2\}/\1120/" run_unipost
 ./run_unipost
 
   
