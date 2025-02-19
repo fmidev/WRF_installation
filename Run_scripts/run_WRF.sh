@@ -223,10 +223,10 @@ if $WRFDA; then
   #First guess files
   fg_date=$(date -d "$s_date $INTERVAL hours" "+%Y-%m-%d %H:%M:%S")
   read fgyear fgmonth fgday fghour fgmin fgsec <<< $(echo $fg_date | tr '-' ' ' | tr ':' ' ')
-  cp $run_dir/wrfout_d01_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00 $DAT_DIR/rc/ || :
-  cp $run_dir/wrfout_d02_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00 $DAT_DIR/rc/ || :
+  cp $run_dir/wrfout_d01_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00 $DA_DIR/rc/ || :
+  cp $run_dir/wrfout_d02_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00 $DA_DIR/rc/ || :
   #VARBC file
-  cp $WORK_DIR_DA/VARBC.out $DAT_DIR/varbc/ || :
+  cp $WORK_DIR_DA/VARBC.out $DA_DIR/varbc/ || :
 fi
 
 echo "Cycle" ${year}${month}${day}${hour}" WRF run finished"

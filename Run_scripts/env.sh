@@ -25,13 +25,22 @@ export NETCDF4=1
 export WRFIO_NCD_LARGE_FILE_SUPPORT=1
 export GRIBNUM=20 # Number of GFS GRIB files needed to be found
 export LEADTIME=48 # Forecast lead time in hours
-export WRFDA=true # true|false
 export INTERVAL=6 # Interval between the cycles in hours (needed for WRFDA)
 
 # Paths to run directories
-export DAT_DIR=$BASE_DIR/DA_input/
+export DA_DIR=$BASE_DIR/DA_input/
 export CRTM_COEFFS_PATH=$BASE_DIR/CRTM_coef/crtm_coeffs_2.3.0
 export MAIN_DIR=$BASE_DIR/scripts
 export PROD_DIR=$BASE_DIR/out
 export DATA_DIR=$BASE_DIR/GFS
 export VERIFICATION_DIR=$BASE_DIR/Verification/Scripts
+
+# Switches for WRF model run steps
+export RUN_CHECK_BOUNDARY_FILES=true
+export RUN_GET_OBS=true
+export RUN_WPS=true
+export RUN_WRF=true
+export WRFDA=false
+export RUN_UPP=false
+export RUN_VERIFICATION=false
+export RUN_COPY_GRIB=false

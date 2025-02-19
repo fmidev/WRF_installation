@@ -9,9 +9,9 @@ year=$1; month=$2; day=$3; hour=$4; leadtime=$5; prod_dir=$6
 run_dir="${prod_dir}/${year}${month}${day}${hour}"
 s_date="$year-$month-$day ${hour}:00:00"
 
-mkdir -p $DAT_DIR/rc/
-cp $run_dir/wrfinput_d* $DAT_DIR/rc/
-cp $run_dir/wrfbdy_d01 $DAT_DIR/rc/
+mkdir -p $DA_DIR/rc/
+cp $run_dir/wrfinput_d* $DA_DIR/rc/
+cp $run_dir/wrfbdy_d01 $DA_DIR/rc/
 export WORK_DIR_DA=$run_dir/da_wrk
 mkdir -p $WORK_DIR_DA
 cd $WORK_DIR_DA
@@ -20,25 +20,25 @@ ln -sf $WRFDA_DIR/var/run/radiance_info ./radiance_info
 ln -sf $WRFDA_DIR/var/run/leapsec.dat .
 ln -sf $CRTM_COEFFS_PATH ./crtm_coeffs
 ln -sf $CRTM_COEFFS_PATH $WRFDA_DIR/var/run/
-ln -sf $DAT_DIR/ob/{ob,airs,amsua,atms,gpsro,hirs4,iasi,mhs}.bufr $DAT_DIR/be/be.dat $WRFDA_DIR/var/da/da_wrfvar.exe .
+ln -sf $DA_DIR/ob/{ob,airs,amsua,atms,gpsro,hirs4,iasi,mhs}.bufr $DA_DIR/be/be.dat $WRFDA_DIR/var/da/da_wrfvar.exe .
 
 # Link VARBC file from previous cycle if exists.
-[[ -f "$DAT_DIR/varbc/VARBC.out" ]] && ln -sf $DAT_DIR/varbc/VARBC.out ./VARBC.in || ln -sf $WRFDA_DIR/var/run/VARBC.in ./VARBC.in
+[[ -f "$DA_DIR/varbc/VARBC.out" ]] && ln -sf $DA_DIR/varbc/VARBC.out ./VARBC.in || ln -sf $WRFDA_DIR/var/run/VARBC.in ./VARBC.in
 
 # Check `fg` files from previous cycle
 echo "Looking fg file wrfout_d01_${year}-${month}-${day}_${hour}:00:00"
-if [[ -f "$DAT_DIR/rc/wrfout_d01_${year}-${month}-${day}_${hour}:00:00" ]]; then
+if [[ -f "$DA_DIR/rc/wrfout_d01_${year}-${month}-${day}_${hour}:00:00" ]]; then
   echo "Found fg file, using warmstart"
-  ln -sf $DAT_DIR/rc/wrfout_d01_${year}-${month}-${day}_${hour}:00:00 ./fg
-  ln -sf $DAT_DIR/rc/wrfout_d02_${year}-${month}-${day}_${hour}:00:00 ./fg_d02
+  ln -sf $DA_DIR/rc/wrfout_d01_${year}-${month}-${day}_${hour}:00:00 ./fg
+  ln -sf $DA_DIR/rc/wrfout_d02_${year}-${month}-${day}_${hour}:00:00 ./fg_d02
 else
   echo "No fg file, using cold start..."
-  ln -sf $DAT_DIR/rc/wrfinput_d01 ./fg
-  ln -sf $DAT_DIR/rc/wrfinput_d02 ./fg_d02
+  ln -sf $DA_DIR/rc/wrfinput_d01 ./fg
+  ln -sf $DA_DIR/rc/wrfinput_d02 ./fg_d02
 fi
 
 # Update lower boundary conditions
-cp -p $DAT_DIR/rc/wrfinput_d0* .
+cp -p $DA_DIR/rc/wrfinput_d0* .
 ln -sf $WRFDA_DIR/var/da/da_update_bc.exe .
 
 for domain_id in 1 2; do
@@ -251,7 +251,7 @@ echo "DA completed."
 
 # Update lateral boundary conditions
 cd $WORK_DIR_DA
-cp -p $DAT_DIR/rc/wrfbdy_d01 .
+cp -p $DA_DIR/rc/wrfbdy_d01 .
 cat << EOF > parame.in
 &control_param
 da_file            = '${WORK_DIR_DA}/wrfvar_output'
