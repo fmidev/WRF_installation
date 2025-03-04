@@ -1,0 +1,4 @@
+station_id,number,longitude,latitude,elevation,siteID
+001,001,139.6917,35.6895,44,site001
+002,002,-118.2437,34.0522,89,site002
+003,003,-0.1278,51.5074,35,site003

@@ -1,0 +1,4 @@
+station_id,latitude,longitude,date,sea_level_pressure,pressure,height,temperature,relative_humidity,wind_speed,wind_direction
+001,35.6895,139.6917,20230101120000,1013,1000,500,15,60,5,180
+002,34.0522,-118.2437,2023010112000,1012,1000,450,20,55,6,190
+003,51.5074,-0.1278,202301011200,1011,1000,400,10,70,4,170
