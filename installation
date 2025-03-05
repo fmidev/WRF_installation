@@ -9,7 +9,7 @@ sudo dnf install g++
 *********Libraries*********
 
 cd /home/user
-mkdir -p WRF_Model/{libraries,WPS_GEOG,scripts,tmp,out,logs,GFS,GEN_BE,CRTM_coef,DA_input/{be,ob,rc,varbc}}
+mkdir -p WRF_Model/{libraries,WPS_GEOG,scripts,tmp,out,logs,GFS,GEN_BE,CRTM_coef,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc}}
 cd /home/user/WRF_Model/libraries
 
 #Openmpi:

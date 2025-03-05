@@ -1,4 +1,5 @@
 import csv
+import sys
 
 #Python script to convert CSV data to little_r format
 
@@ -83,12 +84,16 @@ def fetch_elevation_data(file_path):
     return elevation_data
 
 def main():
-    csv_file_path = ""
-    elevation_file_path = ""
-    output_file = ""
+    if len(sys.argv) != 4:
+        print("Usage: python convert_to_little_r.py <data_file_path> <station_file_path> <output_file>")
+        sys.exit(1)
     
-    data_list = fetch_csv_data(csv_file_path)
-    elevation_data = fetch_elevation_data(elevation_file_path)
+    data_file_path = sys.argv[1]
+    station_file_path = sys.argv[2]
+    output_file = sys.argv[3]
+    
+    data_list = fetch_csv_data(data_file_path)
+    elevation_data = fetch_elevation_data(station_file_path)
     
     with open(output_file, "w") as file:
         for data in data_list:

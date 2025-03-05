@@ -81,7 +81,7 @@ print_detail_grad    = false,
 &wrfvar2
 /
 &wrfvar3
-ob_format            = 1,
+ob_format            = ${OB_FORMAT},
 ob_format_gpsro      = 1,
 /
 &wrfvar4
