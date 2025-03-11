@@ -4,16 +4,15 @@
 export BASE_DIR=/home/wrf/WRF_Model
 
 # Library paths
-export OPENMPIF=$BASE_DIR/libraries/openmpi/4.1.4.1/fortran-gnu/
-export OPENMPI=$BASE_DIR/libraries/openmpi/4.1.4.1/
-export NETCDF=$BASE_DIR/libraries/netcdf-fortran/4.5.4/gcc-9.3.0/openmpi-4.1.4.1/
-export NETCDFC=$BASE_DIR/libraries/netcdf-c/4.8.1/gcc-9.3.0/openmpi-4.1.4.1/
-export HDF5=$BASE_DIR/libraries/hdf5/1.12.2/gcc-9.3.0/openmpi-4.1.4.1
-export jasper=$BASE_DIR/libraries/asper-1.900.1/install/
+export OPENMPI=$BASE_DIR/libraries/openmpi-5.0.3/install/
+export NETCDF=$BASE_DIR/libraries/netcdf-c-4.9.2/install/
+export HDF5=$BASE_DIR/libraries/hdf5-1.14.4-3/install
+export jasper=$BASE_DIR/libraries/jasper-1.900.1/install/
 export JASPERLIB=$BASE_DIR/libraries/jasper-1.900.1/install/lib
 export JASPERINC=$BASE_DIR/libraries/jasper-1.900.1/install/include
-export LD_LIBRARY_PATH="$NETCDFC/lib:$NETCDF/lib:$JASPERLIB:$HDF5/lib:$OPENMPI/lib:$OPENMPIF/lib"
-export LIBRARY_PATH="$NETCDFC/lib:$NETCDF/lib:$JASPERLIB:$HDF5/lib:$OPENMPI/lib:$OPENMPIF/lib:$LIBRARY_PATH"
+export LD_LIBRARY_PATH="$NETCDF/lib:$JASPERLIB:$HDF5/lib:$OPENMPI/lib"
+export LIBRARY_PATH="$NETCDF/lib:$JASPERLIB:$HDF5/lib:$OPENMPI/lib:$LIBRARY_PATH"
+export PATH="$HOME/.local/bin:$HOME/bin:/home/wrf/WRF_Model/libraries/openmpi-5.0.3/install/bin:/home/wrf/WRF_Model/libraries/netcdf-c-4.9.2/install/bin:$PATH"
 
 # Source code directories
 export WPS_DIR=$BASE_DIR/WPS
