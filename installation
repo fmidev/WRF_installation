@@ -43,12 +43,12 @@ make
 make install
 
 #HDF5:
-cd /home/user/WRF_Model/libraries
+cd /home/$USER/WRF_Model/libraries
 wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.4/src/hdf5-1.14.4-3.tar.gz
 tar -zxvf hdf5-1.14.4-3.tar.gz
 cd hdf5-1.14.4-3/
 mkdir -p install
-./configure --prefix=/home/user/WRF_Model/libraries/hdf5-1.14.4-3/install/ --with-zlib=/home/user/WRF_Model/libraries/zlib-1.3.1/install/ --with-szlib=/home/user/WRF_Model/libraries/szip-2.1.1/install/ --enable-fortran
+./configure --prefix=/home/$USER/WRF_Model/libraries/hdf5-1.14.4-3/install/ --with-zlib=/home/$USER/WRF_Model/libraries/zlib-1.3.1/install/ --with-szlib=/home/user/WRF_Model/libraries/szip-2.1.1/install/ --enable-fortran
 make
 make install
 
@@ -56,32 +56,32 @@ make install
 sudo dnf install libxml2-devel
 sudo dnf install m4
 sudo dnf install libcurl-devel
-cd /home/user/WRF_Model/libraries
+cd /home/$USER/WRF_Model/libraries
 wget https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz
 tar -zxvf netcdf-c-4.9.2.tar.gz
 cd netcdf-c-4.9.2/
 mkdir -p install
-./configure --prefix=/home/user/WRF_Model/libraries/netcdf-c-4.9.2/install/ --enable-netcdf-4 LDFLAGS="-L/home/user/WRF_Model/libraries/hdf5-1.14.4-3/install/lib" CPPFLAGS="-I/home/user/WRF_Model/libraries/hdf5-1.14.4-3/install/include" CC=gcc
+./configure --prefix=/home/$USER/WRF_Model/libraries/netcdf-c-4.9.2/install/ --enable-netcdf-4 LDFLAGS="-L/home/$USER/WRF_Model/libraries/hdf5-1.14.4-3/install/lib" CPPFLAGS="-I/home/user/WRF_Model/libraries/hdf5-1.14.4-3/install/include" CC=gcc
 make
 make install
 
 #NetCDF Fortran:
 cd /home/user/WRF_Model/libraries
-export LD_LIBRARY_PATH=/home/user/WRF_Model/libraries/netcdf-c-4.9.2/install/lib
+export LD_LIBRARY_PATH=/home/$USER/WRF_Model/libraries/netcdf-c-4.9.2/install/lib
 wget https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.1/netcdf-fortran-4.6.1.tar.gz
 tar -zxvf netcdf-fortran-4.6.1.tar.gz
 cd netcdf-fortran-4.6.1/
-./configure --prefix=/home/user/WRF_Model/libraries/netcdf-c-4.9.2/install/ LDFLAGS="-L/home/user/WRF_Model/libraries/netcdf-c-4.9.2/install/lib/" CPPFLAGS="-I/home/user/libraries/WRF_Model/netcdf-c-4.9.2/install/include/" FC=gfortran F77=gfortran
+./configure --prefix=/home/$USER/WRF_Model/libraries/netcdf-c-4.9.2/install/ LDFLAGS="-L/home/$USER/WRF_Model/libraries/netcdf-c-4.9.2/install/lib/" CPPFLAGS="-I/home/user/libraries/WRF_Model/netcdf-c-4.9.2/install/include/" FC=gfortran F77=gfortran
 make
 make install
 
 #LibJpeg:
-cd /home/user/WRF_Model/libraries
+cd /home/$USER/WRF_Model/libraries
 wget http://www.ijg.org/files/jpegsrc.v9f.tar.gz
 tar -zxvf jpegsrc.v9f.tar.gz
 cd jpeg-9f/
 mkdir -p install
-./configure --prefix=/home/user/WRF_Model/libraries/jpeg-9f/install/
+./configure --prefix=/home/$USER/WRF_Model/libraries/jpeg-9f/install/
 make
 make install
 
