@@ -10,35 +10,35 @@ sudo dnf install g++
 
 cd /home/user
 mkdir -p WRF_Model/{libraries,WPS_GEOG,scripts,tmp,out,logs,GFS,GEN_BE,CRTM_coef,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc}}
-cd /home/user/WRF_Model/libraries
+cd /home/$USER/WRF_Model/libraries
 
 #Openmpi:
 wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.3.tar.gz
 tar -zxvf openmpi-5.0.3.tar.gz 
 cd openmpi-5.0.3/
 mkdir -p install
-FC=gfortran ./configure --prefix=/home/user/WRF_Model/libraries/openmpi-5.0.3/install/
+FC=gfortran ./configure --prefix=/home/$USER/WRF_Model/libraries/openmpi-5.0.3/install/
 make
 make install
 export PATH=$PATH:~/WRF_Model/libraries/openmpi-5.0.3/install/bin (needed for NCEPlibs and UPP at least.)
 
 #Zlib:
-cd /home/user/WRF_Model/libraries
+cd /home/$USER/WRF_Model/libraries
 wget  https://zlib.net/current/zlib.tar.gz
 tar -zxvf zlib.tar.gz
 cd zlib-1.3.1/ (zlib.tar.gz contains always the current version (now 1.3.1.))
 mkdir -p install
-./configure --prefix=/home/user/WRF_Model/libraries/zlib-1.3.1/install/
+./configure --prefix=/home/$USER/WRF_Model/libraries/zlib-1.3.1/install/
 make
 make install
 
 #Szip:
-cd /home/user/WRF_Model/libraries
+cd /home/$USER/WRF_Model/libraries
 wget https://support.hdfgroup.org/ftp/lib-external/szip/2.1.1/src/szip-2.1.1.tar.gz
 tar -zxvf szip-2.1.1.tar.gz
 cd szip-2.1.1/
 mkdir -p install
-./configure --prefix=/home/user/WRF_Model/libraries/szip-2.1.1/install
+./configure --prefix=/home/$USER/WRF_Model/libraries/szip-2.1.1/install
 make
 make install
 
