@@ -110,9 +110,9 @@ make install
 #WRF:
 cd /home/$USER/WRF_Model/
 sudo dnf install csh #(or tcsh)
-wget https://github.com/wrf-model/WRF/releases/download/v4.6.0/v4.6.0.tar.gz
-tar -zxvf v4.6.0.tar.gz
-mv WRFV4.6.0 WRF
+wget https://github.com/wrf-model/WRF/releases/download/v4.6.1/v4.6.1.tar.gz
+tar -zxvf v4.6.1.tar.gz
+mv WRFV4.6.1 WRF
 cd WRF/
 export WRF_EM_CORE=1
 export NETCDF=/home/$USER/WRF_Model/libraries/netcdf-c-4.9.2/install
@@ -140,12 +140,14 @@ export NETCDF=/home/$USER/WRF_Model/libraries/netcdf-c-4.9.2/install
 ./configure #(dmpar, gfortran)
 #
 #Edit configure.wps and add libpng and zlib for compression list like this:
+#
 COMPRESSION_LIBS    = -L/home/wrf/WRF_Model/libraries/jasper-1.900.1/install/lib \
                       -L/home/wrf/WRF_Model/libraries/libpng-1.6.43/install/lib  \
                       -L/home/wrf/WRF_Model/libraries/zlib-1.3.1/install/lib -ljasper -lpng -lz
 COMPRESSION_INC     = -I/home/wrf/WRF_Model/libraries/jasper-1.900.1/install/include \
                       -I/home/wrf/WRF_Model/libraries/libpng-1.6.43/install/include \ 
                       -I/home/wrf/WRF_Model/libraries/zlib-1.3.1/install/include
+#
 #
 ./compile >& compile.log &
 
@@ -183,7 +185,7 @@ vi configure.arwp #For FFLAGS row add -fallow-argument-mismatch to end of line. 
 ./compile
 
 #NCEPlibs
-cd /home/$USER/WRF_Model/
+cd /home/$USER/WRF_Model/libraries/
 git clone https://github.com/NCAR/NCEPlibs.git
 cd NCEPlibs
 mkdir -p install
@@ -191,14 +193,15 @@ export NETCDF=/home/$USER/WRF_Model/libraries/netcdf-c-4.9.2/install
 export PNG_INC=/home/$USER/WRF_Model/libraries/libpng-1.6.43/install/include/
 export JASPER_INC=/home/$USER/WRF_Model/libraries/jasper-1.900.1/install/include/
 vi macros.make.linux.gnu #To lines 24 28 32 36 40 45 49 53 56 60 64 68 69 73 74 79 add following two flags after equal sign (-fallow-argument-mismatch -fallow-invalid-boz)
-./make_ncep_libs.sh -s linux -c gnu -d /home/$USER/WRF_Model/NCEPlibs/install/ -o 0 -m 1 -a upp
+./make_ncep_libs.sh -s linux -c gnu -d /home/$USER/WRF_Model/libraries/NCEPlibs/install/ -o 0 -m 1 -a upp
 
 #UPP
 cd /home/$USER/WRF_Model/
 git clone -b dtc_post_v4.1.0 --recurse-submodules https://github.com/NOAA-EMC/EMC_post UPPV4.1
-cd UPPV4.1
+mv UPPV4.1 UPP
+cd UPP
 export NETCDF=/home/$USER/WRF_Model/libraries/netcdf-c-4.9.2/install
-export NCEPLIBS_DIR=/home/$USER/WRF_Model/NCEPlibs/install/
+export NCEPLIBS_DIR=/home/$USER/WRF_Model/libraries/NCEPlibs/install/
 ./configure (gfortran dmpar)
 vi configure #To end of the lines 58 63 add following two flags (-fallow-argument-mismatch -fallow-invalid-boz)
 ./compile

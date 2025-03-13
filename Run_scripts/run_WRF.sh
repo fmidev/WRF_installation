@@ -12,7 +12,6 @@ source /home/wrf/WRF_Model/scripts/env.sh
 # Script inputs
 year=$1;month=$2;day=$3;hour=$4;leadtime=$5 prod_dir=$6
 
-
 # Directories and paths
 run_dir="${BASE_DIR}/${prod_dir}/${year}${month}${day}${hour}"
 
@@ -46,14 +45,14 @@ cat << EOF > namelist.input
  run_hours                  = 0,
  run_minutes                = 0,
  run_seconds                = 0,
- start_year                 = $year, $year, 2017,
- start_month                = $month, $month,   01,
- start_day                  = $day, $day,   24,
- start_hour                 = $hour, $hour,   12,
- end_year                   = $eyear, $eyear, 2000,
- end_month                  = $emonth, $emonth,   01,
- end_day                    = $eday, $eday,   25,
- end_hour                   = $ehour, $ehour,   12,
+ start_year                 = $year, $year,
+ start_month                = $month, $month,
+ start_day                  = $day, $day,
+ start_hour                 = $hour, $hour,
+ end_year                   = $eyear, $eyear,
+ end_month                  = $emonth, $emonth,
+ end_day                    = $eday, $eday,
+ end_hour                   = $ehour, $ehour,
  interval_seconds           = 10800
  input_from_file            = .true.,.true.,.true.,
  history_interval           = 60, 60,
@@ -72,33 +71,34 @@ cat << EOF > namelist.input
  /
 
 &domains
- time_step                  = 30
+ time_step                  = 60
  time_step_fract_num        = 0
  time_step_fract_den        = 1
  time_step_dfi              = 15
  max_dom                    = 2
  s_we                       = 1, 1
- e_we                       = 103,286,                                                                                                                       
- e_sn                       = 195,186,
+ e_we                       = 324,376,
+ e_sn                       = 214,271,
  s_vert                     = 1, 1
  e_vert                     = 45, 45
  num_metgrid_levels         = 34,
  num_metgrid_soil_levels    = 4,
- dx                         = 7000.0000, 1400.0000
- dy                         = 7000.0000, 1400.0000
+ dx                         = 10000.0000, 2000.0000
+ dy                         = 10000.0000, 2000.0000
  grid_id                    = 1, 2
- parent_id                  = 0, 1
- i_parent_start             = 1, 21,
- j_parent_start             = 1, 18,
- parent_grid_ratio          = 1, 5
- parent_time_step_ratio     = 1, 3
+ parent_id                  = 1, 1
+ i_parent_start             = 1, 124,
+ j_parent_start             = 1, 87,
+ parent_grid_ratio          = 1, 5,
+ parent_time_step_ratio     = 1, 3,
  feedback                   = 1
  smooth_option              = 0
+ smooth_cg_topo             = .true.
  /
 
 
 &physics
- mp_physics                 = 2,     2,     3,
+ mp_physics                 = 2,     2,
  mp_zero_out                = 0,
  mp_zero_out_thresh         = 1.e-8
  mp_tend_lim                = 10.
@@ -109,15 +109,15 @@ cat << EOF > namelist.input
  isfflx                     = 1,
  iz0tlnd                    = 1,
  isftcflx                   = 0,
- ra_lw_physics              = 1,     1,     1,
- ra_sw_physics              = 1,     1,     1,
- radt                       = 30,    30,    30,
- sf_sfclay_physics          = 1,     1,     1,
- sf_surface_physics         = 2,     2,     2,
- bl_pbl_physics             = 1,     1,     1,
- bldt                       = 0,     0,     0,
- cu_physics                 = 1,     1,     0,
- cudt                       = 5,     5,     5,
+ ra_lw_physics              = 1,     1,
+ ra_sw_physics              = 1,     1,
+ radt                       = 10,    2,
+ sf_sfclay_physics          = 1,     1,
+ sf_surface_physics         = 2,     2,
+ bl_pbl_physics             = 1,     1,
+ bldt                       = 0,     0,
+ cu_physics                 = 1,     1,
+ cudt                       = 5,     5,
  ifsnow                     = 1,
  icloud                     = 1,
  surface_input_source       = 3,
@@ -131,7 +131,7 @@ cat << EOF > namelist.input
  mfshconv                   = 0,
  prec_acc_dt                = 0,
  sf_lake_physics            = 1,
- use_lakedepth 		          = 0,
+ use_lakedepth              = 0,
  /
 
 &noah_mp
@@ -139,22 +139,23 @@ cat << EOF > namelist.input
 
 &dynamics
  hybrid_opt                 = 2,
- etac                       = 0.175,
+ etac                       = 0.1,
  w_damping                  = 1,
- diff_opt                   = 1,      1,      1,
- km_opt                     = 4,      4,      4,
- diff_6th_opt               = 2,      2,      2,
- diff_6th_factor            = 0.12,   0.12,   0.12,
+ diff_opt                   = 1,      1,
+ km_opt                     = 4,      4,
+ diff_6th_opt               = 2,      2,
+ diff_6th_factor            = 0.12,   0.12,
  base_temp                  = 290.
  damp_opt                   = 3,
- zdamp                      = 5000.,  5000.,  5000.,
- dampcoef                   = 0.2,    0.2,    0.2
- khdif                      = 0,      0,      0,
- kvdif                      = 0,      0,      0,
- non_hydrostatic            = .true., .true., .true.,
- moist_adv_opt              = 1,      1,      1,
- scalar_adv_opt             = 1,      1,      1,
+ zdamp                      = 5000.,  5000.,
+ dampcoef                   = 0.2,    0.2,
+ khdif                      = 0,      0,
+ kvdif                      = 0,      0,
+ non_hydrostatic            = .true., .true.,
+ moist_adv_opt              = 1,      1,
+ scalar_adv_opt             = 1,      1,
  gwd_opt                    = 1,
+ epssm                      = 0.2,    0.2
 /
 
 &fdda
@@ -208,12 +209,13 @@ fi
 
 echo "Ready to run WRF.exe"
 cd $run_dir
-time mpirun -np 40 ./wrf.exe
+time mpirun -np 44 ./wrf.exe
 if [ ! -f "${run_dir}/wrfout_d02_${eyear}-${emonth}-${eday}_${ehour}:00:00" ]; then
   echo "Error: WRF failed."
   exit 1
+else
+  echo "WRF run completed."
 fi
-echo "WRF finished"
 
 # ===============================================
 # Step 4: Copy files for next cycle (with DA only)

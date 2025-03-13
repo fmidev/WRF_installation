@@ -45,21 +45,19 @@ cat << EOF > namelist.wps
 &geogrid
  parent_id         = 1,1,
  parent_grid_ratio = 1,5,
- i_parent_start    = 1,21,
- j_parent_start    = 1,18,
- e_we              = 103,286,
- e_sn              = 195,186,
+ i_parent_start    = 1,124,
+ j_parent_start    = 1,87,
+ e_we              = 324,376,
+ e_sn              = 214,271,
  geog_data_res     = 'modis_lakes+modis_30s+5m','modis_lakes+modis_30s+30s',
- dx                = 7000,
- dy                = 7000,
- map_proj          = 'lambert',
- ref_lat           = 64.321,
- ref_lon           = 25.539,
- truelat1          = 65.740,
- truelat2          = 65.740,
+ dx                = 10000,
+ dy                = 10000,
+ map_proj          = 'mercator',
+ ref_lat           = 38.115,
+ ref_lon           = 71.160,
+ truelat1          = 38.331,
  pole_lat          = 90,
  pole_lon          = 0,
- stand_lon         = 24.873,
  geog_data_path    = '${BASE_DIR}/WPS_GEOG/',
  opt_geogrid_tbl_path = '${WPS_DIR}/geogrid/',
 /
@@ -91,12 +89,13 @@ EOF
 chmod +x run_geogrid.bash
 ./run_geogrid.bash
 
-# Wait for `geo_em.d02.nc` to confirm completion
-until [ -f geo_em.d02.nc ]; do
-  echo "Waiting for geogrid to complete..."
-  sleep 5
-done
-echo "Geogrid execution completed."
+# check `geo_em.d02.nc` to confirm completion
+if [ -f $run_dir/geo_em.d02.nc ]; then
+  echo "Geogrid execution completed."
+else
+  echo "Error: Geogrid execution failed. Check logs."
+  exit 1
+fi
 
 # ===============================================
 # Step 2: Link Grib Files
@@ -110,18 +109,20 @@ echo "Grib files linked."
 cat << EOF > run_ungrib.bash
 #!/bin/bash
 cd ${run_dir}
-time mpirun -np 1 ${WPS_DIR}ungrib.exe
+time mpirun -np 1 ${WPS_DIR}/ungrib.exe
 EOF
 
 chmod +x run_ungrib.bash
 ./run_ungrib.bash
 
-# Wait for the final ungrib file
-until [ -f "GFS:${eyear}-${emonth}-${eday}_${ehour}" ]; do
-  echo "Waiting for ungrib to complete..."
-  sleep 5
-done
-echo "Ungrib execution completed."
+# Check for the final ungrib file
+if [ -f $run_dir/"GFS:${eyear}-${emonth}-${eday}_${ehour}" ]; then
+  echo "Ungrib execution completed."
+else
+  echo "Error: Ungrib execution failed. Check logs."
+  exit 1
+fi
+
 
 # ===============================================
 # Step 4: Run Metgrid
@@ -130,23 +131,19 @@ echo "Ungrib execution completed."
 cat << EOF > run_metgrid.bash
 #!/bin/bash
 cd ${run_dir}
-time mpirun -np 24 ${WPS_DIR}metgrid.exe
+time mpirun -np 24 ${WPS_DIR}/metgrid.exe
 EOF
 
 chmod +x run_metgrid.bash
 ./run_metgrid.bash
 
-# Wait for metgrid completion
-until [ -f met_em.d02.${eyear}-${emonth}-${eday}_${hour}:00:00.nc ]; do
-  echo "Waiting for METGRID to complete..."
-  sleep 60
-done
-echo "Metgrid execution completed."
-
-# Final validation
-if [ -f ${run_dir}/met_em.d02.${eyear}-${emonth}-${eday}_${hour}:00:00.nc ]; then
-  echo "WPS preprocessing completed successfully!"
+# Check for metgrid completion
+if [ -f $run_dir/met_em.d02.${eyear}-${emonth}-${eday}_${hour}:00:00.nc ]; then
+  echo "Metgrid execution completed."
 else
-  echo "Error: WPS preprocessing failed. Check logs."
+  echo "Error: Metgrid execution failed. Check logs."
   exit 1
 fi
+
+echo "WPS preprocessing completed successfully!"
+

@@ -118,8 +118,10 @@ fi
 # ===============================================
 if [ "$RUN_COPY_GRIB" = true ]; then
   echo "Copying GRIB files to SmartMet for visualization"
-  rsync -e ssh -av --include='*/' --include="*d01*" --exclude="*" $BASE_DIR/UPP_out/$year$month$day$hour smartmet@10.10.233.145:/smartmet/data/incoming/wrf/d01/
-  rsync -e ssh -av --include='*/' --include="*d02*" --exclude="*" $BASE_DIR/UPP_out/$year$month$day$hour smartmet@10.10.233.145:/smartmet/data/incoming/wrf/d02/
+  rsync -e ssh -av --include='*/' --include="*d01*" --exclude="*" $BASE_DIR/UPP_out/$year$month$day$hour smartmet@192.168.0.2:/smartmet/data/incoming/wrf/d01/
+  rsync -e ssh -av --include='*/' --include="*d02*" --exclude="*" $BASE_DIR/UPP_out/$year$month$day$hour smartmet@192.168.0.2:/smartmet/data/incoming/wrf/d02/
+  ssh smartmet@192.168.0.2 /smartmet/run/data/wrf/bin/wrf.sh $hour d01
+  ssh smartmet@192.168.0.2 /smartmet/run/data/wrf/bin/wrf.sh $hour d02
 fi
 
 echo "WRF Run completed successfully! All tasks finished." >> ${MAIN_DIR}/logs/main.log

@@ -6,14 +6,14 @@ cd /home/$USER/WRF_Model/UPP_wrk
 mkdir parm
 mkdir postprd
 mkdir wrfprd
-cp /home/$USER/WRF_Model/UPPV4.1/scripts/run_unipost /home/$USER/WRF_Model/UPP_wrk/postprd/
-cp /home/$USER/WRF_Model/UPPV4.1/parm/wrf_cntrl.parm /home/$USER/WRF_Model/UPP_wrk/parm/ #for grib1
+cp /home/$USER/WRF_Model/UPP/scripts/run_unipost /home/$USER/WRF_Model/UPP_wrk/postprd/
+cp /home/$USER/WRF_Model/UPP/parm/wrf_cntrl.parm /home/$USER/WRF_Model/UPP_wrk/parm/ #for grib1
 
 #####edit these lines in /home/user/UPP_wrk/postprd/run_unipost:
 
 export TOP_DIR=/home/${USER}/WRF_Model
 export DOMAINPATH=/home/${USER}/WRF_Model/UPP_wrk
-export UNIPOST_HOME=${TOP_DIR}/UPPV4.1
+export UNIPOST_HOME=${TOP_DIR}/UPP
 export POSTEXEC=${UNIPOST_HOME}/exec
 export SCRIPTS=${UNIPOST_HOME}/scripts
 export modelDataPath=${DOMAINPATH}/wrfprd
@@ -27,7 +27,7 @@ export outFormat="grib"
 #we are using different script to fill correct date/hour with sed command. Use these as a initial values.
 export startdate=2024070800 
 export fhr=00
-export lastfhr=48
+export lastfhr=72
 
 export incrementhr=01
 export domain_list="d01 d02"
