@@ -131,7 +131,7 @@ cat << EOF > namelist.input
  mfshconv                   = 0,
  prec_acc_dt                = 0,
  sf_lake_physics            = 1,
- use_lakedepth              = 0,
+ use_lakedepth              = 1,
  /
 
 &noah_mp
@@ -183,6 +183,13 @@ cat << EOF > namelist.input
  p_lev_diags                = 0
  z_lev_diags                = 0
 /
+&afwa
+ afwa_diag_opt              = 1, 1
+ afwa_severe_opt            = 1, 1
+ afwa_ptype_opt             = 1, 1
+ afwa_icing_opt             = 1, 1
+ afwa_vis_opt               = 1, 1
+ afwa_cloud_opt             = 1, 1
 EOF
 
 # ===============================================

@@ -33,7 +33,7 @@ export CRTM_COEFFS_PATH=$BASE_DIR/CRTM_coef/crtm_coeffs_2.3.0
 export MAIN_DIR=$BASE_DIR/scripts
 export PROD_DIR=$BASE_DIR/out
 export DATA_DIR=$BASE_DIR/GFS
-export VERIFICATION_DIR=$BASE_DIR/Verification/Scripts
+export VERIFICATION_DIR=$BASE_DIR/Verification/scripts
 
 # Switches for WRF model run steps
 export RUN_CHECK_BOUNDARY_FILES=true

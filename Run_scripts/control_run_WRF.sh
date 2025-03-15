@@ -23,13 +23,14 @@ else
   day=$(date "+%d")
 fi
 
-# Change to the main directory
+# Change to the script directory
 cd ${MAIN_DIR}
 
 # Log the start of the process
-echo "*************" > ${MAIN_DIR}/logs/main.log
-echo "$year$month$day$hour WRF Run started" >> ${MAIN_DIR}/logs/main.log
-date >> ${MAIN_DIR}/logs/main.log
+start_time=$(date +%s)
+echo "*************" > ${BASE_DIR}/logs/main.log
+echo "$year$month$day$hour WRF Run started" >> ${BASE_DIR}/logs/main.log
+date >> ${BASE_DIR}/logs/main.log
 
 # Initialize variables for checking boundary files
 files_found=false
@@ -39,8 +40,8 @@ files_found=false
 # Step 1: Check boundary files
 # ===============================================
 if [ "$RUN_CHECK_BOUNDARY_FILES" = true ]; then
-  echo "1) Checking for boundary files before running ems_prep:" >> ${MAIN_DIR}/logs/main.log
-  echo "   $(date +"%H:%M %Y%m%d")" >> ${MAIN_DIR}/logs/main.log
+  echo "1) Checking for boundary files before running ems_prep:" >> ${BASE_DIR}/logs/main.log
+  echo "   $(date +"%H:%M %Y%m%d")" >> ${BASE_DIR}/logs/main.log
 
   for ((i=1; i<=15; i++)); do
     # Count the number of GRIB files in the directory
@@ -49,7 +50,7 @@ if [ "$RUN_CHECK_BOUNDARY_FILES" = true ]; then
     
     if [ "$file_count" -ge "$GRIBNUM" ]; then
       # Files are sufficient, proceed
-      echo "Sufficient GRIB files found. Continuing execution." >> ${MAIN_DIR}/logs/main.log
+      echo "Sufficient GRIB files found. Continuing execution." >> ${BASE_DIR}/logs/main.log
       files_found=true
       break
     else
@@ -60,8 +61,8 @@ if [ "$RUN_CHECK_BOUNDARY_FILES" = true ]; then
 
   # Exit if the required files are not found after retries
   if [ "$files_found" = false ]; then
-    echo "Maximum retries exceeded. Not enough boundary files. Terminating the run!" >> ${MAIN_DIR}/logs/main.log
-    echo "   $(date +"%H:%M %Y%m%d")" >> ${MAIN_DIR}/logs/main.log
+    echo "Maximum retries exceeded. Not enough boundary files. Terminating the run!" >> ${BASE_DIR}/logs/main.log
+    echo "   $(date +"%H:%M %Y%m%d")" >> ${BASE_DIR}/logs/main.log
     exit 1
   fi
 fi
@@ -71,8 +72,8 @@ fi
 # ===============================================
 if [ "$RUN_GET_OBS" = true ]; then
   ./get_obs.sh $year $month $day $hour
-  echo "Downloaded observations" >> ${MAIN_DIR}/logs/main.log
-  date >> ${MAIN_DIR}/logs/main.log
+  echo "Downloaded observations" >> ${BASE_DIR}/logs/main.log
+  date >> ${BASE_DIR}/logs/main.log
 fi
 
 # ===============================================
@@ -80,8 +81,8 @@ fi
 # ===============================================
 if [ "$RUN_WPS" = true ]; then
   ./run_WPS.sh $year $month $day $hour $LEADTIME $PROD_DIR
-  echo "WPS completed" >> ${MAIN_DIR}/logs/main.log
-  date >> ${MAIN_DIR}/logs/main.log
+  echo "WPS completed" >> ${BASE_DIR}/logs/main.log
+  date >> ${BASE_DIR}/logs/main.log
 fi
 
 # ===============================================
@@ -89,18 +90,18 @@ fi
 # ===============================================
 if [ "$RUN_WRF" = true ]; then
   ./run_WRF.sh $year $month $day $hour $LEADTIME $PROD_DIR
-  echo "$year$month$day$hour WRF Run finished" >> ${MAIN_DIR}/logs/main.log
-  date >> ${MAIN_DIR}/logs/main.log
+  echo "$year$month$day$hour WRF Run finished" >> ${BASE_DIR}/logs/main.log
+  date >> ${BASE_DIR}/logs/main.log
 
   # Log a key output message from the WRF run
-  tail -2 ${PROD_DIR}/$year$month$day$hour/rsl.out.0000 | head -1 >> ${MAIN_DIR}/logs/main.log
+  tail -2 ${PROD_DIR}/$year$month$day$hour/rsl.out.0000 | head -1 >> ${BASE_DIR}/logs/main.log
 fi
 
 # ===============================================
 # Step 4: Run the UPP (NetCDF -> GRIB) 
 # ===============================================
 if [ "$RUN_UPP" = true ]; then
-  echo "Converting NetCDF to GRIB with UPP" >> ${MAIN_DIR}/logs/main.log
+  echo "Converting NetCDF to GRIB with UPP" >> ${BASE_DIR}/logs/main.log
   ./execute_upp.sh $hour
 fi
 
@@ -117,12 +118,20 @@ fi
 # Step 6: Copy GRIB files to SmartMet 
 # ===============================================
 if [ "$RUN_COPY_GRIB" = true ]; then
-  echo "Copying GRIB files to SmartMet for visualization"
+  echo "Copying GRIB files to SmartMet for visualization" >> ${BASE_DIR}/logs/main.log
   rsync -e ssh -av --include='*/' --include="*d01*" --exclude="*" $BASE_DIR/UPP_out/$year$month$day$hour smartmet@192.168.0.2:/smartmet/data/incoming/wrf/d01/
   rsync -e ssh -av --include='*/' --include="*d02*" --exclude="*" $BASE_DIR/UPP_out/$year$month$day$hour smartmet@192.168.0.2:/smartmet/data/incoming/wrf/d02/
   ssh smartmet@192.168.0.2 /smartmet/run/data/wrf/bin/wrf.sh $hour d01
   ssh smartmet@192.168.0.2 /smartmet/run/data/wrf/bin/wrf.sh $hour d02
 fi
 
-echo "WRF Run completed successfully! All tasks finished." >> ${MAIN_DIR}/logs/main.log
+echo "WRF Run completed successfully! All tasks finished." >> ${BASE_DIR}/logs/main.log
 echo "FINISHED !! WE ARE FREE NOW !! YEAH"
+
+# Log the end time and duration of the run
+end_time=$(date +%s)
+run_duration=$((end_time - start_time)/60)
+echo "Run $hour started at: $(date -d @$start_time)" >> ${BASE_DIR}/logs/historical.log
+echo "Run $hour ended at: $(date -d @$end_time)" >> ${BASE_DIR}/logs/historical.log
+echo "Run $hour duration: $run_duration minutes" >> ${BASE_DIR}/logs/historical.log
+echo "----------------------------------------" >> ${BASE_DIR}/logs/historical.log
