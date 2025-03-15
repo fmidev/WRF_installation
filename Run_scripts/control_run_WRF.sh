@@ -80,7 +80,7 @@ fi
 # Step 2: Run the WPS
 # ===============================================
 if [ "$RUN_WPS" = true ]; then
-  ./run_WPS.sh $year $month $day $hour $LEADTIME $PROD_DIR
+  ./run_WPS.sh $year $month $day $hour $LEADTIME
   echo "WPS completed" >> ${BASE_DIR}/logs/main.log
   date >> ${BASE_DIR}/logs/main.log
 fi
@@ -89,7 +89,7 @@ fi
 # Step 3: Run the WRF
 # ===============================================
 if [ "$RUN_WRF" = true ]; then
-  ./run_WRF.sh $year $month $day $hour $LEADTIME $PROD_DIR
+  ./run_WRF.sh $year $month $day $hour $LEADTIME
   echo "$year$month$day$hour WRF Run finished" >> ${BASE_DIR}/logs/main.log
   date >> ${BASE_DIR}/logs/main.log
 

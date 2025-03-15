@@ -10,10 +10,10 @@
 source /home/wrf/WRF_Model/scripts/env.sh
 
 # Script inputs
-year=$1;month=$2;day=$3;hour=$4;leadtime=$5 prod_dir=$6
+year=$1;month=$2;day=$3;hour=$4;leadtime=$5
 
 # Directories and paths
-run_dir="${BASE_DIR}/${prod_dir}/${year}${month}${day}${hour}"
+run_dir="${PROD_DIR}/${year}${month}${day}${hour}"
 
 # Calculate end date and time
 s_date="$year-$month-$day ${hour}:00:00"

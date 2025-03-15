@@ -15,7 +15,6 @@ month=$2
 day=$3
 hour=$4
 leadtime=$5
-prod_dir=$6
 
 run_dir="${PROD_DIR}/${year}${month}${day}${hour}"  # Run directory
 
