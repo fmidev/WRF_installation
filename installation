@@ -7,7 +7,7 @@ sudo dnf install g++
 *********Libraries*********
 export BASE=/home/$USER/WRF_Model
 
-mkdir -p $BASE/{libraries,WPS_GEOG,scripts,tmp,out,logs,GFS,GEN_BE,CRTM_coef,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc}},Verification/{scripts,Data{Forecast,Obs,Static},Results,SQlite_tables}
+mkdir -p $BASE/{libraries,WPS_GEOG,scripts,tmp,out,logs,GFS,GEN_BE,CRTM_coef,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc},Verification/{scripts,Data{Forecast,Obs,Static},Results,SQlite_tables}}
 cd $BASE/libraries
 
 #Zlib:
