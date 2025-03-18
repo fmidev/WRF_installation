@@ -2,7 +2,18 @@
 sudo dnf install gcc
 sudo dnf install gfortran
 sudo dnf install g++
-
+sudo dnf install htop
+sudo dnf install emacs 
+sudo dnf install wget
+sudo dnf install tar
+sudo dnf install perl
+sudo dnf install libxml2-devel
+sudo dnf install m4
+sudo dnf install chrony
+sudo dnf install libcurl-devel
+sudo dnf install csh #(or tcsh)
+sudo dnf install git
+sudo dnf install rsync
 
 *********Libraries*********
 export BASE=/home/$USER/WRF_Model
@@ -51,9 +62,6 @@ make
 make install
 
 #NetCDF c:
-sudo dnf install libxml2-devel
-sudo dnf install m4
-sudo dnf install libcurl-devel
 cd $BASE/libraries
 wget https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz
 tar -zxvf netcdf-c-4.9.2.tar.gz
@@ -109,7 +117,6 @@ make install
 
 #WRF:
 cd $BASE
-sudo dnf install csh #(or tcsh)
 wget https://github.com/wrf-model/WRF/releases/download/v4.6.1/v4.6.1.tar.gz
 tar -zxvf v4.6.1.tar.gz
 mv WRFV4.6.1 WRF
