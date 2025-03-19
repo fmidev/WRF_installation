@@ -9,22 +9,10 @@ source /home/wrf/WRF_Model/scripts/env.sh
 # Date: November 2024
 # ===============================================
 
-anhour=$1
-hour=$anhour
-
-# Modify date for 18z
-if [ $hour -eq 18 ]
- then
-  
-  year=`date "+%Y" -d "yesterday"`
-  month=`date "+%m" -d "yesterday"`
-  day=`date "+%d" -d "yesterday"`
-
- else
-  year=`date "+%Y"`
-  month=`date "+%m"`
-  day=`date "+%d"`;
-fi
+year=$1
+month=$2
+day=$3
+hour=$4
 
 cp $BASE_DIR/out/$year$month$day$hour/wrfout_d0* $BASE_DIR/UPP_wrk/wrfprd/
 cd $BASE_DIR/UPP_wrk/postprd

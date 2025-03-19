@@ -102,7 +102,7 @@ fi
 # ===============================================
 if [ "$RUN_UPP" = true ]; then
   echo "Converting NetCDF to GRIB with UPP" >> ${BASE_DIR}/logs/main.log
-  ./execute_upp.sh $hour
+  ./execute_upp.sh $year $month $day $hour
 fi
 
 # ===============================================
