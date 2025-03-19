@@ -12,6 +12,7 @@ sudo dnf install m4
 sudo dnf install chrony
 sudo dnf install libcurl-devel
 sudo dnf install csh #(or tcsh)
+sudo dnf install ksh
 sudo dnf install git
 sudo dnf install rsync
 
