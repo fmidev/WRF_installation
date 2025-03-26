@@ -12,7 +12,7 @@ sudo dnf install -y gcc gfortran g++ htop emacs wget tar perl libxml2-devel m4 c
 
 # Create necessary directories
 echo "Creating directory structure..."
-mkdir -p $BASE/{libraries,WPS_GEOG,scripts,tmp,out,logs,GFS,GEN_BE,CRTM_coef,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc},Verification/{scripts,Data{Forecast,Obs,Static},Results,SQlite_tables}}
+mkdir -p $BASE/{libraries,WPS_GEOG,scripts,tmp,out,logs,GFS,GEN_BE,CRTM_coef,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc},Verification/{scripts,Data/{Forecast,Obs,Static},Results,SQlite_tables}}
 
 # Function to check for errors in compilation logs
 check_compile_log() {
