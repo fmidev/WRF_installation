@@ -37,10 +37,14 @@ install_library() {
     echo "Installing $dir_name..."
     cd $BASE/libraries
     wget $url
-    tar -zxvf ${url##*/}
+    if [[ $url == *.zip ]]; then
+        unzip ${url##*/}
+    else
+        tar -zxvf ${url##*/}
+    fi
     cd $dir_name
     mkdir -p install
-    ./configure --prefix=$BASE/libraries/$dir_name/install $configure_args
+    eval ./configure --prefix=$BASE/libraries/$dir_name/install $configure_args
     make
     make install
 }
