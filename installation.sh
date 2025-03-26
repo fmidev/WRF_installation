@@ -65,11 +65,11 @@ install_library "https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1
 install_library "https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz" "netcdf-c-4.9.2" "--enable-netcdf-4 LDFLAGS=\"-L$BASE/libraries/hdf5-1.14.4-3/install/lib\" CPPFLAGS=\"-I$BASE/libraries/hdf5-1.14.4-3/install/include\" CC=gcc" 
 export LD_LIBRARY_PATH=$BASE/libraries/netcdf-c-4.9.2/install/lib
 
-install_library "https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.1/netcdf-fortran-4.6.1.tar.gz" "netcdf-fortran-4.6.1" "LDFLAGS=\"-L$BASE/libraries/netcdf-c-4.9.2/install/lib/\" CPPFLAGS=\"-I$BASE/libraries/netcdf-c-4.9.2/install/include/\" FC=gfortran F77=gfortran" "nf-config"
+install_library "https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.1/netcdf-fortran-4.6.1.tar.gz" "netcdf-fortran-4.6.1" "LDFLAGS=\"-L$BASE/libraries/netcdf-c-4.9.2/install/lib/\" CPPFLAGS=\"-I$BASE/libraries/netcdf-c-4.9.2/install/include/\" FC=gfortran F77=gfortran"
 
-install_library "http://www.ijg.org/files/jpegsrc.v9f.tar.gz" "jpeg-9f" "" "cjpeg"
-install_library "https://sourceforge.net/projects/libpng/files/libpng16/1.6.43/libpng-1.6.43.tar.gz" "libpng-1.6.43" "" "libpng-config"
-install_library "https://www.ece.uvic.ca/~frodo/jasper/software/jasper-1.900.1.zip" "jasper-1.900.1" "--enable-shared --enable-libjpeg" "jasper"
+install_library "http://www.ijg.org/files/jpegsrc.v9f.tar.gz" "jpeg-9f" ""
+install_library "https://sourceforge.net/projects/libpng/files/libpng16/1.6.43/libpng-1.6.43.tar.gz" "libpng-1.6.43" ""
+install_library "https://www.ece.uvic.ca/~frodo/jasper/software/jasper-1.900.1.zip" "jasper-1.900.1" "--enable-shared --enable-libjpeg"
 
 # Install WRF
 if [ ! -d "$BASE/WRF" ]; then
@@ -110,7 +110,7 @@ if [ ! -d "$BASE/WPS" ]; then
     export JASPERINC=$BASE/libraries/jasper-1.900.1/install/include
     export WRF_DIR=$BASE/WRF
     export NETCDF=$BASE/libraries/netcdf-c-4.9.2/install
-    echo "Configuring WPS..."
+        echo "Configuring WPS..."
     echo 3 | ./configure # Automatically select dmpar with GNU compilers
     sed -i '/COMPRESSION_LIBS/s|=.*|= -L$BASE/libraries/jasper-1.900.1/install/lib -L$BASE/libraries/libpng-1.6.43/install/lib -L$BASE/libraries/zlib-1.3.1/install/lib -ljasper -lpng -lz|' configure.wps
     sed -i '/COMPRESSION_INC/s|=.*|= -I$BASE/libraries/jasper-1.900.1/install/include -I$BASE/libraries/libpng-1.6.43/install/include -I$BASE/libraries/zlib-1.3.1/install/include|' configure.wps
@@ -121,26 +121,6 @@ else
     echo "WPS is already installed. Skipping..."
 fi
 
-# Install WRFPLUS
-if [ ! -d "$BASE/WRFPLUS" ]; then
-    echo "Installing WRFPLUS..."
-    cd $BASE
-    wget https://github.com/wrf-model/WRF/releases/download/v4.6.0/v4.6.0.tar.gz
-    tar -zxvf v4.6.0.tar.gz
-    mv WRFV4.6.0/ WRFPLUS
-    cd WRFPLUS
-    export NETCDF=$BASE/libraries/netcdf-c-4.9.2/install
-    export NETCDF4=1
-    export HDF5=$BASE/libraries/hdf5-1.14.4-3/install/
-    export WRFIO_NCD_LARGE_FILE_SUPPORT=1
-    echo "Configuring WRFPLUS..."
-    echo 34 | ./configure # Automatically select dmpar with GNU compilers
-    echo "Compiling WRFPLUS..."
-    ./compile wrfplus >& compile.log
-    check_compile_log compile.log
-else
-    echo "WRFPLUS is already installed. Skipping..."
-fi
 
 # Install WRFDA
 if [ ! -d "$BASE/WRFDA" ]; then
@@ -164,25 +144,6 @@ else
     echo "WRFDA is already installed. Skipping..."
 fi
 
-# Install ARWpost
-if [ ! -d "$BASE/ARWpost" ]; then
-    echo "Installing ARWpost..."
-    cd $BASE
-    wget http://www2.mmm.ucar.edu/wrf/src/ARWpost_V3.tar.gz
-    tar -xvzf ARWpost_V3.tar.gz
-    cd ARWpost
-    sed -i 's/-lnetcdf/-lnetcdff -lnetcdf/' src/Makefile
-    echo "Configuring ARWpost..."
-    ./configure # Automatically select gfortran dmpar
-    sed -i 's/CPP = cpp -C/CPP = cpp/' configure.arwp
-    sed -i '/FFLAGS/s|$| -fallow-argument-mismatch|' configure.arwp
-    echo "Compiling ARWpost..."
-    ./compile >& compile.log
-    check_compile_log compile.log
-else
-    echo "ARWpost is already installed. Skipping..."
-fi
-
 # Install NCEPlibs
 if [ ! -d "$BASE/libraries/NCEPlibs" ]; then
     echo "Installing NCEPlibs..."
@@ -195,7 +156,7 @@ if [ ! -d "$BASE/libraries/NCEPlibs" ]; then
     export JASPER_INC=$BASE/libraries/jasper-1.900.1/install/include/
     sed -i 's|^FFLAGS =|FFLAGS = -fallow-argument-mismatch -fallow-invalid-boz|' macros.make.linux.gnu
     echo "Compiling NCEPlibs..."
-    ./make_ncep_libs.sh -s linux -c gnu -d $BASE/libraries/NCEPlibs/install/ -o 0 -m 1 -a upp >& compile.log
+        ./make_ncep_libs.sh -s linux -c gnu -d $BASE/libraries/NCEPlibs/install/ -o 0 -m 1 -a upp >& compile.log
     check_compile_log compile.log
 else
     echo "NCEPlibs is already installed. Skipping..."
