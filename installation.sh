@@ -43,8 +43,12 @@ install_library() {
         tar -zxvf ${url##*/}
     fi
     cd $dir_name
-    mkdir -p install
-    eval ./configure --prefix=$BASE/libraries/$dir_name/install $configure_args
+    if [ $dir_name == "netcdf-fortran-4.6.1" ]; then
+        eval ./configure --prefix=$BASE/libraries/netcdf-c-4.9.2/install $configure_args
+    else
+        mkdir -p install
+        eval ./configure --prefix=$BASE/libraries/$dir_name/install $configure_args
+    fi
     make
     make install
 }
