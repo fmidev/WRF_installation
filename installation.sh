@@ -17,7 +17,7 @@ mkdir -p $BASE/{libraries,WPS_GEOG,scripts,tmp,out,logs,GFS,GEN_BE,CRTM_coef,DA_
 # Function to check for errors in compilation logs
 check_compile_log() {
     local log_file=$1
-    if grep -i "error" $log_file; then
+    if [ $? -ne 0 ]; then
         echo "Compilation failed. Check the log file: $log_file"
         exit 1
     fi
@@ -73,15 +73,11 @@ export FC=gfortran
 install_library "https://zlib.net/current/zlib.tar.gz" "zlib-1.3.1" "" 
 install_library "https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.3.tar.gz" "openmpi-5.0.3" "--with-zlib=$BASE/libraries/zlib-1.3.1/install" 
 export PATH=$PATH:$BASE/libraries/openmpi-5.0.3/install/bin
-
 install_library "https://support.hdfgroup.org/ftp/lib-external/szip/2.1.1/src/szip-2.1.1.tar.gz" "szip-2.1.1" "" 
 install_library "https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.4/src/hdf5-1.14.4-3.tar.gz" "hdf5-1.14.4-3" "--with-zlib=$BASE/libraries/zlib-1.3.1/install/ --with-szlib=$BASE/libraries/szip-2.1.1/install/ --enable-fortran" 
-
 install_library "https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz" "netcdf-c-4.9.2" "--enable-netcdf-4 LDFLAGS=\"-L$BASE/libraries/hdf5-1.14.4-3/install/lib\" CPPFLAGS=\"-I$BASE/libraries/hdf5-1.14.4-3/install/include\" CC=gcc" 
 export LD_LIBRARY_PATH=$BASE/libraries/netcdf-c-4.9.2/install/lib
-
 install_library "https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.1/netcdf-fortran-4.6.1.tar.gz" "netcdf-fortran-4.6.1" "LDFLAGS=\"-L$BASE/libraries/netcdf-c-4.9.2/install/lib/\" CPPFLAGS=\"-I$BASE/libraries/netcdf-c-4.9.2/install/include/\" FC=gfortran F77=gfortran"
-
 install_library "http://www.ijg.org/files/jpegsrc.v9f.tar.gz" "jpeg-9f" ""
 install_library "https://sourceforge.net/projects/libpng/files/libpng16/1.6.43/libpng-1.6.43.tar.gz" "libpng-1.6.43" ""
 install_library "https://www.ece.uvic.ca/~frodo/jasper/software/jasper-1.900.1.zip" "jasper-1.900.1" "--enable-shared --enable-libjpeg"
@@ -105,7 +101,7 @@ if [ ! -d "$BASE/WRF" ]; then
     export WRFIO_NCD_LARGE_FILE_SUPPORT=1
     echo "Configuring WRF..."
     echo 34 | ./configure # Automatically select dmpar with GNU compilers
-    echo "Compiling WRF..."
+    echo "Compiling WRF... (output written into compile.log)"
     ./compile em_real >& compile.log
     check_compile_log compile.log
 else
@@ -122,14 +118,14 @@ if [ ! -d "$BASE/WPS" ]; then
     cd WPS
     export jasper=$BASE/libraries/jasper-1.900.1/install/
     export JASPERLIB=$BASE/libraries/jasper-1.900.1/install/lib
-    export JASPERINC=$BASE/libraries/jasper-1.900.1/install/include
+    export JASPERINC=$BASE/libraries/jasper-1.900.1/install/include/jasper
     export WRF_DIR=$BASE/WRF
     export NETCDF=$BASE/libraries/netcdf-c-4.9.2/install
-        echo "Configuring WPS..."
+    echo "Configuring WPS..."
     echo 3 | ./configure # Automatically select dmpar with GNU compilers
-    sed -i '/COMPRESSION_LIBS/s|=.*|= -L$BASE/libraries/jasper-1.900.1/install/lib -L$BASE/libraries/libpng-1.6.43/install/lib -L$BASE/libraries/zlib-1.3.1/install/lib -ljasper -lpng -lz|' configure.wps
-    sed -i '/COMPRESSION_INC/s|=.*|= -I$BASE/libraries/jasper-1.900.1/install/include -I$BASE/libraries/libpng-1.6.43/install/include -I$BASE/libraries/zlib-1.3.1/install/include|' configure.wps
-    echo "Compiling WPS..."
+    sed -i '/COMPRESSION_LIBS/s|=.*|= -L${BASE}/libraries/jasper-1.900.1/install/lib -L${BASE}/libraries/libpng-1.6.43/install/lib -L${BASE}/libraries/zlib-1.3.1/install/lib -ljasper -lpng -lz|' configure.wps
+    sed -i '/COMPRESSION_INC/s|=.*|= -I${BASE}/libraries/jasper-1.900.1/install/include/jasper -I${BASE}/libraries/libpng-1.6.43/install/include -I${BASE}/libraries/zlib-1.3.1/install/include|' configure.wps
+    echo "Compiling WPS... (output written into compile.log)"
     ./compile >& compile.log
     check_compile_log compile.log
 else
@@ -141,9 +137,8 @@ fi
 if [ ! -d "$BASE/WRFDA" ]; then
     echo "Installing WRFDA..."
     cd $BASE
-    wget https://github.com/wrf-model/WRF/releases/download/v4.6.0/v4.6.0.tar.gz
-    tar -zxvf v4.6.0.tar.gz
-    mv WRFV4.6.0/ WRFDA
+    tar -zxvf v4.6.1.tar.gz
+    mv WRFV4.6.1/ WRFDA
     cd WRFDA
     export NETCDF=$BASE/libraries/netcdf-c-4.9.2/install
     export NETCDF4=1
@@ -152,7 +147,7 @@ if [ ! -d "$BASE/WRFDA" ]; then
     export WRFPLUS_DIR=$BASE/WRFPLUS/
     echo "Configuring WRFDA..."
     echo 34 | ./configure wrfda # Automatically select dmpar with GNU compilers
-    echo "Compiling WRFDA..."
+    echo "Compiling WRFDA... (output written into compile.log)"
     ./compile -j 10 all_wrfvar >& compile.log
     check_compile_log compile.log
 else
@@ -169,10 +164,9 @@ if [ ! -d "$BASE/libraries/NCEPlibs" ]; then
     export NETCDF=$BASE/libraries/netcdf-c-4.9.2/install
     export PNG_INC=$BASE/libraries/libpng-1.6.43/install/include/
     export JASPER_INC=$BASE/libraries/jasper-1.900.1/install/include/
-    sed -i 's|^FFLAGS =|FFLAGS = -fallow-argument-mismatch -fallow-invalid-boz|' macros.make.linux.gnu
+    sed -i '/FFLAGS/s|$| -fallow-argument-mismatch -fallow-invalid-boz|' macros.make.linux.gnu
     echo "Compiling NCEPlibs..."
-        ./make_ncep_libs.sh -s linux -c gnu -d $BASE/libraries/NCEPlibs/install/ -o 0 -m 1 -a upp >& compile.log
-    check_compile_log compile.log
+    echo y | ./make_ncep_libs.sh -s linux -c gnu -d $BASE/libraries/NCEPlibs/install/ -o 0 -m 1 -a upp
 else
     echo "NCEPlibs is already installed. Skipping..."
 fi
@@ -186,7 +180,7 @@ if [ ! -d "$BASE/UPP" ]; then
     cd UPP
     export NETCDF=$BASE/libraries/netcdf-c-4.9.2/install
     export NCEPLIBS_DIR=$BASE/libraries/NCEPlibs/install/
-    echo "Configuring UPP..."
+    echo "Configuring UPP... (output written into compile.log)"
     ./configure # Automatically select gfortran dmpar
     sed -i '/FFLAGS/s|$| -fallow-argument-mismatch -fallow-invalid-boz|' configure
     echo "Compiling UPP..."
