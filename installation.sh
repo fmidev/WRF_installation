@@ -118,13 +118,13 @@ if [ ! -d "$BASE/WPS" ]; then
     cd WPS
     export jasper=$BASE/libraries/jasper-1.900.1/install/
     export JASPERLIB=$BASE/libraries/jasper-1.900.1/install/lib
-    export JASPERINC=$BASE/libraries/jasper-1.900.1/install/include/jasper
+    export JASPERINC=$BASE/libraries/jasper-1.900.1/install/include
     export WRF_DIR=$BASE/WRF
     export NETCDF=$BASE/libraries/netcdf-c-4.9.2/install
     echo "Configuring WPS..."
     echo 3 | ./configure # Automatically select dmpar with GNU compilers
     sed -i '/COMPRESSION_LIBS/s|=.*|= -L${BASE}/libraries/jasper-1.900.1/install/lib -L${BASE}/libraries/libpng-1.6.43/install/lib -L${BASE}/libraries/zlib-1.3.1/install/lib -ljasper -lpng -lz|' configure.wps
-    sed -i '/COMPRESSION_INC/s|=.*|= -I${BASE}/libraries/jasper-1.900.1/install/include/jasper -I${BASE}/libraries/libpng-1.6.43/install/include -I${BASE}/libraries/zlib-1.3.1/install/include|' configure.wps
+    sed -i '/COMPRESSION_INC/s|=.*|= -I${BASE}/libraries/jasper-1.900.1/install/include -I${BASE}/libraries/libpng-1.6.43/install/include -I${BASE}/libraries/zlib-1.3.1/install/include|' configure.wps
     echo "Compiling WPS... (output written into compile.log)"
     ./compile >& compile.log
     check_compile_log compile.log
@@ -181,7 +181,7 @@ if [ ! -d "$BASE/UPP" ]; then
     export NETCDF=$BASE/libraries/netcdf-c-4.9.2/install
     export NCEPLIBS_DIR=$BASE/libraries/NCEPlibs/install/
     echo "Configuring UPP... (output written into compile.log)"
-    ./configure # Automatically select gfortran dmpar
+    echo 8 | ./configure # Automatically select gfortran dmpar
     sed -i '/FFLAGS/s|$| -fallow-argument-mismatch -fallow-invalid-boz|' configure
     echo "Compiling UPP..."
     ./compile >& compile.log
@@ -248,7 +248,7 @@ else
 fi
 
 # Download and extract geographical dataset
-if [ ! -d "$BASE/WPS_GEOG" ]; then
+if [ -z "$(ls -A $BASE/WPS_GEOG)" ]; then
     echo "Downloading geographical dataset..."
     cd $BASE/WPS_GEOG
 
@@ -274,13 +274,13 @@ fi
 
 # Copy run scripts into the scripts directory
 echo "Copying run scripts into the scripts directory..."
-cp Run_scripts/* $BASE/scripts/
+cp /home/$USER/WRF_installation/Run_scripts/* $BASE/scripts/
 chmod +x $BASE/scripts/*
 echo "Run scripts copied and made executable successfully."
 
 # Place crontab_wrf template into the system crontab
 echo "Setting up crontab for WRF..."
-crontab Run_scripts/crontab_template
+crontab $BASE/scripts/crontab_template
 echo "Crontab for WRF set up successfully."
 
 echo "Installation completed successfully!"
