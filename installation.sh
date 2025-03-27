@@ -28,6 +28,7 @@ install_library() {
     local url=$1
     local dir_name=$2
     local configure_args=$3
+    local file_name=${url##*/}
 
     if [ -d "$BASE/libraries/$dir_name/install" ] && [ "$(ls -A $BASE/libraries/$dir_name/install)" ]; then
         echo "$dir_name is already installed. Skipping..."
@@ -36,12 +37,22 @@ install_library() {
 
     echo "Installing $dir_name..."
     cd $BASE/libraries
-    wget $url
-    if [[ $url == *.zip ]]; then
-        unzip ${url##*/}
+
+    # Check if the file is already downloaded
+    if [ ! -f "$file_name" ]; then
+        echo "Downloading $file_name..."
+        wget $url
     else
-        tar -zxvf ${url##*/}
+        echo "$file_name already exists. Skipping download..."
     fi
+
+    # Extract the file
+    if [[ $file_name == *.zip ]]; then
+        unzip -o $file_name
+    else
+        tar -zxvf $file_name
+    fi
+
     cd $dir_name
     if [ $dir_name == "netcdf-fortran-4.6.1" ]; then
         eval ./configure --prefix=$BASE/libraries/netcdf-c-4.9.2/install $configure_args
@@ -184,5 +195,98 @@ if [ ! -d "$BASE/UPP" ]; then
 else
     echo "UPP is already installed. Skipping..."
 fi
+
+# Setup UPP
+if [ -d "$BASE/UPP" ]; then
+    echo "Setting up UPP..."
+    mkdir -p $BASE/{UPP_out,UPP_wrk/{parm,postprd,wrprd}}
+    cp $BASE/UPP/scripts/run_unipost $BASE/UPP_wrk/postprd/
+    cp $BASE/UPP/parm/wrf_cntrl.parm $BASE/UPP_wrk/parm/ # for grib1
+
+    # Edit run_unipost script with appropriate paths and variables
+    sed -i "s|export TOP_DIR=.*|export TOP_DIR=$BASE|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export DOMAINPATH=.*|export DOMAINPATH=$BASE/UPP_wrk|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export UNIPOST_HOME=.*|export UNIPOST_HOME=\${TOP_DIR}/UPP|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export POSTEXEC=.*|export POSTEXEC=\${UNIPOST_HOME}/exec|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export SCRIPTS=.*|export SCRIPTS=\${UNIPOST_HOME}/scripts|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export modelDataPath=.*|export modelDataPath=\${DOMAINPATH}/wrfprd|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export paramFile=.*|export paramFile=\${DOMAINPATH}/parm/wrf_cntrl.parm|" $BASE/UPP_wrk/postprd/run_unipost
+
+    # Add additional environment variables
+    sed -i "/export paramFile/a export dyncore=\"ARW\"" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "/export dyncore/a export inFormat=\"netcdf\"" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "/export inFormat/a export outFormat=\"grib\"" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "/export outFormat/a export startdate=2024070800" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "/export startdate/a export fhr=00" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "/export fhr/a export lastfhr=72" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "/export lastfhr/a export incrementhr=01" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "/export incrementhr/a export domain_list=\"d01 d02\"" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "/export domain_list/a export RUN_COMMAND=\"mpirun -np 10 \${POSTEXEC}/unipost.exe \"" $BASE/UPP_wrk/postprd/run_unipost
+
+    echo "UPP setup completed successfully."
+else
+    echo "UPP is not installed. Skipping UPP setup..."
+fi
+
+# Setup CRTM coefficients
+if [ ! -d "$BASE/CRTM_coef" ]; then
+    echo "Setting up CRTM coefficients..."
+    mkdir -p $BASE/CRTM_coef
+    cd $BASE/CRTM_coef
+    if [ ! -f "crtm_coeffs_2.3.0.tar.gz" ]; then
+        wget https://www2.mmm.ucar.edu/wrf/users/wrfda/download/crtm_coeffs_2.3.0.tar.gz
+    else
+        echo "crtm_coeffs_2.3.0.tar.gz already exists. Skipping download..."
+    fi
+    tar -xvf crtm_coeffs_2.3.0.tar.gz
+    echo "CRTM coefficients setup completed."
+else
+    echo "CRTM coefficients already set up. Skipping..."
+fi
+
+# Copy BE file
+if [ -d "$BASE/WRFDA" ]; then
+    echo "Copying BE file..."
+    cp -p $BASE/WRFDA/var/run/be.dat.cv3 $BASE/DA_input/be/be.dat
+    echo "BE file copied successfully."
+else
+    echo "WRFDA is not installed. Skipping BE file setup..."
+fi
+
+# Download and extract geographical dataset
+if [ ! -d "$BASE/WPS_GEOG" ]; then
+    echo "Downloading geographical dataset..."
+    cd $BASE/WPS_GEOG
+
+    if [ ! -f "geog_complete.tar.gz" ]; then
+        wget https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.gz
+    else
+        echo "geog_complete.tar.gz already exists. Skipping download..."
+    fi
+
+    if [ ! -f "geog_high_res_mandatory.tar.gz" ]; then
+        wget https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_high_res_mandatory.tar.gz
+    else
+        echo "geog_high_res_mandatory.tar.gz already exists. Skipping download..."
+    fi
+
+    echo "Extracting geographical dataset..."
+    tar -zxvf geog_complete.tar.gz --strip-components=1
+    tar -zxvf geog_high_res_mandatory.tar.gz --strip-components=1
+    echo "Geographical dataset downloaded and extracted successfully."
+else
+    echo "Geographical dataset already exists. Skipping..."
+fi
+
+# Copy run scripts into the scripts directory
+echo "Copying run scripts into the scripts directory..."
+cp Run_scripts/* $BASE/scripts/
+chmod +x $BASE/scripts/*
+echo "Run scripts copied and made executable successfully."
+
+# Place crontab_wrf template into the system crontab
+echo "Setting up crontab for WRF..."
+crontab Run_scripts/crontab_template
+echo "Crontab for WRF set up successfully."
 
 echo "Installation completed successfully!"
