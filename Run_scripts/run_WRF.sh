@@ -131,7 +131,7 @@ cat << EOF > namelist.input
  mfshconv                   = 0,
  prec_acc_dt                = 0,
  sf_lake_physics            = 1,
- use_lakedepth              = 1,
+ use_lakedepth              = 0,
  /
 
 &noah_mp

@@ -103,7 +103,7 @@ if [ ! -d "$BASE/WRF" ]; then
     echo 34 | ./configure # Automatically select dmpar with GNU compilers
     echo "Compiling WRF... (output written into compile.log)"
     ./compile em_real >& compile.log
-    check_compile_log compile.log
+    check_compile_log "compile.log"
 else
     echo "WRF is already installed. Skipping..."
 fi
@@ -127,7 +127,7 @@ if [ ! -d "$BASE/WPS" ]; then
     sed -i '/COMPRESSION_INC/s|=.*|= -I${BASE}/libraries/jasper-1.900.1/install/include -I${BASE}/libraries/libpng-1.6.43/install/include -I${BASE}/libraries/zlib-1.3.1/install/include|' configure.wps
     echo "Compiling WPS... (output written into compile.log)"
     ./compile >& compile.log
-    check_compile_log compile.log
+    check_compile_log "compile.log"
 else
     echo "WPS is already installed. Skipping..."
 fi
@@ -149,7 +149,7 @@ if [ ! -d "$BASE/WRFDA" ]; then
     echo 34 | ./configure wrfda # Automatically select dmpar with GNU compilers
     echo "Compiling WRFDA... (output written into compile.log)"
     ./compile -j 10 all_wrfvar >& compile.log
-    check_compile_log compile.log
+    check_compile_log "compile.log"
 else
     echo "WRFDA is already installed. Skipping..."
 fi
@@ -185,7 +185,7 @@ if [ ! -d "$BASE/UPP" ]; then
     sed -i '/FFLAGS/s|$| -fallow-argument-mismatch -fallow-invalid-boz|' configure
     echo "Compiling UPP..."
     ./compile >& compile.log
-    check_compile_log compile.log
+    check_compile_log "compile.log"
 else
     echo "UPP is already installed. Skipping..."
 fi
@@ -206,16 +206,17 @@ if [ -d "$BASE/UPP" ]; then
     sed -i "s|export modelDataPath=.*|export modelDataPath=\${DOMAINPATH}/wrfprd|" $BASE/UPP_wrk/postprd/run_unipost
     sed -i "s|export paramFile=.*|export paramFile=\${DOMAINPATH}/parm/wrf_cntrl.parm|" $BASE/UPP_wrk/postprd/run_unipost
 
-    # Add additional environment variables
-    sed -i "/export paramFile/a export dyncore=\"ARW\"" $BASE/UPP_wrk/postprd/run_unipost
-    sed -i "/export dyncore/a export inFormat=\"netcdf\"" $BASE/UPP_wrk/postprd/run_unipost
-    sed -i "/export inFormat/a export outFormat=\"grib\"" $BASE/UPP_wrk/postprd/run_unipost
-    sed -i "/export outFormat/a export startdate=2024070800" $BASE/UPP_wrk/postprd/run_unipost
-    sed -i "/export startdate/a export fhr=00" $BASE/UPP_wrk/postprd/run_unipost
-    sed -i "/export fhr/a export lastfhr=72" $BASE/UPP_wrk/postprd/run_unipost
-    sed -i "/export lastfhr/a export incrementhr=01" $BASE/UPP_wrk/postprd/run_unipost
-    sed -i "/export incrementhr/a export domain_list=\"d01 d02\"" $BASE/UPP_wrk/postprd/run_unipost
-    sed -i "/export domain_list/a export RUN_COMMAND=\"mpirun -np 10 \${POSTEXEC}/unipost.exe \"" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export dyncore=.*|export dyncore=\"ARW\"|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export inFormat=.*|export inFormat=\"netcdf\"|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export outFormat=.*|export outFormat=\"grib\"|" $BASE/UPP_wrk/postprd/run_unipost
+    
+    sed -i "s|export startdate=.*|export startdate=2024070800|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export fhr=.*|export fhr=00|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export lastfhr=.*|export lastfhr=72|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export incrementhr=.*|export incrementhr=01|" $BASE/UPP_wrk/postprd/run_unipost
+    
+    sed -i "s|export domain_list=.*|export domain_list=\"d01 d02\"|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export RUN_COMMAND=.*|export RUN_COMMAND=\"mpirun -np 10 \${POSTEXEC}/unipost.exe \"|" $BASE/UPP_wrk/postprd/run_unipost
 
     echo "UPP setup completed successfully."
 else
@@ -223,7 +224,7 @@ else
 fi
 
 # Setup CRTM coefficients
-if [ ! -d "$BASE/CRTM_coef" ]; then
+if [ -z "$(ls -A $BASE/CRTM_coef)" ]; then
     echo "Setting up CRTM coefficients..."
     mkdir -p $BASE/CRTM_coef
     cd $BASE/CRTM_coef
