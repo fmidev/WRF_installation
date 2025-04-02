@@ -7,7 +7,7 @@ To get started with automated installation:
 
 1. Clone this repository:
    ```
-   git clone https://github.com/username/WRF_installation.git
+   git clone git@github.com:fmidev/WRF_installation.git
    cd WRF_installation
    ```
 
@@ -72,7 +72,7 @@ After acquiring the geographical data, you need to configure the WPS namelist pa
    - Nesting ratios (`parent_grid_ratio`)
    - Map projection (`map_proj`)
 
-2. **File Paths**: Customize all directory paths in the script to match your specific installation locations. This includes:
+2. **File Paths**: Customize all directory paths in the script to match your specific installation locations (should be already correct if using automated installation). This includes:
    - Path to WPS executables
    - Path to geographical data
    - Input/output directories
