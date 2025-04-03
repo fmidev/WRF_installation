@@ -23,8 +23,8 @@ export WRFDA_DIR=$BASE_DIR/WRFDA
 # Variables
 export NETCDF4=1
 export WRFIO_NCD_LARGE_FILE_SUPPORT=1
-export GRIBNUM=20 # Number of GFS GRIB files needed to be found
-export LEADTIME=48 # Forecast lead time in hours
+export GRIBNUM=30 # Number of GFS GRIB files needed to be found
+export LEADTIME=72 # Forecast lead time in hours
 export INTERVAL=6 # Interval between the cycles in hours (needed for WRFDA)
 
 # Paths to run directories

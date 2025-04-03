@@ -1,151 +1,188 @@
 # WRF installation 
-This repository provides documentation on how to compile and install the WRF model, along with the necessary tools. It also outlines the workflow and explains how to set it up for automated, operational model runs. If you are testing WRF on your own computer, check how many CPUs are available. While the model can run on a single core, these instructions are intended for parallel computation. Also, ensure you have sufficient disk space - static geographical data requires approximately 100GB, and the model input/output/temporary files take up a similar amount, depending on your domain. For testing, 200-300GB should be sufficient, while around 1TB is recommended for operational runs. More comprehensive documentation about WRF model can be found [here](https://www2.mmm.ucar.edu/wrf/users/wrf_users_guide/build/html/index.html) 
+This guide explains how to install and set up the WRF weather model and its tools. It shows how to run the model automatically for operational forecasting. Before starting:
+
+1. Check your computer's CPU count - WRF can run on one core but works better with multiple cores
+2. Make sure you have enough disk space:
+   - 100GB for geographical data
+   - 100-200GB for model files (depends on your domain size)
+   - For testing: 200-300GB is enough
+   - For operational use: at least 1TB is recommended
+
+For complete WRF documentation, visit the [WRF User's Guide](https://www2.mmm.ucar.edu/wrf/users/wrf_users_guide/build/html/index.html)
 
 ## Automated Installation
 
-To get started with automated installation:
+Follow these steps for easy installation:
 
-1. Clone this repository:
+1. Get the code:
    ```
    git clone git@github.com:fmidev/WRF_installation.git
    cd WRF_installation
    ```
 
-2. Make the installation script executable:
+2. Make the script runnable:
    ```
    chmod +x installation.sh
    ```
 
-3. Run the installation script. Specify installation directory inside the script (default: /home/$USER/WRF_Model):
+3. Run the installation (default location: /home/$USER/WRF_Model, can be modified inside the script):
    ```
    ./installation.sh 
    ```
 
 4. The script will:
-   - Install all required dependencies
-   - Download and compile necessary libraries
-   - Build WRF, WPS, WRFDA and UPP with appropriate configurations
-   - Set up the environment variables
-   - Create the directory structure for operational use and set up crontab template
-   - Downloads static geographical data and CRTM coefficients for DA
+   - Install all needed dependencies
+   - Download and build required libraries
+   - Compile WRF, WPS, WRFDA and UPP
+   - Set up environment variables
+   - Create folders for operational use
+   - Set up a schedule template (crontab)
+   - Download geographical data and CRTM coefficients
 
 ## Manual Installation
-The text file `installation` provides a step-by-step guide on how to install and compile all the needed libraries. Similar instructions are also provided for the WRF source code and its pre/post-processing tools. Following these instructions will ensure that all the necessary binaries for running the WRF model are installed correctly. When running the WRF model or its tools, it is necessary to define some environment variables. These are controlled by `env.sh` which is executed within the model run scripts. Note that in paths (both in installation and `env.sh`), `user` has to be replaced with the correct username. Be also sure that all needed programs were installed, like rsync, etc. (List available in beginning of installation instruction.)
+The `installation` file contains step-by-step instructions for installing all libraries and compiling the WRF software and tools. When running WRF, you need specific environment variables set up by the `env.sh` script.
 
-## Domain maker
-Desired domains for WRF can be easily drawn with [WRF Domain Wizard](https://wrfdomainwizard.net/).
+## Domain Setup
+You can easily create WRF domains using [WRF Domain Wizard](https://wrfdomainwizard.net/):
 
-1. Select option "New" from the sidebar and draw the domain on the map. Keep in mind that this will be the outermost domain, which will be calculated with a resolution based on dx/dy (default 12 km).
-2. Once you're done, add an inner domain by clicking "Add Nest" and modify it on map.
-3. Adjust the resolution of the inner domain by using the "Parent_grid_ratio" setting. The default value is 3, which corresponds to a resolution of 4 km (12 km / 3).
-4. To download the finalized domain namelist (namelist.wps) for WRF, click "Save". The information is needed later when configuring WPS running scripts.
+1. Click "New" in the sidebar and draw your main domain on the map. This will be your outer domain with the base resolution (default 12 km).
+2. Click "Add Nest" to add an inner domain and adjust it on the map.
+3. Set the inner domain resolution using "Parent_grid_ratio" - the default is 3, which means 4 km resolution if your outer domain is 12 km.
+4. Click "Save" to download the domain settings (namelist.wps) for your WRF setup.
 
-## Work flow
+## Work Flow
 
-### Boundaries
-WRF requires boundary files in GRIB format. The script `Download_GFS/get_gfs.sh` is used to download GFS data to the WRF server. The configuration file `Download_GFS/gfs.cnf` specifies the desired GFS area, resolution, valid hours, and other parameters for the download. The paths may need adjustment to work correctly for the specific case. The key is to place the GFS data in the directory specified in the running scripts (default `/home/{user}/WRF_Model/GFS`). Script is always downloading the most recent boundaries.
+### Environment Setup
+The `env.sh` script in the `scripts` directory sets up all necessary settings for WRF:
+
+1. **Main Settings**:
+   - **Library Paths**: Where to find NetCDF, HDF5, OpenMPI and other libraries
+   - **Program Locations**: Where WRF, WPS and WRFDA programs are installed
+   - **Run Settings**: How long to forecast, time between runs, and other basic options
+   - **Folders**: Where to find and save data, observations, and results
+
+2. **On/Off Switches**:
+   The script has simple yes/no options to control which parts run:
+   ```
+   export RUN_CHECK_BOUNDARY_FILES=true  # Check if boundary files exist
+   export RUN_GET_OBS=true               # Download observations
+   export RUN_WPS=true                   # Run preprocessing
+   export RUN_WRF=true                   # Run WRF model
+   export WRFDA=false                    # Use data assimilation
+   export RUN_UPP=false                  # Run post-processor
+   export RUN_VERIFICATION=false         # Run verification tools
+   ```
+
+3. **Using the Script**:
+   The scripts use this automatically, but you can also test/use it directly:
+   ```
+   source Run_scripts/env.sh
+   ```
+
+### Boundary Data
+WRF needs boundary data in GRIB format. Use the `Download_GFS/get_gfs.sh` script to download GFS data. The `Download_GFS/gfs.cnf` file sets the area, resolution, and forecast hours. Make sure the data goes to the correct folder (default: `/home/{user}/WRF_Model/GFS`). The script always downloads the newest data.
 
 ```
 ./get_gfs.sh
 ```
 
 ### Preprocessing
-Before running WPS (WRF Preprocessing System), you must first acquire the necessary static geographical datasets (if installing manually). These datasets contain terrain elevations, land use categories, soil types, and other surface characteristics required by the model. 
+Before running WPS (WRF Preprocessing System), you need to download geographical data (if installing manually). This data includes terrain height, land use types, and soil information:
 
 ```
-# Download the complete geographical dataset (~100GB)
+# Download full dataset (~100GB)
 wget -P /path/to/WPS_GEOG/ https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_complete.tar.gz 
-# Download high-resolution mandatory data (~30GB)
+# Or download smaller high-resolution data (~30GB)
 wget -P /path/to/WPS_GEOG/ https://www2.mmm.ucar.edu/wrf/src/wps_files/geog_high_res_mandatory.tar.gz 
-# Extract both archives, removing the top-level directory
+# Extract the files
 cd /path/to/WPS_GEOG/
 tar -zxvf geog_complete.tar.gz --strip-components=1
 tar -zxvf geog_high_res_mandatory.tar.gz --strip-components=1
 ```
 
-After acquiring the geographical data, you need to configure the WPS namelist parameters in `Run_scripts/Run_WPS.sh` and in `Run_scripts/Run_WRF.sh`. These settings define your model domains, resolution, and projection:
+Next, set up your domain in `Run_scripts/Run_WPS.sh` and `Run_scripts/Run_WRF.sh`:
 
-1. **Domain Configuration**: Transfer the parameters from your `namelist.wps` file (generated by WRF Domain Wizard) into the script. Pay special attention to:
-   - Domain center coordinates (`ref_lat`, `ref_lon`)
-   - Grid dimensions (`e_we`, `e_sn`)
+1. **Domain Settings**: Copy settings from your WRF Domain Wizard file (namelist.wps):
+   - Center point location (`ref_lat`, `ref_lon`)
+   - Grid size (`e_we`, `e_sn`)
    - Grid spacing (`dx`, `dy`)
    - Nesting ratios (`parent_grid_ratio`)
-   - Map projection (`map_proj`)
+   - Map type (`map_proj`)
 
-2. **File Paths**: Customize all directory paths in the script to match your specific installation locations (should be already correct if using automated installation). This includes:
-   - Path to WPS executables
-   - Path to geographical data
-   - Input/output directories
+2. **File Locations**: Check all folder paths (these should be correct if you used automated installation):
+   - WPS program location
+   - Geographical data location
+   - Input/output folders
 
-3. **Computational Resources**: Adjust the number of MPI processes based on your available computing resources. For example:
+3. **CPU Usage**: Set the number of CPUs based on your computer:
    ```
-   mpirun -np 24 ./geogrid.exe  # Uses 24 CPU cores for parallel processing
+   mpirun -np 24 ./geogrid.exe  # Uses 24 CPU cores
    ```
 
-You can test your WPS configuration by executing the script with appropriate parameters:
+Test your WPS setup:
 ```
-# Syntax: ./Run_WPS.sh <year> <month> <day> <hour> <leadtime> <prod_dir>
-# Example: Run WPS for September 10, 2024, 01:00 UTC with 48-hour forecast
+# Format: ./Run_WPS.sh <year> <month> <day> <hour> <forecast_hours> <output_folder>
+# Example: 48-hour forecast starting September 10, 2024, 01:00 UTC
 ./Run_WPS.sh 2024 09 10 01 48 /home/username/WRF_Model/out/
 ```
 
-Upon successful execution, the script will generate intermediate files and WRF input files required for the model simulation.
+If successful, this creates the input files needed for WRF.
 
 ### Observations (Optional for Data Assimilation)
-Data assimilation requires observational data to improve initial conditions. The system currently supports observations from the NCEP real-time database.
+For data assimilation, you need observation data. The system uses NCEP's real-time database.
 
-1. **Supported Data Types**: The included `get_obs.sh` script retrieves primarily satellite radiances and other global observations from [NCEP's real-time data repository](https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/). 
+1. **Data Types**: The `get_obs.sh` script downloads satellite data and global observations from [NCEP](https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/).
 
-2. **Data Limitations**: 
-   - The NCEP repository typically only retains the most recent 2-3 days of observations
-   - Local observations, radar data, and custom observation networks require additional preprocessing into Little_R format (not currently included)
+2. **Limitations**: 
+   - NCEP only keeps 2-3 days of recent data
+   - Local data, radar data, and custom observations need special formatting (not included)
 
-3. **Retrieving Observations**: Execute the script with date/time parameters:
+3. **Getting Data**: Run the script with date and time:
    ```
-   # Syntax: ./get_obs.sh <year> <month> <day> <hour>
-   # Example: Get observations for September 10, 2024, 01:00 UTC
+   # Format: ./get_obs.sh <year> <month> <day> <hour>
+   # Example: Get data for September 10, 2024, 01:00 UTC
    ./get_obs.sh 2024 09 10 01
    ```
 
-4. **Output**: The script will download and organize observation files into the appropriate directory structure required by WRFDA.
+4. **Result**: The script organizes files for WRFDA to use.
 
-### The Model
-The WRF model simulation is managed through the `Run_WRF.sh` script, which orchestrates the entire workflow including optional data assimilation.
+### Running the Model
+The `Run_WRF.sh` script manages the WRF model run, including optional data assimilation.
 
-1. **Configuration**: Before running the model, thoroughly review and customize:
-   - **Namelist Parameters**: Ensure the physics options, time steps, and domain specifications match your requirements and align with the WPS configuration. The complete reference for namelist options is available in the [WRF User's Guide](https://www2.mmm.ucar.edu/wrf/users/wrf_users_guide/build/html/namelist_variables.html).
+1. **Setup**: Before running, check these settings:
+   - **Model Options**: Make sure physics options, time steps, and domain settings match your needs. See the [WRF User's Guide](https://www2.mmm.ucar.edu/wrf/users/wrf_users_guide/build/html/namelist_variables.html) for all options.
    
-   - **Directory Paths**: Verify all file paths are correctly set for your environment (should be already correct if using automated installation), including:
-     - WRF executable location
-     - Input/output directories
-     - Working directories for each stage of processing
+   - **Folder Paths**: Check all paths (should be correct if using automated installation):
+     - WRF program location
+     - Input/output folders
+     - Working folders
    
-   - **Computational Resources**: Adjust the number of processors for optimal performance on your system
+   - **CPU Count**: Set the number of processors for best performance
    
-   - **Data Assimilation Settings**: If using WRFDA, review the DA-specific options in the script
+   - **Data Assimilation**: Check these settings if using WRFDA
 
-2. **Execution**: Launch the model with appropriate parameters:
+2. **Running the Model**:
    ```
-   # Syntax: ./Run_WRF.sh <year> <month> <day> <hour> <leadtime> <prod_dir>
-   # Example: Run WRF for September 10, 2024, 01:00 UTC with 48-hour forecast
+   # Format: ./Run_WRF.sh <year> <month> <day> <hour> <forecast_hours> <output_folder>
+   # Example: 48-hour forecast starting September 10, 2024, 01:00 UTC
    ./Run_WRF.sh 2024 09 10 01 48 /home/username/WRF_Model/out/
    ```
 
-3. **Data Assimilation**: To enable data assimilation:
-   - Set `WRFDA=true` in your `env.sh` configuration file
-   - Ensure CRTM coefficients are available for satellite data assimilation
-   - Provide appropriate background error (BE) statistics
+3. **Using Data Assimilation**:
+   - Set `WRFDA=true` in your `env.sh` file
+   - Make sure CRTM files are available for satellite data
+   - Provide proper background error statistics
 
-### Postprocessing
-Unified Post Processor (UPP) can be used to convert WRF NetCDF output to Grib. Instructions how to compile UPP can be found from the `installation`. The text file `setup_upp` describes how to setup UPP as a WRF postprosessing tool (Not needed to setup separately if using automated installation) and with `Run_scripts/execute_upp.sh` the UPP can be easily used to automated NETCDF -> GRIB conversion.
+### Post-processing
+UPP (Unified Post Processor) converts WRF output (NetCDF) to GRIB format. The `installation` file shows how to compile UPP. The `setup_upp` file explains how to set up UPP (not needed with automated installation). The `Run_scripts/execute_upp.sh` script converts NetCDF to GRIB automatically.
 
 ### Verification
-Instruction how to use HARP verification for WRF here... (some day)
+Instructions for using HARP verification with WRF will be added in the future.
 
-### Cleaning and automization
-The `clean_wrf` script cleans GFS boundary files, WRF, and UPP output files. This can be set up as a cron job, for example, to clean the files once a day.
+### Cleaning and Automation
+The `clean_wrf` script removes old GFS, WRF, and UPP files. You can set this up to run automatically once a day.
 
-For an automated run, the `control_run_WRF.sh` script can be used to execute all the steps mentioned above. However, it is recommended to test each part of the workflow independently before using this control script to run WRF. The script can be executed as follows:
+For fully automated operation, use the `control_run_WRF.sh` script to run all steps. It's best to test each part separately first. Run it with:
 ```
 ./control_run_WRF.sh <analysis_hour>
 ```
