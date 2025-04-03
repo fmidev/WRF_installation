@@ -53,7 +53,7 @@ You can easily create WRF domains using [WRF Domain Wizard](https://wrfdomainwiz
 ## Work Flow
 
 ### Environment Setup
-The `env.sh` script in the `scripts` directory sets up all necessary settings for WRF:
+The `env.sh` script in the `WRF_Model/scripts` directory sets up all necessary settings for WRF:
 
 1. **Main Settings**:
    - **Library Paths**: Where to find NetCDF, HDF5, OpenMPI and other libraries
@@ -100,7 +100,7 @@ tar -zxvf geog_complete.tar.gz --strip-components=1
 tar -zxvf geog_high_res_mandatory.tar.gz --strip-components=1
 ```
 
-Next, set up your domain in `Run_scripts/Run_WPS.sh` and `Run_scripts/Run_WRF.sh`:
+Next, set up your domain in `WRF_Model/scripts/Run_WPS.sh` and `WRF_Model/scripts/Run_WRF.sh`:
 
 1. **Domain Settings**: Copy settings from your WRF Domain Wizard file (namelist.wps):
    - Center point location (`ref_lat`, `ref_lon`)
