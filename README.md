@@ -25,7 +25,7 @@ Follow these steps for easy installation:
    chmod +x installation.sh
    ```
 
-3. Run the installation (default location: /home/$USER/WRF_Model, can be modified inside the script):
+3. Run the installation (default location for the installation is /home/$USER/WRF_Model, but can be modified inside the installation script):
    ```
    ./installation.sh 
    ```
@@ -76,7 +76,7 @@ The `env.sh` script in the `scripts` directory sets up all necessary settings fo
 3. **Using the Script**:
    The scripts use this automatically, but you can also test/use it directly:
    ```
-   source Run_scripts/env.sh
+   source WRF_Model/scripts/env.sh
    ```
 
 ### Boundary Data
