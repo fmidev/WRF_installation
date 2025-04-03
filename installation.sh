@@ -5,6 +5,7 @@ set -e
 
 # Define base directory
 export BASE=/home/$USER/WRF_Model
+export GIT_REPO=$(pwd)
 
 # Install required GNU compilers and utilities
 echo "Installing required packages..."
@@ -275,7 +276,7 @@ fi
 
 # Copy run scripts into the scripts directory
 echo "Copying run scripts into the scripts directory..."
-cp /home/$USER/WRF_installation/Run_scripts/* $BASE/scripts/
+cp $GIT_REPO/Run_scripts/* $BASE/scripts/
 chmod +x $BASE/scripts/*
 echo "Run scripts copied and made executable successfully."
 
