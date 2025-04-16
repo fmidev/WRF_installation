@@ -132,7 +132,7 @@ write_oa_rad_ascii=true,
 rtm_option=2,
 only_sea_rad=false,
 use_varbc=true,
-crtm_coef_path="${WRFDA_DIR}/var/run/crtm_coeffs_2.3.0"
+crtm_coef_path="${BASE_DIR}/CRTM_coef/crtm_coeffs_2.3.0"
 crtm_irland_coef='IGBP.IRland.EmisCoeff.bin' 
 /
 &wrfvar15
