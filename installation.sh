@@ -197,6 +197,7 @@ if [ -d "$BASE/UPP" ]; then
     mkdir -p $BASE/{UPP_out,UPP_wrk/{parm,postprd,wrprd}}
     cp $BASE/UPP/scripts/run_unipost $BASE/UPP_wrk/postprd/
     cp $BASE/UPP/parm/wrf_cntrl.parm $BASE/UPP_wrk/parm/ # for grib1
+    cp $BASE/UPP/parm/postxconfig-NT-WRF.txt $BASE/UPP_wrk/parm/ # for grib2 (default)
 
     # Edit run_unipost script with appropriate paths and variables
     sed -i "s|export TOP_DIR=.*|export TOP_DIR=$BASE|" $BASE/UPP_wrk/postprd/run_unipost
@@ -206,10 +207,11 @@ if [ -d "$BASE/UPP" ]; then
     sed -i "s|export SCRIPTS=.*|export SCRIPTS=\${UNIPOST_HOME}/scripts|" $BASE/UPP_wrk/postprd/run_unipost
     sed -i "s|export modelDataPath=.*|export modelDataPath=\${DOMAINPATH}/wrfprd|" $BASE/UPP_wrk/postprd/run_unipost
     sed -i "s|export paramFile=.*|export paramFile=\${DOMAINPATH}/parm/wrf_cntrl.parm|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export txtCntrlFile=.*|export txtCntrlFile=\${DOMAINPATH}/parm/postxconfig-NT-WRF.txt|" $BASE/UPP_wrk/postprd/run_unipost
 
     sed -i "s|export dyncore=.*|export dyncore=\"ARW\"|" $BASE/UPP_wrk/postprd/run_unipost
     sed -i "s|export inFormat=.*|export inFormat=\"netcdf\"|" $BASE/UPP_wrk/postprd/run_unipost
-    sed -i "s|export outFormat=.*|export outFormat=\"grib\"|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|export outFormat=.*|export outFormat=\"grib2\"|" $BASE/UPP_wrk/postprd/run_unipost
     
     sed -i "s|export startdate=.*|export startdate=2024070800|" $BASE/UPP_wrk/postprd/run_unipost
     sed -i "s|export fhr=.*|export fhr=00|" $BASE/UPP_wrk/postprd/run_unipost
@@ -218,6 +220,9 @@ if [ -d "$BASE/UPP" ]; then
     
     sed -i "s|export domain_list=.*|export domain_list=\"d01 d02\"|" $BASE/UPP_wrk/postprd/run_unipost
     sed -i "s|export RUN_COMMAND=.*|export RUN_COMMAND=\"mpirun -np 10 \${POSTEXEC}/unipost.exe \"|" $BASE/UPP_wrk/postprd/run_unipost
+
+    sed -i "s|ln -fs \${DOMAINPATH}/parm/post_avblflds_comm.xml post_avblflds.xml|ln -fs \${UNIPOST_HOME}/parm/post_avblflds_comm.xml post_avblflds.xml|" $BASE/UPP_wrk/postprd/run_unipost
+    sed -i "s|ln -fs \${DOMAINPATH}/parm/params_grib2_tbl_new params_grib2_tbl_new|ln -fs \${UNIPOST_HOME}/parm/params_grib2_tbl_new params_grib2_tbl_new|" $BASE/UPP_wrk/postprd/run_unipost
 
     echo "UPP setup completed successfully."
 else
