@@ -197,7 +197,7 @@ if [ -d "$BASE/UPP" ]; then
     mkdir -p $BASE/{UPP_out,UPP_wrk/{parm,postprd,wrprd}}
     cp $BASE/UPP/scripts/run_unipost $BASE/UPP_wrk/postprd/
     cp $BASE/UPP/parm/wrf_cntrl.parm $BASE/UPP_wrk/parm/ # for grib1
-    cp $BASE/UPP/parm/postxconfig-NT-WRF.txt $BASE/UPP_wrk/parm/ # for grib2 (default)
+    cp $GIT_REPO/postxconfig-NT-WRF.txt $BASE/UPP_wrk/parm/ # for grib2 (default)
 
     # Edit run_unipost script with appropriate paths and variables
     sed -i "s|export TOP_DIR=.*|export TOP_DIR=$BASE|" $BASE/UPP_wrk/postprd/run_unipost
