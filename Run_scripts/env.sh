@@ -24,7 +24,7 @@ export WRFDA_DIR=$BASE_DIR/WRFDA
 export NETCDF4=1
 export WRFIO_NCD_LARGE_FILE_SUPPORT=1
 export GRIBNUM=30 # Number of GFS GRIB files needed to be found
-export LEADTIME=72 # Forecast lead time in hours
+export LEADTIME=72 # Forecast lead time in hours (if changing this, also change the lastfhr in the UPP_wrk/postprd/run_unipost)
 export INTERVAL=6 # Interval between the cycles in hours (needed for WRFDA)
 
 # Paths to run directories
@@ -40,7 +40,7 @@ export RUN_CHECK_BOUNDARY_FILES=true
 export RUN_GET_OBS=true
 export RUN_WPS=true
 export RUN_WRF=true
-export WRFDA=false
-export RUN_UPP=false
+export WRFDA=true
+export RUN_UPP=true
 export RUN_VERIFICATION=false
 export RUN_COPY_GRIB=false

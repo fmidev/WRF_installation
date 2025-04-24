@@ -3,8 +3,37 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-# Define base directory
-export BASE=/home/$USER/WRF_Model
+# Prompt for installation directory
+echo -n "Enter the directory where the libraries and the model should be installed [if empty, istalling into /home/$USER/WRF_Model]: "
+read user_base_dir
+
+# Define base directory - use default if nothing entered
+if [ -z "$user_base_dir" ]; then
+    export BASE=/home/$USER/WRF_Model
+    echo "Using default installation directory: $BASE"
+else
+    export BASE=$user_base_dir
+    echo "Using installation directory: $BASE"
+fi
+
+# Create the base directory if it doesn't exist
+if [ ! -d "$BASE" ]; then
+    echo "Creating base directory: $BASE"
+    mkdir -p "$BASE"
+fi
+
+# Prompt for SmartMet server IP address
+echo -n "Enter the IP address for the SmartMet server where postprocessed WRF grib files are sent. (optional): "
+read smartmet_ip
+
+# Use default if nothing entered
+if [ -z "$smartmet_ip" ]; then
+    export SMARTMET_IP="0.0.0.0"
+else
+    export SMARTMET_IP=$smartmet_ip
+    echo "SmartMet IP address: $SMARTMET_IP"
+fi
+
 export GIT_REPO=$(pwd)
 
 # Install required GNU compilers and utilities
@@ -283,11 +312,71 @@ fi
 echo "Copying run scripts into the scripts directory..."
 cp $GIT_REPO/Run_scripts/* $BASE/scripts/
 chmod +x $BASE/scripts/*
-echo "Run scripts copied and made executable successfully."
+
+# Update the SmartMet IP address in control_run_WRF.sh
+echo "Updating SmartMet IP address in control_run_WRF.sh. Remember to set ssh keys for the SmartMet server!"
+sed -i "s|smartmet@ip-address|smartmet@$SMARTMET_IP|g" $BASE/scripts/control_run_WRF.sh
+
+# Update BASE_DIR in env.sh
+sed -i "s|^export BASE_DIR=.*|export BASE_DIR=$BASE|" "$BASE/scripts/env.sh"
 
 # Place crontab_wrf template into the system crontab
 echo "Setting up crontab for WRF..."
-crontab $BASE/scripts/crontab_template
-echo "Crontab for WRF set up successfully."
+echo "Adjusting crontab times to match system time zone..."
 
-echo "Installation completed successfully!"
+# Determine the system's time zone offset from UTC in hours
+# The date command gives offset in +HHMM or -HHMM format
+tz_offset=$(date +%z)
+tz_sign=${tz_offset:0:1}
+tz_hours=${tz_offset:1:2}
+tz_minutes=${tz_offset:3:2}
+
+# Remove leading zeros for arithmetic
+tz_hours=${tz_hours#0}
+tz_minutes=${tz_minutes#0}
+
+# Convert to total offset in hours (including partial hours)
+if [ "$tz_sign" = "+" ]; then
+    offset_hours=$((tz_hours + tz_minutes / 60))
+else
+    offset_hours=$((-tz_hours - tz_minutes / 60))
+fi
+
+echo "System time zone offset from UTC: ${tz_sign}${tz_hours}:${tz_minutes} (${offset_hours} hours)"
+
+# Adjust each crontab time entry
+# Original crontab entries are for UTC times: 6:15, 12:15, 18:15, 0:15
+adjust_crontab_time() {
+    local original_hour=$1
+    local adjusted_hour=$(( (original_hour + offset_hours + 24) % 24 ))
+    echo $adjusted_hour
+}
+
+time_00=$(adjust_crontab_time 5)
+time_06=$(adjust_crontab_time 11)
+time_12=$(adjust_crontab_time 17)
+time_18=$(adjust_crontab_time 23)
+
+echo "Adjusted crontab job start times, cycle 00: $time_00:00, cycle 06: $time_06:00, cycle 12: $time_12:00, cycle 18: $time_18:00"
+
+# Update the crontab template with the adjusted times
+sed -i "s|#00 5 * * *|#00 $time_00 * * *|" $BASE/scripts/crontab_template
+sed -i "s|#00 11 * * *|#00 $time_06 * * *|" $BASE/scripts/crontab_template
+sed -i "s|#00 17 * * *|#00 $time_12 * * *|" $BASE/scripts/crontab_template
+sed -i "s|#00 23 * * *|#00 $time_18 * * *|" $BASE/scripts/crontab_template
+
+# Update the crontab template with the adjusted times and correct paths
+sed -i "s|#30 \* \* \* \* /home/wrf/WRF_Model/scripts/clean_wrf.sh|#30 \* \* \* \* $BASE/scripts/clean_wrf.sh|" $BASE/scripts/crontab_template
+sed -i "s|#0 5 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 00 > /home/wrf/WRF_Model/logs/runlog_00.log|#0 $time_00 \* \* \* $BASE/scripts/control_run_WRF.sh 00 > $BASE/logs/runlog_00.log|" $BASE/scripts/crontab_template
+sed -i "s|#0 11 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 06 > /home/wrf/WRF_Model/logs/runlog_06.log|#0 $time_06 \* \* \* $BASE/scripts/control_run_WRF.sh 06 > $BASE/logs/runlog_06.log|" $BASE/scripts/crontab_template
+sed -i "s|#0 17 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 12 > /home/wrf/WRF_Model/logs/runlog_12.log|#0 $time_12 \* \* \* $BASE/scripts/control_run_WRF.sh 12 > $BASE/logs/runlog_12.log|" $BASE/scripts/crontab_template
+sed -i "s|#0 23 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 18 > /home/wrf/WRF_Model/logs/runlog_18.log|#0 $time_18 \* \* \* $BASE/scripts/control_run_WRF.sh 18 > $BASE/logs/runlog_18.log|" $BASE/scripts/crontab_template
+
+crontab $BASE/scripts/crontab_template
+
+echo "Crontab for WRF set up successfully but run commands are not active by default."
+echo "Remember to activate them by running 'crontab -e' and uncommenting the lines."
+echo " "
+echo "************************The installation completed successfully!******************************"
+echo " "
+echo "The only thing left to do is to define the domain and check the namelists."
