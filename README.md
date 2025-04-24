@@ -25,7 +25,7 @@ Follow these steps for easy installation:
    chmod +x installation.sh
    ```
 
-3. Run the installation (default location for the installation is /home/$USER/WRF_Model, but can be modified inside the installation script):
+3. Run the installation:
    ```
    ./installation.sh 
    ```
@@ -38,9 +38,10 @@ Follow these steps for easy installation:
    - Create folders for operational use
    - Set up a schedule template (crontab)
    - Download geographical data and CRTM coefficients
+   - Copies run scripts from this repository to the scripts directory
 
 ## Manual Installation
-The `installation` file contains step-by-step instructions for installing all libraries and compiling the WRF software and tools. When running WRF, you need specific environment variables set up by the `env.sh` script.
+(Obsoleted, use automated installation as first option ) The `installation` file contains step-by-step instructions for installing all libraries and compiling the WRF software and tools. When running WRF, you need specific environment variables set up by the `env.sh` script.
 
 ## Domain Setup
 You can easily create WRF domains using [WRF Domain Wizard](https://wrfdomainwizard.net/):
