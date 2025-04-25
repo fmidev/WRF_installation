@@ -13,7 +13,7 @@ export JASPERINC=$BASE_DIR/libraries/jasper-1.900.1/install/include
 export ZLIB=$BASE_DIR/libraries/zlib-1.3.1/install/lib
 export LD_LIBRARY_PATH="$NETCDF/lib:$JASPERLIB:$HDF5/lib:$OPENMPI/lib:$ZLIB:$LD_LIBRARY_PATH"
 export LIBRARY_PATH="$NETCDF/lib:$JASPERLIB:$HDF5/lib:$OPENMPI/lib:$ZLIB:$LIBRARY_PATH"
-export PATH="$HOME/.local/bin:$HOME/bin:/home/wrf/WRF_Model/libraries/openmpi-5.0.3/install/bin:/home/wrf/WRF_Model/libraries/netcdf-c-4.9.2/install/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/bin:$BASE_DIR/libraries/openmpi-5.0.3/install/bin:$BASE_DIR/libraries/netcdf-c-4.9.2/install/bin:$PATH"
 
 # Source code directories
 export WPS_DIR=$BASE_DIR/WPS
