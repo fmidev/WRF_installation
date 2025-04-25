@@ -317,8 +317,16 @@ chmod +x $BASE/scripts/*
 echo "Updating SmartMet IP address in control_run_WRF.sh. Remember to set ssh keys for the SmartMet server!"
 sed -i "s|smartmet@ip-address|smartmet@$SMARTMET_IP|g" $BASE/scripts/control_run_WRF.sh
 
-# Update BASE_DIR in env.sh
+# Update BASE_DIR in env.sh and env location in other scripts
+echo "Updating BASE_DIR in environment and env.sh path in other scripts..."
 sed -i "s|^export BASE_DIR=.*|export BASE_DIR=$BASE|" "$BASE/scripts/env.sh"
+sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/control_run_WRF.sh"
+sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/run_WPS.sh"
+sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/run_WRF.sh"
+sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/execute_upp.sh"
+sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/run_WRFDA.sh"
+sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/clean_wrf.sh"
+sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/get_obs.sh"
 
 # Place crontab_wrf template into the system crontab
 echo "Setting up crontab for WRF..."
@@ -376,7 +384,104 @@ crontab $BASE/scripts/crontab_template
 
 echo "Crontab for WRF set up successfully but run commands are not active by default."
 echo "Remember to activate them by running 'crontab -e' and uncommenting the lines."
+
+# Install verification tools
+echo "Checking if system is compatible for verification tools installation..."
+# Function to check if the system is using DNF (Fedora/Red Hat based)
+is_dnf_system() {
+    command -v dnf &> /dev/null
+    return $?
+}
+
+if is_dnf_system; then
+    echo "Installing verification tools requires a GitHub Personal Access Token (PAT)."
+    echo "This is needed to download R packages from GitHub repositories."
+    echo "You can create a token at: https://github.com/settings/tokens"
+    echo "The token needs workflow, gist, user (all) permissions."
+    echo "Leave empty to skip verification tools installation."
+    echo -n "Enter your GitHub Personal Access Token: "
+    read github_token
+
+    if [ -z "$github_token" ]; then
+        echo "No GitHub token provided. Skipping verification tools installation."
+        echo "You can install verification tools manually later."
+    else
+        echo "Installing verification tools..."
+        # System libraries
+        sudo dnf install -y eccodes-devel.x86_64 libeccodes-dev
+        sudo dnf install -y proj proj-devel.x86_64
+        sudo dnf install -y netcdf-devel.x86_64 libnetcdf-dev
+        sudo dnf install -y sqlite3-dbf.x86_64
+        sudo dnf install -y R
+
+        # Install RStudio
+        echo "Installing RStudio..."
+        cd $BASE/tmp
+        wget https://download2.rstudio.org/server/rhel8/x86_64/rstudio-server-rhel-2024.12.1-563-x86_64.rpm
+        wget https://download1.rstudio.org/electron/rhel9/x86_64/rstudio-2024.12.1-563-x86_64.rpm
+        sudo dnf install -y rstudio-server-rhel-2024.12.1-563-x86_64.rpm
+        sudo dnf install -y rstudio-2024.12.1-563-x86_64.rpm
+        
+        # Set up the GitHub token in the user's .Renviron file
+        echo "Setting up GitHub token in .Renviron file..."
+        echo "GITHUB_PAT=$github_token" > ~/.Renviron
+        chmod 600 ~/.Renviron
+
+        # Create R script for package installation
+cat > $BASE/tmp/install_r_packages.R << 'EOF'
+# Check if GITHUB_PAT is available
+if (Sys.getenv("GITHUB_PAT") == "") {
+  stop("GitHub Personal Access Token not found. Please check your .Renviron file.")
+}
+
+# Install required packages
+install.packages("remotes")
+library(remotes)
+
+# Install GitHub packages using the token
+install_github("harphub/harp")
+install_github("harphub/Rgrib2")
+install.packages("ncdf4")
+EOF
+
+        echo "Installing R packages for verification..."
+        echo "yes" | echo "yes" Rscript $BASE/tmp/install_r_packages.R
+        
+        rm -f $BASE/tmp/rstudio-server-rhel-2024.12.1-563-x86_64.rpm
+        rm -f $BASE/tmp/rstudio-2024.12.1-563-x86_64.rpm
+        rm -f $BASE/tmp/install_r_packages.R
+
+        echo "Verification tools installed successfully."
+        echo "Your GitHub token has been saved to ~/.Renviron"
+    fi
+else
+    echo "This system does not appear to be using DNF package manager."
+    echo "Skipping verification tools installation."
+    echo "You need to install verification tools manually."
+fi
+
+echo "The installation completed successfully!"
 echo " "
-echo "************************The installation completed successfully!******************************"
+echo "************************ POST-INSTALLATION CHECKLIST ************************"
+echo "Here are the next steps you should take to complete your WRF setup:"
 echo " "
-echo "The only thing left to do is to define the domain and check the namelists."
+echo "1. Define your domain in WPS:"
+echo "   - Create your domain with WRF domain wizard"
+echo "   - Edit $BASE/scripts/Run_WPS.sh for your domain specifications"
+echo " "
+echo "2. Configure your WRF simulation namelist:"
+echo "   - Edit $BASE/scripts/Run_WRF.sh for physics options and time steps"
+echo " "
+echo "3. Configure data assimilation (if using):"
+echo "   - Check $BASE/scripts/Run_WRFDA.sh namelist settings are matching with run_WRF.sh"
+echo " "
+echo "4. Set up the cron jobs for automation:"
+echo "   - Run 'crontab -e' to edit your crontab"
+echo "   - Uncomment the relevant lines in crontab for scheduled runs"
+echo " "
+echo "5. Set up SSH keys for SmartMet server (if using):"
+echo "   - Generate SSH keys: ssh-keygen"
+echo "   - Copy keys to SmartMet: ssh-copy-id smartmet@$SMARTMET_IP"
+echo "   - Make sure SmartMet server is sending GFS data to the WRF server (ssh key on both sides)"
+echo " "
+echo "***************************************************************************"

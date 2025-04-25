@@ -11,17 +11,11 @@ source /home/wrf/WRF_Model/scripts/env.sh
 
 hour=$1
 
-# Set the date based on the hour for daily runs
-# If the hour is 18, adjust the date to yesterday
-if [ $hour -eq 18 ]; then
-  year=$(date "+%Y" -d "yesterday")
-  month=$(date "+%m" -d "yesterday")
-  day=$(date "+%d" -d "yesterday")
-else
-  year=$(date "+%Y")
-  month=$(date "+%m")
-  day=$(date "+%d")
-fi
+# Set the date based on the UTC hour for daily runs
+DATE=$(date -u +%Y%m%d${hour})
+year=${DATE:0:4}
+month=${DATE:4:2}
+day=${DATE:6:2}
 
 # Change to the script directory
 cd ${MAIN_DIR}
@@ -119,8 +113,8 @@ fi
 # ===============================================
 if [ "$RUN_COPY_GRIB" = true ]; then
   echo "Copying GRIB files to SmartMet for visualization" >> ${BASE_DIR}/logs/main.log
-  rsync -e ssh -av --include='*/' --include="*d01*" --exclude="*" $BASE_DIR/UPP_out/$year$month$day$hour smartmet@192.168.0.2:/smartmet/data/incoming/wrf/d01/
-  rsync -e ssh -av --include='*/' --include="*d02*" --exclude="*" $BASE_DIR/UPP_out/$year$month$day$hour smartmet@192.168.0.2:/smartmet/data/incoming/wrf/d02/
+  rsync -e ssh -av --include='*/' --include="*d01*" --exclude="*" $BASE_DIR/UPP_out/$year$month$day$hour smartmet@ip-address:/smartmet/data/incoming/wrf/d01/
+  rsync -e ssh -av --include='*/' --include="*d02*" --exclude="*" $BASE_DIR/UPP_out/$year$month$day$hour smartmet@ip-address:/smartmet/data/incoming/wrf/d02/
   ssh smartmet@ip-address /smartmet/run/data/wrf/bin/wrf.sh $hour d01
   ssh smartmet@ip-address /smartmet/run/data/wrf/bin/wrf.sh $hour d02
 fi
