@@ -278,18 +278,6 @@ else
     echo "✓ UPP is already installed. Skipping..."
 fi
 
-# Function to efficiently apply multiple sed replacements in a file
-update_config_file() {
-    local file="$1"
-    local config_name="$2"
-    shift 2
-    
-    echo "Updating $config_name settings in $file"
-    
-    # Use sed to make all replacements in one pass
-    sed -i "$@" "$file"
-}
-
 # Setup UPP more efficiently
 if [ -d "$BASE/UPP" ]; then
     echo "Setting up UPP..."
@@ -300,27 +288,28 @@ if [ -d "$BASE/UPP" ]; then
     cp $BASE/UPP/parm/wrf_cntrl.parm $BASE/UPP_wrk/parm/ # for grib1
     cp $GIT_REPO/postxconfig-NT-WRF.txt $BASE/UPP_wrk/parm/ # for grib2 (default)
 
-    # Update run_unipost script with all replacements at once
-    update_config_file "$BASE/UPP_wrk/postprd/run_unipost" "UPP" \
-        "s|export TOP_DIR=.*|export TOP_DIR=$BASE|" \
-        "s|export DOMAINPATH=.*|export DOMAINPATH=$BASE/UPP_wrk|" \
-        "s|export UNIPOST_HOME=.*|export UNIPOST_HOME=\${TOP_DIR}/UPP|" \
-        "s|export POSTEXEC=.*|export POSTEXEC=\${UNIPOST_HOME}/exec|" \
-        "s|export SCRIPTS=.*|export SCRIPTS=\${UNIPOST_HOME}/scripts|" \
-        "s|export modelDataPath=.*|export modelDataPath=\${DOMAINPATH}/wrfprd|" \
-        "s|export paramFile=.*|export paramFile=\${DOMAINPATH}/parm/wrf_cntrl.parm|" \
-        "s|export txtCntrlFile=.*|export txtCntrlFile=\${DOMAINPATH}/parm/postxconfig-NT-WRF.txt|" \
-        "s|export dyncore=.*|export dyncore=\"ARW\"|" \
-        "s|export inFormat=.*|export inFormat=\"netcdf\"|" \
-        "s|export outFormat=.*|export outFormat=\"grib2\"|" \
-        "s|export startdate=.*|export startdate=2024070800|" \
-        "s|export fhr=.*|export fhr=00|" \
-        "s|export lastfhr=.*|export lastfhr=72|" \
-        "s|export incrementhr=.*|export incrementhr=01|" \
-        "s|export domain_list=.*|export domain_list=\"d01 d02\"|" \
-        "s|export RUN_COMMAND=.*|export RUN_COMMAND=\"mpirun -np 10 \${POSTEXEC}/unipost.exe \"|" \
-        "s|ln -fs \${DOMAINPATH}/parm/post_avblflds_comm.xml post_avblflds.xml|ln -fs \${UNIPOST_HOME}/parm/post_avblflds_comm.xml post_avblflds.xml|" \
-        "s|ln -fs \${DOMAINPATH}/parm/params_grib2_tbl_new params_grib2_tbl_new|ln -fs \${UNIPOST_HOME}/parm/params_grib2_tbl_new params_grib2_tbl_new|"
+    UNIPOST=$BASE/UPP_wrk/postprd/run_unipost
+
+    echo "Updating UPP settings in $UNIPOST"
+    sed -i "s|export TOP_DIR=.*|export TOP_DIR=$BASE|" "$UNIPOST"
+    sed -i "s|export DOMAINPATH=.*|export DOMAINPATH=$BASE/UPP_wrk|" "$UNIPOST"
+    sed -i "s|export UNIPOST_HOME=.*|export UNIPOST_HOME=\${TOP_DIR}/UPP|" "$UNIPOST"
+    sed -i "s|export POSTEXEC=.*|export POSTEXEC=\${UNIPOST_HOME}/exec|" "$UNIPOST"
+    sed -i "s|export SCRIPTS=.*|export SCRIPTS=\${UNIPOST_HOME}/scripts|" "$UNIPOST"
+    sed -i "s|export modelDataPath=.*|export modelDataPath=\${DOMAINPATH}/wrfprd|" "$UNIPOST"
+    sed -i "s|export paramFile=.*|export paramFile=\${DOMAINPATH}/parm/wrf_cntrl.parm|" "$UNIPOST"
+    sed -i "s|export txtCntrlFile=.*|export txtCntrlFile=\${DOMAINPATH}/parm/postxconfig-NT-WRF.txt|" "$UNIPOST"
+    sed -i "s|export dyncore=.*|export dyncore=\"ARW\"|" "$UNIPOST"
+    sed -i "s|export inFormat=.*|export inFormat=\"netcdf\"|" "$UNIPOST"
+    sed -i "s|export outFormat=.*|export outFormat=\"grib2\"|" "$UNIPOST"
+    sed -i "s|export startdate=.*|export startdate=2024070800|" "$UNIPOST"
+    sed -i "s|export fhr=.*|export fhr=00|" "$UNIPOST"
+    sed -i "s|export lastfhr=.*|export lastfhr=72|" "$UNIPOST"
+    sed -i "s|export incrementhr=.*|export incrementhr=01|" "$UNIPOST"
+    sed -i "s|export domain_list=.*|export domain_list=\"d01 d02\"|" "$UNIPOST"
+    sed -i "s|export RUN_COMMAND=.*|export RUN_COMMAND=\"mpirun -np 10 \${POSTEXEC}/unipost.exe \"|" "$UNIPOST"
+    sed -i "s|ln -fs \${DOMAINPATH}/parm/post_avblflds_comm.xml post_avblflds.xml|ln -fs \${UNIPOST_HOME}/parm/post_avblflds_comm.xml post_avblflds.xml|" "$UNIPOST"
+    sed -i "s|ln -fs \${DOMAINPATH}/parm/params_grib2_tbl_new params_grib2_tbl_new|ln -fs \${UNIPOST_HOME}/parm/params_grib2_tbl_new params_grib2_tbl_new|" "$UNIPOST"
 
     echo "✅ UPP setup completed successfully."
 else
@@ -430,16 +419,12 @@ time_18=$(adjust_crontab_time 23)
 echo "Adjusted crontab job start times, cycle 00: $time_00:00, cycle 06: $time_06:00, cycle 12: $time_12:00, cycle 18: $time_18:00"
 
 # Update the crontab template with all replacements at once
-update_config_file "$BASE/scripts/crontab_template" "crontab" \
-    "s|#00 5 \* \* \*|#00 $time_00 \* \* \*|" \
-    "s|#00 11 \* \* \*|#00 $time_06 \* \* \*|" \
-    "s|#00 17 \* \* \*|#00 $time_12 \* \* \*|" \
-    "s|#00 23 \* \* \*|#00 $time_18 \* \* \*|" \
-    "s|#30 \* \* \* \* /home/wrf/WRF_Model/scripts/clean_wrf.sh|#30 \* \* \* \* $BASE/scripts/clean_wrf.sh|" \
-    "s|#0 5 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 00 > /home/wrf/WRF_Model/logs/runlog_00.log|#0 $time_00 \* \* \* $BASE/scripts/control_run_WRF.sh 00 > $BASE/logs/runlog_00.log|" \
-    "s|#0 11 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 06 > /home/wrf/WRF_Model/logs/runlog_06.log|#0 $time_06 \* \* \* $BASE/scripts/control_run_WRF.sh 06 > $BASE/logs/runlog_06.log|" \
-    "s|#0 17 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 12 > /home/wrf/WRF_Model/logs/runlog_12.log|#0 $time_12 \* \* \* $BASE/scripts/control_run_WRF.sh 12 > $BASE/logs/runlog_12.log|" \
-    "s|#0 23 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 18 > /home/wrf/WRF_Model/logs/runlog_18.log|#0 $time_18 \* \* \* $BASE/scripts/control_run_WRF.sh 18 > $BASE/logs/runlog_18.log|"
+echo "Updating crontab settings in $BASE/scripts/crontab_template"
+sed -i "s|#30 \* \* \* \* /home/wrf/WRF_Model/scripts/clean_wrf.sh|#30 \* \* \* \* $BASE/scripts/clean_wrf.sh|" "$BASE/scripts/crontab_template"
+sed -i "s|#0 5 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 00 > /home/wrf/WRF_Model/logs/runlog_00.log|#0 $time_00 \* \* \* $BASE/scripts/control_run_WRF.sh 00 > $BASE/logs/runlog_00.log|" "$BASE/scripts/crontab_template"
+sed -i "s|#0 11 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 06 > /home/wrf/WRF_Model/logs/runlog_06.log|#0 $time_06 \* \* \* $BASE/scripts/control_run_WRF.sh 06 > $BASE/logs/runlog_06.log|" "$BASE/scripts/crontab_template"
+sed -i "s|#0 17 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 12 > /home/wrf/WRF_Model/logs/runlog_12.log|#0 $time_12 \* \* \* $BASE/scripts/control_run_WRF.sh 12 > $BASE/logs/runlog_12.log|" "$BASE/scripts/crontab_template"
+sed -i "s|#0 23 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 18 > /home/wrf/WRF_Model/logs/runlog_18.log|#0 $time_18 \* \* \* $BASE/scripts/control_run_WRF.sh 18 > $BASE/logs/runlog_18.log|" "$BASE/scripts/crontab_template"
 
 crontab $BASE/scripts/crontab_template
 
