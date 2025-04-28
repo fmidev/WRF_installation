@@ -36,9 +36,16 @@ fi
 
 export GIT_REPO=$(pwd)
 
-# Install required GNU compilers and utilities
+#install required system packages
 echo "Installing required packages..."
-sudo dnf install -y gcc gfortran g++ htop emacs wget tar perl libxml2-devel m4 chrony libcurl-devel csh ksh git rsync
+sudo dnf install -y epel-release gcc gfortran g++ htop emacs wget tar perl libxml2-devel m4 chrony libcurl-devel csh ksh git rsync
+
+# Install verification-related system packages
+sudo dnf config-manager --set-enabled crb
+sudo dnf makecache
+sudo dnf install -y jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R
+
+echo "y" | sudo dnf update
 
 # Create necessary directories
 echo "Creating directory structure..."
@@ -406,14 +413,6 @@ if is_dnf_system; then
         echo "No GitHub token provided. Skipping verification tools installation."
         echo "You can install verification tools manually later."
     else
-        echo "Installing verification tools..."
-        # System libraries
-        sudo dnf install -y eccodes-devel.x86_64 libeccodes-dev
-        sudo dnf install -y proj proj-devel.x86_64
-        sudo dnf install -y netcdf-devel.x86_64 libnetcdf-dev
-        sudo dnf install -y sqlite3-dbf.x86_64
-        sudo dnf install -y R
-
         # Install RStudio
         echo "Installing RStudio..."
         cd $BASE/tmp
@@ -428,7 +427,7 @@ if is_dnf_system; then
         chmod 600 ~/.Renviron
 
         # Create R script for package installation
-cat > $BASE/tmp/install_r_packages.R << 'EOF'
+        cat > $BASE/tmp/install_r_packages.R << 'EOF'
 # Check if GITHUB_PAT is available
 if (Sys.getenv("GITHUB_PAT") == "") {
   stop("GitHub Personal Access Token not found. Please check your .Renviron file.")
@@ -445,7 +444,7 @@ install.packages("ncdf4")
 EOF
 
         echo "Installing R packages for verification..."
-        echo "yes" | echo "yes" Rscript $BASE/tmp/install_r_packages.R
+        echo "yes" | echo "yes" | Rscript $BASE/tmp/install_r_packages.R
         
         rm -f $BASE/tmp/rstudio-server-rhel-2024.12.1-563-x86_64.rpm
         rm -f $BASE/tmp/rstudio-2024.12.1-563-x86_64.rpm
