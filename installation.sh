@@ -111,7 +111,7 @@ install_library() {
         return
     fi
 
-    echo "🔧 Installing $dir_name..."
+    echo "🔧 Installing $dir_name... (full output written into log file ($log_file))"
     cd $BASE/libraries
 
     # Check if the file is already downloaded
@@ -125,25 +125,25 @@ install_library() {
     # Extract the file
     echo "📂 Extracting $file_name..."
     if [[ $file_name == *.zip ]]; then
-        unzip -q -o $file_name | tee -a "$log_file"
+        unzip -q -o $file_name > "$log_file" 2>&1
     else
-        tar -xf $file_name | tee -a "$log_file"
+        tar -xf $file_name > "$log_file" 2>&1
     fi
 
     echo "🔨 Configuring $dir_name..."
     cd $dir_name
     
     if [ $dir_name == "netcdf-fortran-4.6.1" ]; then
-        eval ./configure --prefix=$BASE/libraries/netcdf-c-4.9.2/install $configure_args | tee -a "$log_file"
+        eval ./configure --prefix=$BASE/libraries/netcdf-c-4.9.2/install $configure_args > "$log_file" 2>&1
     else
         mkdir -p install
-        eval ./configure --prefix=$BASE/libraries/$dir_name/install $configure_args | tee -a "$log_file"
+        eval ./configure --prefix=$BASE/libraries/$dir_name/install $configure_args > "$log_file" 2>&1
     fi
     
     echo "🏗️ Building $dir_name..."
-    make | tee -a "$log_file"
+    make > "$log_file" 2>&1
     echo "📥 Installing $dir_name..."
-    make install | tee -a "$log_file"
+    make install > "$log_file" 2>&1
     echo "✅ $dir_name installed successfully."
 }
 
@@ -183,7 +183,7 @@ if [ ! -d "$BASE/WRF" ]; then
     echo "🔧 Configuring WRF..."
     echo 34 | ./configure # Automatically select dmpar with GNU compilers
     
-    echo "🏗️ Compiling WRF... (output written to terminal and compile.log)"
+    echo "🏗️ Compiling WRF... (full output written to compile.log)"
     # Show progress with a spinner during compilation
     ./compile em_real 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
@@ -209,8 +209,8 @@ if [ ! -d "$BASE/WPS" ]; then
     echo 3 | ./configure # Automatically select dmpar with GNU compilers
     sed -i '/COMPRESSION_LIBS/s|=.*|= -L${BASE}/libraries/jasper-1.900.1/install/lib -L${BASE}/libraries/libpng-1.6.43/install/lib -L${BASE}/libraries/zlib-1.3.1/install/lib -ljasper -lpng -lz|' configure.wps
     sed -i '/COMPRESSION_INC/s|=.*|= -I${BASE}/libraries/jasper-1.900.1/install/include -I${BASE}/libraries/libpng-1.6.43/install/include -I${BASE}/libraries/zlib-1.3.1/install/include|' configure.wps
-    echo "🏗️ Compiling WPS... (output written to terminal and compile.log)"
-    ./compile 2>&1 | tee compile.log
+    echo "🏗️ Compiling WPS... (full output written to compile.log)"
+    ./compile 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
     echo "✅ WPS compiled successfully."
 else
@@ -232,16 +232,16 @@ if [ ! -d "$BASE/WRFDA" ]; then
     export WRFPLUS_DIR=$BASE/WRFPLUS/
     echo "🔧 Configuring WRFDA..."
     echo 34 | ./configure wrfda # Automatically select dmpar with GNU compilers
-    echo "🏗️ Compiling WRFDA... (output written to terminal and compile.log)"
-    ./compile all_wrfvar 2>&1 | tee compile.log
-    check_compile_log "compile.log"
+    echo "🏗️ Compiling WRFDA... (full output written to compile.log)"
+    ./compile all_wrfvar 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
+    check_compile_log "compile.log" 
     echo "✅ WRFDA compiled successfully."
 else
     echo "✓ WRFDA is already installed. Skipping..."
 fi
 
 # Install NCEPlibs
-if [ ! -d "$BASE/libraries/NCEPlibs/install" ] && [ "$(ls -A $BASE/libraries/NCEPlibs/install)" ]; then
+if [ ! -d "$BASE/libraries/NCEPlibs" ] ; then
     echo "🔧 Installing NCEPlibs..."
     cd $BASE/libraries/
     git clone https://github.com/NCAR/NCEPlibs.git
@@ -251,8 +251,8 @@ if [ ! -d "$BASE/libraries/NCEPlibs/install" ] && [ "$(ls -A $BASE/libraries/NCE
     export PNG_INC=$BASE/libraries/libpng-1.6.43/install/include/
     export JASPER_INC=$BASE/libraries/jasper-1.900.1/install/include/
     sed -i '/FFLAGS/s|$| -fallow-argument-mismatch -fallow-invalid-boz|' macros.make.linux.gnu
-    echo "🏗️ Compiling NCEPlibs..."
-    echo y | ./make_ncep_libs.sh -s linux -c gnu -d $BASE/libraries/NCEPlibs/install/ -o 0 -m 1 -a upp
+    echo "🏗️ Compiling NCEPlibs... (full output written to compile.log)"
+    echo y | ./make_ncep_libs.sh -s linux -c gnu -d $BASE/libraries/NCEPlibs/install/ -o 0 -m 1 -a upp > compile.log 2>&1
     echo "✅ NCEPlibs compiled successfully."
 else
     echo "✓ NCEPlibs is already installed. Skipping..."
@@ -270,8 +270,8 @@ if [ ! -d "$BASE/UPP" ]; then
     echo "🔧 Configuring UPP..."
     echo 8 | ./configure # Automatically select gfortran dmpar
     sed -i '/FFLAGS/s|$| -fallow-argument-mismatch -fallow-invalid-boz|' configure
-    echo "🏗️ Compiling UPP... (output written to terminal and compile.log)"
-    ./compile 2>&1 | tee compile.log
+    echo "🏗️ Compiling UPP... (full output written to compile.log)"
+    ./compile 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
     echo "✅ UPP compiled successfully."
 else
@@ -514,10 +514,12 @@ echo "
 ===============================================================================
 
 📋 Installation Summary:
-- WRF and WPS installed in: $BASE
-- Configuration files in: $BASE/scripts
+- WRF, WPS, WRFDA, UPP installed in: $BASE
+- Run scripts are in: $BASE/scripts
 - Log files will be stored in: $BASE/logs
 - Installation logs in: $BASE/install_logs
+- Cron jobs set up for WRF runs
+- Geographical dataset in: $BASE/WPS_GEOG
 - SmartMet server IP: $SMARTMET_IP
 - Verification tools: $([ "$INSTALL_VERIFICATION" = true ] && echo "Installed" || echo "Not installed")
 
