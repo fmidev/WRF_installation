@@ -64,9 +64,6 @@ fi
 
 export GIT_REPO=$(pwd)
 
-# Determine number of CPUs for parallel compilation
-export NCPUS=$(( $(nproc) - 1 ))
-echo "Detected $NCPUS CPU cores, will use for parallel compilation where possible"
 
 # Create a log directory for all installation logs
 mkdir -p $BASE/install_logs
@@ -90,7 +87,6 @@ mkdir -p $BASE/{libraries,WPS_GEOG,scripts,tmp,out,logs,GFS,GEN_BE,CRTM_coef,DA_
 export CC=gcc
 export CXX=g++
 export FC=gfortran
-export MAKEFLAGS="-j $NCPUS"
 
 # Function to check for errors in compilation logs
 check_compile_log() {
@@ -145,7 +141,7 @@ install_library() {
     fi
     
     echo "🏗️ Building $dir_name..."
-    make $MAKEFLAGS | tee -a "$log_file"
+    make | tee -a "$log_file"
     echo "📥 Installing $dir_name..."
     make install | tee -a "$log_file"
     echo "✅ $dir_name installed successfully."
@@ -189,7 +185,7 @@ if [ ! -d "$BASE/WRF" ]; then
     
     echo "🏗️ Compiling WRF... (output written to terminal and compile.log)"
     # Show progress with a spinner during compilation
-    ./compile $MAKEFLAGS em_real 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
+    ./compile em_real 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
     echo "✅ WRF compiled successfully."
 else
@@ -214,7 +210,7 @@ if [ ! -d "$BASE/WPS" ]; then
     sed -i '/COMPRESSION_LIBS/s|=.*|= -L${BASE}/libraries/jasper-1.900.1/install/lib -L${BASE}/libraries/libpng-1.6.43/install/lib -L${BASE}/libraries/zlib-1.3.1/install/lib -ljasper -lpng -lz|' configure.wps
     sed -i '/COMPRESSION_INC/s|=.*|= -I${BASE}/libraries/jasper-1.900.1/install/include -I${BASE}/libraries/libpng-1.6.43/install/include -I${BASE}/libraries/zlib-1.3.1/install/include|' configure.wps
     echo "🏗️ Compiling WPS... (output written to terminal and compile.log)"
-    ./compile $MAKEFLAGS 2>&1 | tee compile.log
+    ./compile 2>&1 | tee compile.log
     check_compile_log "compile.log"
     echo "✅ WPS compiled successfully."
 else
@@ -237,7 +233,7 @@ if [ ! -d "$BASE/WRFDA" ]; then
     echo "🔧 Configuring WRFDA..."
     echo 34 | ./configure wrfda # Automatically select dmpar with GNU compilers
     echo "🏗️ Compiling WRFDA... (output written to terminal and compile.log)"
-    ./compile $MAKEFLAGS all_wrfvar 2>&1 | tee compile.log
+    ./compile all_wrfvar 2>&1 | tee compile.log
     check_compile_log "compile.log"
     echo "✅ WRFDA compiled successfully."
 else
@@ -245,7 +241,7 @@ else
 fi
 
 # Install NCEPlibs
-if [ ! -d "$BASE/libraries/NCEPlibs" ]; then
+if [ ! -d "$BASE/libraries/NCEPlibs/install" ] && [ "$(ls -A $BASE/libraries/NCEPlibs/install)" ]; then
     echo "🔧 Installing NCEPlibs..."
     cd $BASE/libraries/
     git clone https://github.com/NCAR/NCEPlibs.git
@@ -275,7 +271,7 @@ if [ ! -d "$BASE/UPP" ]; then
     echo 8 | ./configure # Automatically select gfortran dmpar
     sed -i '/FFLAGS/s|$| -fallow-argument-mismatch -fallow-invalid-boz|' configure
     echo "🏗️ Compiling UPP... (output written to terminal and compile.log)"
-    ./compile $MAKEFLAGS 2>&1 | tee compile.log
+    ./compile 2>&1 | tee compile.log
     check_compile_log "compile.log"
     echo "✅ UPP compiled successfully."
 else
@@ -521,6 +517,7 @@ echo "
 - WRF and WPS installed in: $BASE
 - Configuration files in: $BASE/scripts
 - Log files will be stored in: $BASE/logs
+- Installation logs in: $BASE/install_logs
 - SmartMet server IP: $SMARTMET_IP
 - Verification tools: $([ "$INSTALL_VERIFICATION" = true ] && echo "Installed" || echo "Not installed")
 
