@@ -269,7 +269,7 @@ if [ ! -d "$BASE/UPP" ]; then
     export NCEPLIBS_DIR=$BASE/libraries/NCEPlibs/install/
     echo "🔧 Configuring UPP..."
     echo 8 | ./configure # Automatically select gfortran dmpar
-    sed -i '/FFLAGS/s|$| -fallow-argument-mismatch -fallow-invalid-boz|' configure
+    sed -i '/^FFLAGS\(.*\)=/s/=\(.*\)/= -fallow-argument-mismatch -fallow-invalid-boz \1/' configure.upp
     echo "🏗️ Compiling UPP... (full output written to compile.log)"
     ./compile 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
