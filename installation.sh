@@ -34,6 +34,28 @@ else
     echo "SmartMet IP address: $SMARTMET_IP"
 fi
 
+# Prompt for GitHub Personal Access Token
+echo " "
+echo "Installing verification tools requires a GitHub Personal Access Token (PAT)."
+echo "This is needed to download R packages from GitHub repositories."
+echo "You can create a token at: https://github.com/settings/tokens"
+echo "The token needs workflow, gist, user (all) permissions."
+echo "Leave empty to skip verification tools installation."
+echo -n "Enter your GitHub Personal Access Token: "
+read github_token
+
+if [ -z "$github_token" ]; then
+    echo "No GitHub token provided. Verification tools installation will be skipped."
+    export INSTALL_VERIFICATION=false
+else
+    echo "GitHub token provided. Verification tools will be installed."
+    export INSTALL_VERIFICATION=true
+    # Set up the GitHub token in the user's .Renviron file
+    echo "Setting up GitHub token in .Renviron file..."
+    echo "GITHUB_PAT=$github_token" > ~/.Renviron
+    chmod 600 ~/.Renviron
+fi
+
 export GIT_REPO=$(pwd)
 
 #install required system packages
@@ -400,40 +422,26 @@ is_dnf_system() {
     return $?
 }
 
-if is_dnf_system; then
-    echo "Installing verification tools requires a GitHub Personal Access Token (PAT)."
-    echo "This is needed to download R packages from GitHub repositories."
-    echo "You can create a token at: https://github.com/settings/tokens"
-    echo "The token needs workflow, gist, user (all) permissions."
-    echo "Leave empty to skip verification tools installation."
-    echo -n "Enter your GitHub Personal Access Token: "
-    read github_token
+if [ "$INSTALL_VERIFICATION" = true ] && is_dnf_system; then
+    # Install RStudio
+    echo "Installing RStudio..."
+    cd $BASE/tmp
+    wget https://download2.rstudio.org/server/rhel8/x86_64/rstudio-server-rhel-2024.12.1-563-x86_64.rpm
+    wget https://download1.rstudio.org/electron/rhel9/x86_64/rstudio-2024.12.1-563-x86_64.rpm
+    sudo dnf install -y rstudio-server-rhel-2024.12.1-563-x86_64.rpm
+    sudo dnf install -y rstudio-2024.12.1-563-x86_64.rpm
 
-    if [ -z "$github_token" ]; then
-        echo "No GitHub token provided. Skipping verification tools installation."
-        echo "You can install verification tools manually later."
-    else
-        # Install RStudio
-        echo "Installing RStudio..."
-        cd $BASE/tmp
-        wget https://download2.rstudio.org/server/rhel8/x86_64/rstudio-server-rhel-2024.12.1-563-x86_64.rpm
-        wget https://download1.rstudio.org/electron/rhel9/x86_64/rstudio-2024.12.1-563-x86_64.rpm
-        sudo dnf install -y rstudio-server-rhel-2024.12.1-563-x86_64.rpm
-        sudo dnf install -y rstudio-2024.12.1-563-x86_64.rpm
-        
-        # Set up the GitHub token in the user's .Renviron file
-        echo "Setting up GitHub token in .Renviron file..."
-        echo "GITHUB_PAT=$github_token" > ~/.Renviron
-        chmod 600 ~/.Renviron
-
-        # Create R script for package installation
-        cat > $BASE/tmp/install_r_packages.R << 'EOF'
+    mkdir -p ~/R/library
+    
+    # Create R script for package installation
+    cat > $BASE/tmp/install_r_packages.R << 'EOF'
 # Check if GITHUB_PAT is available
 if (Sys.getenv("GITHUB_PAT") == "") {
   stop("GitHub Personal Access Token not found. Please check your .Renviron file.")
 }
 
 # Install required packages
+.libPaths("~/R/library")
 install.packages("remotes")
 library(remotes)
 
@@ -443,20 +451,22 @@ install_github("harphub/Rgrib2")
 install.packages("ncdf4")
 EOF
 
-        echo "Installing R packages for verification..."
-        echo "yes" | echo "yes" | Rscript $BASE/tmp/install_r_packages.R
-        
-        rm -f $BASE/tmp/rstudio-server-rhel-2024.12.1-563-x86_64.rpm
-        rm -f $BASE/tmp/rstudio-2024.12.1-563-x86_64.rpm
-        rm -f $BASE/tmp/install_r_packages.R
+    echo "Installing R packages for verification..."
+    echo "yes" | echo "yes" | Rscript $BASE/tmp/install_r_packages.R
+    
+    rm -f $BASE/tmp/rstudio-server-rhel-2024.12.1-563-x86_64.rpm
+    rm -f $BASE/tmp/rstudio-2024.12.1-563-x86_64.rpm
+    rm -f $BASE/tmp/install_r_packages.R
 
-        echo "Verification tools installed successfully."
-        echo "Your GitHub token has been saved to ~/.Renviron"
-    fi
-else
+    echo "Verification tools installed successfully."
+    echo "Your GitHub token has been saved to ~/.Renviron"
+elif [ "$INSTALL_VERIFICATION" = true ]; then
     echo "This system does not appear to be using DNF package manager."
     echo "Skipping verification tools installation."
     echo "You need to install verification tools manually."
+else
+    echo "Verification tools installation was skipped based on your input."
+    echo "You can install verification tools manually later."
 fi
 
 echo "The installation completed successfully!"
