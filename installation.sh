@@ -65,7 +65,7 @@ fi
 export GIT_REPO=$(pwd)
 
 # Determine number of CPUs for parallel compilation
-export NCPUS=$(nproc)-1
+export NCPUS=$(( $(nproc) - 1 ))
 echo "Detected $NCPUS CPU cores, will use for parallel compilation where possible"
 
 # Create a log directory for all installation logs
@@ -73,13 +73,12 @@ mkdir -p $BASE/install_logs
 
 # Install required system packages
 echo "Installing required packages..."
+sudo dnf config-manager --set-enabled crb
+sudo dnf makecache
 sudo dnf install -y epel-release gcc gfortran g++ htop emacs wget tar perl libxml2-devel \
     m4 chrony libcurl-devel csh ksh git rsync
 
 # Install verification-related system packages
-echo "Enabling additional repositories and installing verification packages..."
-sudo dnf config-manager --set-enabled crb
-sudo dnf makecache
 sudo dnf install -y jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R
 
 echo "y" | sudo dnf update
