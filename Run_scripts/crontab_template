@@ -1,4 +1,4 @@
-#30 * * * * /home/wrf/scripts/clean_wrf.sh
+#30 * * * * /home/wrf/WRF_Model/scripts/clean_wrf.sh
 #0 5 * * * /home/wrf/WRF_Model/scripts/control_run_WRF.sh 00 > /home/wrf/WRF_Model/logs/runlog_00.log 2>&1
 #0 11 * * * /home/wrf/WRF_Model/scripts/control_run_WRF.sh 06 > /home/wrf/WRF_Model/logs/runlog_06.log 2>&1
 #0 17 * * * /home/wrf/WRF_Model/scripts/control_run_WRF.sh 12 > /home/wrf/WRF_Model/logs/runlog_12.log 2>&1
