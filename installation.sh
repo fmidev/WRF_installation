@@ -431,17 +431,23 @@ if [ "$INSTALL_VERIFICATION" = true ] && is_dnf_system; then
     sudo dnf install -y rstudio-server-rhel-2024.12.1-563-x86_64.rpm
     sudo dnf install -y rstudio-2024.12.1-563-x86_64.rpm
 
+    # Create user R library directory
     mkdir -p ~/R/library
     
-    # Create R script for package installation
+    # Create R script for package installation with proper CRAN mirror setting
     cat > $BASE/tmp/install_r_packages.R << 'EOF'
 # Check if GITHUB_PAT is available
 if (Sys.getenv("GITHUB_PAT") == "") {
   stop("GitHub Personal Access Token not found. Please check your .Renviron file.")
 }
 
-# Install required packages
+# Set a CRAN mirror first
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+# Install in user's home directory
 .libPaths("~/R/library")
+
+# Install required packages
 install.packages("remotes")
 library(remotes)
 
@@ -452,7 +458,7 @@ install.packages("ncdf4")
 EOF
 
     echo "Installing R packages for verification..."
-    echo "yes" | echo "yes" | Rscript $BASE/tmp/install_r_packages.R
+    Rscript $BASE/tmp/install_r_packages.R
     
     rm -f $BASE/tmp/rstudio-server-rhel-2024.12.1-563-x86_64.rpm
     rm -f $BASE/tmp/rstudio-2024.12.1-563-x86_64.rpm
