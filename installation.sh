@@ -173,11 +173,11 @@ install_library() {
 }
 
 # Install libraries
-install_library "https://zlib.net/current/zlib.tar.gz" "zlib-${ZLIB_VERSION}" "" 
+install_library "https://zlib.net/zlib-${ZLIB_VERSION}.tar.gz" "zlib-${ZLIB_VERSION}" "" 
 install_library "https://download.open-mpi.org/release/open-mpi/v${OPENMPI_VERSION%.*}/openmpi-${OPENMPI_VERSION}.tar.gz" "openmpi-${OPENMPI_VERSION}" "--with-zlib=$BASE/libraries/zlib-${ZLIB_VERSION}/install" 
 export PATH=$PATH:$BASE/libraries/openmpi-${OPENMPI_VERSION}/install/bin
 install_library "https://support.hdfgroup.org/ftp/lib-external/szip/${SZIP_VERSION}/src/szip-${SZIP_VERSION}.tar.gz" "szip-${SZIP_VERSION}" "" 
-install_library "https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-${HDF5_VERSION%.*}/hdf5-${HDF5_VERSION}/src/hdf5-${HDF5_VERSION}.tar.gz" "hdf5-${HDF5_VERSION}" "--with-zlib=$BASE/libraries/zlib-${ZLIB_VERSION}/install/ --with-szlib=$BASE/libraries/szip-${SZIP_VERSION}/install/ --enable-fortran" 
+install_library "https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-${HDF5_VERSION%.*}/hdf5-${HDF5_VERSION%%-*}/src/hdf5-${HDF5_VERSION}.tar.gz" "hdf5-${HDF5_VERSION}" "--with-zlib=$BASE/libraries/zlib-${ZLIB_VERSION}/install/ --with-szlib=$BASE/libraries/szip-${SZIP_VERSION}/install/ --enable-fortran" 
 install_library "https://downloads.unidata.ucar.edu/netcdf-c/${NETCDF_C_VERSION}/netcdf-c-${NETCDF_C_VERSION}.tar.gz" "netcdf-c-${NETCDF_C_VERSION}" "--enable-netcdf-4 LDFLAGS=\"-L$BASE/libraries/hdf5-${HDF5_VERSION}/install/lib\" CPPFLAGS=\"-I$BASE/libraries/hdf5-${HDF5_VERSION}/install/include\" CC=gcc" 
 export LD_LIBRARY_PATH=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install/lib
 install_library "https://downloads.unidata.ucar.edu/netcdf-fortran/${NETCDF_FORTRAN_VERSION}/netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz" "netcdf-fortran-${NETCDF_FORTRAN_VERSION}" "LDFLAGS=\"-L$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install/lib/\" CPPFLAGS=\"-I$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install/include/\" FC=gfortran F77=gfortran"
