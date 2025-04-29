@@ -1,5 +1,30 @@
 #!/bin/bash
 
+# Package version configuration
+# Change these values to upgrade to newer versions
+# Core components
+export WRF_VERSION="4.6.1"
+export WPS_VERSION="4.6.0"
+export UPP_VERSION="dtc_post_v4.1.0"
+
+# Libraries
+export ZLIB_VERSION="1.3.1"
+export OPENMPI_VERSION="5.0.3"
+export SZIP_VERSION="2.1.1"
+export HDF5_VERSION="1.14.4-3"
+export NETCDF_C_VERSION="4.9.2"
+export NETCDF_FORTRAN_VERSION="4.6.1"
+export JPEG_VERSION="9f"
+export LIBPNG_VERSION="1.6.43"
+export JASPER_VERSION="1.900.1"
+
+# CRTM coefficients
+export CRTM_COEF_VERSION="2.3.0"
+
+# RStudio tools
+export RSTUDIO_SERVER_VERSION="2024.12.1-563"
+export RSTUDIO_DESKTOP_VERSION="2024.12.1-563"
+
 # Start timing the installation
 start_time=$(date +%s)
 echo "Starting WRF installation at $(date)"
@@ -73,7 +98,7 @@ echo "Installing required packages..."
 sudo dnf config-manager --set-enabled crb
 sudo dnf makecache
 sudo dnf install -y epel-release gcc gfortran g++ emacs wget tar perl libxml2-devel \
-    m4 chrony libcurl-devel csh ksh git rsync
+    m4 chrony libcurl-devel csh ksh rsync
 echo "y" | sudo dnf update
 
 # Install verification-related system packages
@@ -133,8 +158,8 @@ install_library() {
     echo "🔨 Configuring $dir_name..."
     cd $dir_name
     
-    if [ $dir_name == "netcdf-fortran-4.6.1" ]; then
-        eval ./configure --prefix=$BASE/libraries/netcdf-c-4.9.2/install $configure_args > "$log_file" 2>&1
+    if [ $dir_name == "netcdf-fortran-${NETCDF_FORTRAN_VERSION}" ]; then
+        eval ./configure --prefix=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install $configure_args > "$log_file" 2>&1
     else
         mkdir -p install
         eval ./configure --prefix=$BASE/libraries/$dir_name/install $configure_args > "$log_file" 2>&1
@@ -148,35 +173,35 @@ install_library() {
 }
 
 # Install libraries
-install_library "https://zlib.net/current/zlib.tar.gz" "zlib-1.3.1" "" 
-install_library "https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.3.tar.gz" "openmpi-5.0.3" "--with-zlib=$BASE/libraries/zlib-1.3.1/install" 
-export PATH=$PATH:$BASE/libraries/openmpi-5.0.3/install/bin
-install_library "https://support.hdfgroup.org/ftp/lib-external/szip/2.1.1/src/szip-2.1.1.tar.gz" "szip-2.1.1" "" 
-install_library "https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.4/src/hdf5-1.14.4-3.tar.gz" "hdf5-1.14.4-3" "--with-zlib=$BASE/libraries/zlib-1.3.1/install/ --with-szlib=$BASE/libraries/szip-2.1.1/install/ --enable-fortran" 
-install_library "https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz" "netcdf-c-4.9.2" "--enable-netcdf-4 LDFLAGS=\"-L$BASE/libraries/hdf5-1.14.4-3/install/lib\" CPPFLAGS=\"-I$BASE/libraries/hdf5-1.14.4-3/install/include\" CC=gcc" 
-export LD_LIBRARY_PATH=$BASE/libraries/netcdf-c-4.9.2/install/lib
-install_library "https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.1/netcdf-fortran-4.6.1.tar.gz" "netcdf-fortran-4.6.1" "LDFLAGS=\"-L$BASE/libraries/netcdf-c-4.9.2/install/lib/\" CPPFLAGS=\"-I$BASE/libraries/netcdf-c-4.9.2/install/include/\" FC=gfortran F77=gfortran"
-install_library "http://www.ijg.org/files/jpegsrc.v9f.tar.gz" "jpeg-9f" ""
-install_library "https://sourceforge.net/projects/libpng/files/libpng16/1.6.43/libpng-1.6.43.tar.gz" "libpng-1.6.43" ""
-install_library "https://www.ece.uvic.ca/~frodo/jasper/software/jasper-1.900.1.zip" "jasper-1.900.1" "--enable-shared --enable-libjpeg"
+install_library "https://zlib.net/current/zlib.tar.gz" "zlib-${ZLIB_VERSION}" "" 
+install_library "https://download.open-mpi.org/release/open-mpi/v${OPENMPI_VERSION%.*}/openmpi-${OPENMPI_VERSION}.tar.gz" "openmpi-${OPENMPI_VERSION}" "--with-zlib=$BASE/libraries/zlib-${ZLIB_VERSION}/install" 
+export PATH=$PATH:$BASE/libraries/openmpi-${OPENMPI_VERSION}/install/bin
+install_library "https://support.hdfgroup.org/ftp/lib-external/szip/${SZIP_VERSION}/src/szip-${SZIP_VERSION}.tar.gz" "szip-${SZIP_VERSION}" "" 
+install_library "https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-${HDF5_VERSION%.*}/hdf5-${HDF5_VERSION}/src/hdf5-${HDF5_VERSION}.tar.gz" "hdf5-${HDF5_VERSION}" "--with-zlib=$BASE/libraries/zlib-${ZLIB_VERSION}/install/ --with-szlib=$BASE/libraries/szip-${SZIP_VERSION}/install/ --enable-fortran" 
+install_library "https://downloads.unidata.ucar.edu/netcdf-c/${NETCDF_C_VERSION}/netcdf-c-${NETCDF_C_VERSION}.tar.gz" "netcdf-c-${NETCDF_C_VERSION}" "--enable-netcdf-4 LDFLAGS=\"-L$BASE/libraries/hdf5-${HDF5_VERSION}/install/lib\" CPPFLAGS=\"-I$BASE/libraries/hdf5-${HDF5_VERSION}/install/include\" CC=gcc" 
+export LD_LIBRARY_PATH=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install/lib
+install_library "https://downloads.unidata.ucar.edu/netcdf-fortran/${NETCDF_FORTRAN_VERSION}/netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz" "netcdf-fortran-${NETCDF_FORTRAN_VERSION}" "LDFLAGS=\"-L$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install/lib/\" CPPFLAGS=\"-I$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install/include/\" FC=gfortran F77=gfortran"
+install_library "http://www.ijg.org/files/jpegsrc.v${JPEG_VERSION}.tar.gz" "jpeg-${JPEG_VERSION}" ""
+install_library "https://sourceforge.net/projects/libpng/files/libpng16/${LIBPNG_VERSION}/libpng-${LIBPNG_VERSION}.tar.gz" "libpng-${LIBPNG_VERSION}" ""
+install_library "https://www.ece.uvic.ca/~frodo/jasper/software/jasper-${JASPER_VERSION}.zip" "jasper-${JASPER_VERSION}" "--enable-shared --enable-libjpeg"
 
 # WRF installation with better output handling
 if [ ! -d "$BASE/WRF" ]; then
     echo "🔧 Installing WRF..."
     cd $BASE
-    wget --progress=bar:force https://github.com/wrf-model/WRF/releases/download/v4.6.1/v4.6.1.tar.gz
-    tar -xf v4.6.1.tar.gz
-    mv WRFV4.6.1 WRF
+    wget --progress=bar:force https://github.com/wrf-model/WRF/releases/download/v${WRF_VERSION}/v${WRF_VERSION}.tar.gz
+    tar -xf v${WRF_VERSION}.tar.gz
+    mv WRFV${WRF_VERSION} WRF
     cd WRF
     
     # Set all WRF environment variables at once
     export WRF_EM_CORE=1
-    export NETCDF=$BASE/libraries/netcdf-c-4.9.2/install
+    export NETCDF=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install
     export NETCDF4=1
-    export HDF5=$BASE/libraries/hdf5-1.14.4-3/install/
-    export jasper=$BASE/libraries/jasper-1.900.1/install/
-    export JASPERLIB=$BASE/libraries/jasper-1.900.1/install/lib
-    export JASPERINC=$BASE/libraries/jasper-1.900.1/install/include
+    export HDF5=$BASE/libraries/hdf5-${HDF5_VERSION}/install/
+    export jasper=$BASE/libraries/jasper-${JASPER_VERSION}/install/
+    export JASPERLIB=$BASE/libraries/jasper-${JASPER_VERSION}/install/lib
+    export JASPERINC=$BASE/libraries/jasper-${JASPER_VERSION}/install/include
     export WRF_DA_CORE=0
     export WRFIO_NCD_LARGE_FILE_SUPPORT=1
     
@@ -196,19 +221,19 @@ fi
 if [ ! -d "$BASE/WPS" ]; then
     echo "🔧 Installing WPS..."
     cd $BASE
-    wget --progress=bar:force https://github.com/wrf-model/WPS/archive/refs/tags/v4.6.0.tar.gz
-    tar -xf v4.6.0.tar.gz
-    mv WPS-4.6.0/ WPS
+    wget --progress=bar:force https://github.com/wrf-model/WPS/archive/refs/tags/v${WPS_VERSION}.tar.gz
+    tar -xf v${WPS_VERSION}.tar.gz
+    mv WPS-${WPS_VERSION}/ WPS
     cd WPS
-    export jasper=$BASE/libraries/jasper-1.900.1/install/
-    export JASPERLIB=$BASE/libraries/jasper-1.900.1/install/lib
-    export JASPERINC=$BASE/libraries/jasper-1.900.1/install/include
+    export jasper=$BASE/libraries/jasper-${JASPER_VERSION}/install/
+    export JASPERLIB=$BASE/libraries/jasper-${JASPER_VERSION}/install/lib
+    export JASPERINC=$BASE/libraries/jasper-${JASPER_VERSION}/install/include
     export WRF_DIR=$BASE/WRF
-    export NETCDF=$BASE/libraries/netcdf-c-4.9.2/install
+    export NETCDF=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install
     echo "🔧 Configuring WPS..."
     echo 3 | ./configure # Automatically select dmpar with GNU compilers
-    sed -i '/COMPRESSION_LIBS/s|=.*|= -L${BASE}/libraries/jasper-1.900.1/install/lib -L${BASE}/libraries/libpng-1.6.43/install/lib -L${BASE}/libraries/zlib-1.3.1/install/lib -ljasper -lpng -lz|' configure.wps
-    sed -i '/COMPRESSION_INC/s|=.*|= -I${BASE}/libraries/jasper-1.900.1/install/include -I${BASE}/libraries/libpng-1.6.43/install/include -I${BASE}/libraries/zlib-1.3.1/install/include|' configure.wps
+    sed -i '/COMPRESSION_LIBS/s|=.*|= -L${BASE}/libraries/jasper-${JASPER_VERSION}/install/lib -L${BASE}/libraries/libpng-${LIBPNG_VERSION}/install/lib -L${BASE}/libraries/zlib-${ZLIB_VERSION}/install/lib -ljasper -lpng -lz|' configure.wps
+    sed -i '/COMPRESSION_INC/s|=.*|= -I${BASE}/libraries/jasper-${JASPER_VERSION}/install/include -I${BASE}/libraries/libpng-${LIBPNG_VERSION}/install/include -I${BASE}/libraries/zlib-${ZLIB_VERSION}/install/include|' configure.wps
     echo "🏗️ Compiling WPS... (full output written to compile.log)"
     ./compile 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
@@ -222,12 +247,12 @@ fi
 if [ ! -d "$BASE/WRFDA" ]; then
     echo "🔧 Installing WRFDA..."
     cd $BASE
-    tar -xf v4.6.1.tar.gz
-    mv WRFV4.6.1/ WRFDA
+    tar -xf v${WRF_VERSION}.tar.gz
+    mv WRFV${WRF_VERSION}/ WRFDA
     cd WRFDA
-    export NETCDF=$BASE/libraries/netcdf-c-4.9.2/install
+    export NETCDF=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install
     export NETCDF4=1
-    export HDF5=$BASE/libraries/hdf5-1.14.4-3/install/
+    export HDF5=$BASE/libraries/hdf5-${HDF5_VERSION}/install/
     export WRFIO_NCD_LARGE_FILE_SUPPORT=1
     export WRFPLUS_DIR=$BASE/WRFPLUS/
     echo "🔧 Configuring WRFDA..."
@@ -240,16 +265,80 @@ else
     echo "✓ WRFDA is already installed. Skipping..."
 fi
 
+# Function to perform git clone with retry mechanism
+git_clone_with_retry() {
+    local repo_url=$1
+    local target_dir=$2
+    local branch=$3
+    local recurse=$4
+    local max_retries=5
+    local retry_delay=30
+    local attempt=1
+    local exit_code=1
+    local clone_cmd="git clone"
+    
+    # Add branch option if specified
+    if [ -n "$branch" ]; then
+        clone_cmd="$clone_cmd -b $branch"
+    fi
+    
+    # Add recurse-submodules if specified
+    if [ "$recurse" = "true" ]; then
+        clone_cmd="$clone_cmd --recurse-submodules"
+    fi
+    
+    # Add depth=1 to speed up the clone by getting only latest commit
+    clone_cmd="$clone_cmd --depth=1"
+    
+    # Final command with URL and target directory
+    clone_cmd="$clone_cmd $repo_url $target_dir"
+    
+    echo "Cloning $repo_url to $target_dir"
+    
+    while [ $attempt -le $max_retries ] && [ $exit_code -ne 0 ]; do
+        if [ $attempt -gt 1 ]; then
+            echo "Clone attempt $attempt of $max_retries (waiting ${retry_delay}s before retry)..."
+            sleep $retry_delay
+            # Increase delay for next attempt
+            retry_delay=$((retry_delay * 2))
+        fi
+        
+        # Set a longer timeout for Git operations
+        export GIT_HTTP_LOW_SPEED_LIMIT=1000
+        export GIT_HTTP_LOW_SPEED_TIME=60
+        
+        eval $clone_cmd
+        exit_code=$?
+        
+        if [ $exit_code -eq 0 ]; then
+            echo "Git clone completed successfully."
+            return 0
+        fi
+        
+        attempt=$((attempt+1))
+    done
+    
+    if [ $exit_code -ne 0 ]; then
+        echo "ERROR: Failed to clone repository after $max_retries attempts."
+        return 1
+    fi
+}
+
 # Install NCEPlibs
 if [ ! -d "$BASE/libraries/NCEPlibs" ] ; then
     echo "🔧 Installing NCEPlibs..."
     cd $BASE/libraries/
-    git clone https://github.com/NCAR/NCEPlibs.git
+    
+    if ! git_clone_with_retry "https://github.com/NCAR/NCEPlibs.git" "NCEPlibs" "" "false"; then
+        echo "Failed to clone NCEPlibs repository. Please check your internet connection and try again."
+        exit 1
+    fi
+    
     cd NCEPlibs
     mkdir -p install
-    export NETCDF=$BASE/libraries/netcdf-c-4.9.2/install
-    export PNG_INC=$BASE/libraries/libpng-1.6.43/install/include/
-    export JASPER_INC=$BASE/libraries/jasper-1.900.1/install/include/
+    export NETCDF=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install
+    export PNG_INC=$BASE/libraries/libpng-${LIBPNG_VERSION}/install/include/
+    export JASPER_INC=$BASE/libraries/jasper-${JASPER_VERSION}/install/include/
     sed -i '/FFLAGS/s|$| -fallow-argument-mismatch -fallow-invalid-boz|' macros.make.linux.gnu
     echo "🏗️ Compiling NCEPlibs... (full output written to compile.log)"
     echo y | ./make_ncep_libs.sh -s linux -c gnu -d $BASE/libraries/NCEPlibs/install/ -o 0 -m 1 -a upp > compile.log 2>&1
@@ -262,10 +351,14 @@ fi
 if [ ! -d "$BASE/UPP" ]; then
     echo "🔧 Installing UPP..."
     cd $BASE
-    git clone -b dtc_post_v4.1.0 --recurse-submodules https://github.com/NOAA-EMC/EMC_post UPPV4.1
-    mv UPPV4.1 UPP
+    
+    if ! git_clone_with_retry "https://github.com/NOAA-EMC/EMC_post" "UPP" "${UPP_VERSION}" "true"; then
+        echo "Failed to clone UPP repository. Please check your internet connection and try again."
+        exit 1
+    fi
+    
     cd UPP
-    export NETCDF=$BASE/libraries/netcdf-c-4.9.2/install
+    export NETCDF=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install
     export NCEPLIBS_DIR=$BASE/libraries/NCEPlibs/install/
     echo "🔧 Configuring UPP..."
     echo 8 | ./configure # Automatically select gfortran dmpar
@@ -321,12 +414,12 @@ if [ -z "$(ls -A $BASE/CRTM_coef)" ]; then
     echo "Setting up CRTM coefficients..."
     mkdir -p $BASE/CRTM_coef
     cd $BASE/CRTM_coef
-    if [ ! -f "crtm_coeffs_2.3.0.tar.gz" ]; then
-        wget https://www2.mmm.ucar.edu/wrf/users/wrfda/download/crtm_coeffs_2.3.0.tar.gz
+    if [ ! -f "crtm_coeffs_${CRTM_COEF_VERSION}.tar.gz" ]; then
+        wget https://www2.mmm.ucar.edu/wrf/users/wrfda/download/crtm_coeffs_${CRTM_COEF_VERSION}.tar.gz
     else
-        echo "crtm_coeffs_2.3.0.tar.gz already exists. Skipping download..."
+        echo "crtm_coeffs_${CRTM_COEF_VERSION}.tar.gz already exists. Skipping download..."
     fi
-    tar -xvf crtm_coeffs_2.3.0.tar.gz
+    tar -xvf crtm_coeffs_${CRTM_COEF_VERSION}.tar.gz
     echo "CRTM coefficients setup completed."
 else
     echo "CRTM coefficients already set up. Skipping..."
@@ -443,11 +536,11 @@ if [ "$INSTALL_VERIFICATION" = true ] && is_dnf_system; then
     # Install RStudio
     echo "Installing RStudio..."
     cd $BASE/tmp
-    wget https://download2.rstudio.org/server/rhel8/x86_64/rstudio-server-rhel-2024.12.1-563-x86_64.rpm
-    wget https://download1.rstudio.org/electron/rhel9/x86_64/rstudio-2024.12.1-563-x86_64.rpm
-    sudo dnf install -y rstudio-server-rhel-2024.12.1-563-x86_64.rpm
-    sudo dnf install -y rstudio-2024.12.1-563-x86_64.rpm
-
+    wget https://download2.rstudio.org/server/rhel8/x86_64/rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
+    wget https://download1.rstudio.org/electron/rhel9/x86_64/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
+    sudo dnf install -y rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
+    sudo dnf install -y rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
+    
     # Create user R library directory
     mkdir -p ~/R/library
     
@@ -477,8 +570,8 @@ EOF
     echo "Installing R packages for verification..."
     Rscript $BASE/tmp/install_r_packages.R
     
-    rm -f $BASE/tmp/rstudio-server-rhel-2024.12.1-563-x86_64.rpm
-    rm -f $BASE/tmp/rstudio-2024.12.1-563-x86_64.rpm
+    rm -f $BASE/tmp/rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
+    rm -f $BASE/tmp/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
     rm -f $BASE/tmp/install_r_packages.R
 
     echo "Verification tools installed successfully."

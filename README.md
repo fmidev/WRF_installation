@@ -25,12 +25,17 @@ Follow these steps for easy installation:
    chmod +x installation.sh
    ```
 
-3. Run the installation:
+3. Install git:
+   ```
+   sudo dnf install git
+   ```
+
+4. Run the installation:
    ```
    ./installation.sh 
    ```
 
-4. The script will:
+5. The script will:
    - Install all needed dependencies
    - Download and build required libraries
    - Compile WRF, WPS, WRFDA and UPP
