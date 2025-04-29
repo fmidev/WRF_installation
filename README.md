@@ -14,20 +14,20 @@ For complete WRF documentation, visit the [WRF User's Guide](https://www2.mmm.uc
 
 Follow these steps for easy installation:
 
-1. Get the code:
+1. Install git:
+   ```
+   sudo dnf install git
+   ```
+
+2. Get the code:
    ```
    git clone git@github.com:fmidev/WRF_installation.git
    cd WRF_installation
    ```
 
-2. Make the script runnable:
+3. Make the script runnable:
    ```
    chmod +x installation.sh
-   ```
-
-3. Install git:
-   ```
-   sudo dnf install git
    ```
 
 4. Run the installation:
