@@ -125,18 +125,19 @@ check_compile_log() {
 # Function to download, extract, configure, and install libraries with better progress indication
 install_library() {
     local url=$1
-    local dir_name=$2
-    local configure_args=$3
+    local version_dir_name=$2
+    local generic_name=$3
+    local configure_args=$4
     local file_name=${url##*/}
     local log_dir="$BASE/install_logs"
-    local log_file="$log_dir/${dir_name}_install.log"
+    local log_file="$log_dir/${generic_name}_install.log"
 
-    if [ -d "$BASE/libraries/$dir_name/install" ] && [ "$(ls -A $BASE/libraries/$dir_name/install)" ]; then
-        echo "✓ $dir_name is already installed. Skipping..."
+    if [ -d "$BASE/libraries/$generic_name" ] && [ -L "$BASE/libraries/$generic_name" ]; then
+        echo "✅ $generic_name is already installed. Skipping..."
         return
     fi
 
-    echo "🔧 Installing $dir_name... (full output written into log file ($log_file))"
+    echo "🔧 Installing $generic_name... (full output written into log file ($log_file))"
     cd $BASE/libraries
 
     # Check if the file is already downloaded
@@ -155,35 +156,40 @@ install_library() {
         tar -xf $file_name > "$log_file" 2>&1
     fi
 
-    echo "🔨 Configuring $dir_name..."
-    cd $dir_name
+    echo "🔨 Configuring $generic_name..."
+    cd $version_dir_name
     
-    if [ $dir_name == "netcdf-fortran-${NETCDF_FORTRAN_VERSION}" ]; then
-        eval ./configure --prefix=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install $configure_args > "$log_file" 2>&1
+    if [ $generic_name == "netcdf-fortran" ]; then
+        eval ./configure --prefix=$BASE/libraries/netcdf-c/install $configure_args > "$log_file" 2>&1
     else
         mkdir -p install
-        eval ./configure --prefix=$BASE/libraries/$dir_name/install $configure_args > "$log_file" 2>&1
+        eval ./configure --prefix=$BASE/libraries/$version_dir_name/install $configure_args > "$log_file" 2>&1
     fi
     
-    echo "🏗️ Building $dir_name..."
+    echo "🏗️ Building $generic_name..."
     make > "$log_file" 2>&1
-    echo "📥 Installing $dir_name..."
+    echo "📥 Installing $generic_name..."
     make install > "$log_file" 2>&1
-    echo "✅ $dir_name installed successfully."
+    
+    # Create symbolic link to version-agnostic name
+    cd $BASE/libraries
+    ln -sf $version_dir_name $generic_name
+    
+    echo "✅ $generic_name installed successfully."
 }
 
-# Install libraries
-install_library "https://zlib.net/zlib-${ZLIB_VERSION}.tar.gz" "zlib-${ZLIB_VERSION}" "" 
-install_library "https://download.open-mpi.org/release/open-mpi/v${OPENMPI_VERSION%.*}/openmpi-${OPENMPI_VERSION}.tar.gz" "openmpi-${OPENMPI_VERSION}" "--with-zlib=$BASE/libraries/zlib-${ZLIB_VERSION}/install" 
-export PATH=$PATH:$BASE/libraries/openmpi-${OPENMPI_VERSION}/install/bin
-install_library "https://support.hdfgroup.org/ftp/lib-external/szip/${SZIP_VERSION}/src/szip-${SZIP_VERSION}.tar.gz" "szip-${SZIP_VERSION}" "" 
-install_library "https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-${HDF5_VERSION%.*}/hdf5-${HDF5_VERSION%%-*}/src/hdf5-${HDF5_VERSION}.tar.gz" "hdf5-${HDF5_VERSION}" "--with-zlib=$BASE/libraries/zlib-${ZLIB_VERSION}/install/ --with-szlib=$BASE/libraries/szip-${SZIP_VERSION}/install/ --enable-fortran" 
-install_library "https://downloads.unidata.ucar.edu/netcdf-c/${NETCDF_C_VERSION}/netcdf-c-${NETCDF_C_VERSION}.tar.gz" "netcdf-c-${NETCDF_C_VERSION}" "--enable-netcdf-4 LDFLAGS=\"-L$BASE/libraries/hdf5-${HDF5_VERSION}/install/lib\" CPPFLAGS=\"-I$BASE/libraries/hdf5-${HDF5_VERSION}/install/include\" CC=gcc" 
-export LD_LIBRARY_PATH=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install/lib
-install_library "https://downloads.unidata.ucar.edu/netcdf-fortran/${NETCDF_FORTRAN_VERSION}/netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz" "netcdf-fortran-${NETCDF_FORTRAN_VERSION}" "LDFLAGS=\"-L$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install/lib/\" CPPFLAGS=\"-I$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install/include/\" FC=gfortran F77=gfortran"
-install_library "http://www.ijg.org/files/jpegsrc.v${JPEG_VERSION}.tar.gz" "jpeg-${JPEG_VERSION}" ""
-install_library "https://sourceforge.net/projects/libpng/files/libpng16/${LIBPNG_VERSION}/libpng-${LIBPNG_VERSION}.tar.gz" "libpng-${LIBPNG_VERSION}" ""
-install_library "https://www.ece.uvic.ca/~frodo/jasper/software/jasper-${JASPER_VERSION}.zip" "jasper-${JASPER_VERSION}" "--enable-shared --enable-libjpeg"
+# Install libraries with version-agnostic symbolic links
+install_library "https://zlib.net/zlib-${ZLIB_VERSION}.tar.gz" "zlib-${ZLIB_VERSION}" "zlib" "" 
+install_library "https://download.open-mpi.org/release/open-mpi/v${OPENMPI_VERSION%.*}/openmpi-${OPENMPI_VERSION}.tar.gz" "openmpi-${OPENMPI_VERSION}" "openmpi" "--with-zlib=$BASE/libraries/zlib/install" 
+export PATH=$PATH:$BASE/libraries/openmpi/install/bin
+install_library "https://support.hdfgroup.org/ftp/lib-external/szip/${SZIP_VERSION}/src/szip-${SZIP_VERSION}.tar.gz" "szip-${SZIP_VERSION}" "szip" "" 
+install_library "https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-${HDF5_VERSION%.*}/hdf5-${HDF5_VERSION%%-*}/src/hdf5-${HDF5_VERSION}.tar.gz" "hdf5-${HDF5_VERSION}" "hdf5" "--with-zlib=$BASE/libraries/zlib/install/ --with-szlib=$BASE/libraries/szip/install/ --enable-fortran" 
+install_library "https://downloads.unidata.ucar.edu/netcdf-c/${NETCDF_C_VERSION}/netcdf-c-${NETCDF_C_VERSION}.tar.gz" "netcdf-c-${NETCDF_C_VERSION}" "netcdf-c" "--enable-netcdf-4 LDFLAGS=\"-L$BASE/libraries/hdf5/install/lib\" CPPFLAGS=\"-I$BASE/libraries/hdf5/install/include\" CC=gcc" 
+export LD_LIBRARY_PATH=$BASE/libraries/netcdf-c/install/lib
+install_library "https://downloads.unidata.ucar.edu/netcdf-fortran/${NETCDF_FORTRAN_VERSION}/netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz" "netcdf-fortran-${NETCDF_FORTRAN_VERSION}" "netcdf-fortran" "LDFLAGS=\"-L$BASE/libraries/netcdf-c/install/lib/\" CPPFLAGS=\"-I$BASE/libraries/netcdf-c/install/include/\" FC=gfortran F77=gfortran"
+install_library "http://www.ijg.org/files/jpegsrc.v${JPEG_VERSION}.tar.gz" "jpeg-${JPEG_VERSION}" "jpeg" ""
+install_library "https://sourceforge.net/projects/libpng/files/libpng16/${LIBPNG_VERSION}/libpng-${LIBPNG_VERSION}.tar.gz" "libpng-${LIBPNG_VERSION}" "libpng" ""
+install_library "https://www.ece.uvic.ca/~frodo/jasper/software/jasper-${JASPER_VERSION}.zip" "jasper-${JASPER_VERSION}" "jasper" "--enable-shared --enable-libjpeg"
 
 # WRF installation with better output handling
 if [ ! -d "$BASE/WRF" ]; then
@@ -196,12 +202,12 @@ if [ ! -d "$BASE/WRF" ]; then
     
     # Set all WRF environment variables at once
     export WRF_EM_CORE=1
-    export NETCDF=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install
+    export NETCDF=$BASE/libraries/netcdf-c/install
     export NETCDF4=1
-    export HDF5=$BASE/libraries/hdf5-${HDF5_VERSION}/install/
-    export jasper=$BASE/libraries/jasper-${JASPER_VERSION}/install/
-    export JASPERLIB=$BASE/libraries/jasper-${JASPER_VERSION}/install/lib
-    export JASPERINC=$BASE/libraries/jasper-${JASPER_VERSION}/install/include
+    export HDF5=$BASE/libraries/hdf5/install/
+    export jasper=$BASE/libraries/jasper/install/
+    export JASPERLIB=$BASE/libraries/jasper/install/lib
+    export JASPERINC=$BASE/libraries/jasper/install/include
     export WRF_DA_CORE=0
     export WRFIO_NCD_LARGE_FILE_SUPPORT=1
     
@@ -214,7 +220,7 @@ if [ ! -d "$BASE/WRF" ]; then
     check_compile_log "compile.log"
     echo "✅ WRF compiled successfully."
 else
-    echo "✓ WRF is already installed. Skipping..."
+    echo "✅ WRF is already installed. Skipping..."
 fi
 
 # WPS installation
@@ -225,21 +231,21 @@ if [ ! -d "$BASE/WPS" ]; then
     tar -xf v${WPS_VERSION}.tar.gz
     mv WPS-${WPS_VERSION}/ WPS
     cd WPS
-    export jasper=$BASE/libraries/jasper-${JASPER_VERSION}/install/
-    export JASPERLIB=$BASE/libraries/jasper-${JASPER_VERSION}/install/lib
-    export JASPERINC=$BASE/libraries/jasper-${JASPER_VERSION}/install/include
+    export jasper=$BASE/libraries/jasper/install/
+    export JASPERLIB=$BASE/libraries/jasper/install/lib
+    export JASPERINC=$BASE/libraries/jasper/install/include
     export WRF_DIR=$BASE/WRF
-    export NETCDF=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install
+    export NETCDF=$BASE/libraries/netcdf-c/install
     echo "🔧 Configuring WPS..."
     echo 3 | ./configure # Automatically select dmpar with GNU compilers
-    sed -i '/COMPRESSION_LIBS/s|=.*|= -L${BASE}/libraries/jasper-${JASPER_VERSION}/install/lib -L${BASE}/libraries/libpng-${LIBPNG_VERSION}/install/lib -L${BASE}/libraries/zlib-${ZLIB_VERSION}/install/lib -ljasper -lpng -lz|' configure.wps
-    sed -i '/COMPRESSION_INC/s|=.*|= -I${BASE}/libraries/jasper-${JASPER_VERSION}/install/include -I${BASE}/libraries/libpng-${LIBPNG_VERSION}/install/include -I${BASE}/libraries/zlib-${ZLIB_VERSION}/install/include|' configure.wps
+    sed -i '/COMPRESSION_LIBS/s|=.*|= -L${BASE}/libraries/jasper/install/lib -L${BASE}/libraries/libpng/install/lib -L${BASE}/libraries/zlib/install/lib -ljasper -lpng -lz|' configure.wps
+    sed -i '/COMPRESSION_INC/s|=.*|= -I${BASE}/libraries/jasper/install/include -I${BASE}/libraries/libpng/install/include -I${BASE}/libraries/zlib/install/include|' configure.wps
     echo "🏗️ Compiling WPS... (full output written to compile.log)"
     ./compile 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
     echo "✅ WPS compiled successfully."
 else
-    echo "✓ WPS is already installed. Skipping..."
+    echo "✅ WPS is already installed. Skipping..."
 fi
 
 
@@ -250,9 +256,9 @@ if [ ! -d "$BASE/WRFDA" ]; then
     tar -xf v${WRF_VERSION}.tar.gz
     mv WRFV${WRF_VERSION}/ WRFDA
     cd WRFDA
-    export NETCDF=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install
+    export NETCDF=$BASE/libraries/netcdf-c/install
     export NETCDF4=1
-    export HDF5=$BASE/libraries/hdf5-${HDF5_VERSION}/install/
+    export HDF5=$BASE/libraries/hdf5/install/
     export WRFIO_NCD_LARGE_FILE_SUPPORT=1
     export WRFPLUS_DIR=$BASE/WRFPLUS/
     echo "🔧 Configuring WRFDA..."
@@ -262,7 +268,7 @@ if [ ! -d "$BASE/WRFDA" ]; then
     check_compile_log "compile.log" 
     echo "✅ WRFDA compiled successfully."
 else
-    echo "✓ WRFDA is already installed. Skipping..."
+    echo "✅ WRFDA is already installed. Skipping..."
 fi
 
 # Function to perform git clone with retry mechanism
@@ -336,15 +342,15 @@ if [ ! -d "$BASE/libraries/NCEPlibs" ] ; then
     
     cd NCEPlibs
     mkdir -p install
-    export NETCDF=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install
-    export PNG_INC=$BASE/libraries/libpng-${LIBPNG_VERSION}/install/include/
-    export JASPER_INC=$BASE/libraries/jasper-${JASPER_VERSION}/install/include/
+    export NETCDF=$BASE/libraries/netcdf-c/install
+    export PNG_INC=$BASE/libraries/libpng/install/include/
+    export JASPER_INC=$BASE/libraries/jasper/install/include/
     sed -i '/FFLAGS/s|$| -fallow-argument-mismatch -fallow-invalid-boz|' macros.make.linux.gnu
     echo "🏗️ Compiling NCEPlibs... (full output written to compile.log)"
     echo y | ./make_ncep_libs.sh -s linux -c gnu -d $BASE/libraries/NCEPlibs/install/ -o 0 -m 1 -a upp > compile.log 2>&1
     echo "✅ NCEPlibs compiled successfully."
 else
-    echo "✓ NCEPlibs is already installed. Skipping..."
+    echo "✅ NCEPlibs is already installed. Skipping..."
 fi
 
 # Install UPP
@@ -358,7 +364,7 @@ if [ ! -d "$BASE/UPP" ]; then
     fi
     
     cd UPP
-    export NETCDF=$BASE/libraries/netcdf-c-${NETCDF_C_VERSION}/install
+    export NETCDF=$BASE/libraries/netcdf-c/install
     export NCEPLIBS_DIR=$BASE/libraries/NCEPlibs/install/
     echo "🔧 Configuring UPP..."
     echo 8 | ./configure # Automatically select gfortran dmpar
@@ -368,7 +374,7 @@ if [ ! -d "$BASE/UPP" ]; then
     check_compile_log "compile.log"
     echo "✅ UPP compiled successfully."
 else
-    echo "✓ UPP is already installed. Skipping..."
+    echo "✅ UPP is already installed. Skipping..."
 fi
 
 # Setup UPP more efficiently

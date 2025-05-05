@@ -2,18 +2,19 @@
 
 # Base directory
 export BASE_DIR=/home/wrf/WRF_Model
+export LIB_DIR=$BASE_DIR/libraries
 
 # Library paths
-export OPENMPI=$BASE_DIR/libraries/openmpi-5.0.3/install/
-export NETCDF=$BASE_DIR/libraries/netcdf-c-4.9.2/install/
-export HDF5=$BASE_DIR/libraries/hdf5-1.14.4-3/install
-export jasper=$BASE_DIR/libraries/jasper-1.900.1/install/
-export JASPERLIB=$BASE_DIR/libraries/jasper-1.900.1/install/lib
-export JASPERINC=$BASE_DIR/libraries/jasper-1.900.1/install/include
-export ZLIB=$BASE_DIR/libraries/zlib-1.3.1/install/lib
+export OPENMPI=$LIB_DIR/openmpi/install
+export NETCDF=$LIB_DIR/netcdf-c/install
+export HDF5=$LIB_DIR/hdf5/install
+export jasper=$LIB_DIR/jasper/install
+export JASPERLIB=$LIB_DIR/jasper/install/lib
+export JASPERINC=$LIB_DIR/jasper/install/include
+export ZLIB=$LIB_DIR/zlib/install/lib
 export LD_LIBRARY_PATH="$NETCDF/lib:$JASPERLIB:$HDF5/lib:$OPENMPI/lib:$ZLIB:$LD_LIBRARY_PATH"
 export LIBRARY_PATH="$NETCDF/lib:$JASPERLIB:$HDF5/lib:$OPENMPI/lib:$ZLIB:$LIBRARY_PATH"
-export PATH="$HOME/.local/bin:$HOME/bin:$BASE_DIR/libraries/openmpi-5.0.3/install/bin:$BASE_DIR/libraries/netcdf-c-4.9.2/install/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/bin:$OPENMPI/bin:$NETCDF/bin:$PATH"
 
 # Source code directories
 export WPS_DIR=$BASE_DIR/WPS
