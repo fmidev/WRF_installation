@@ -29,7 +29,7 @@ export LEADTIME=72 # Forecast lead time in hours (if changing this, also change 
 export INTERVAL=6 # Interval between the cycles in hours (needed for WRFDA)
 
 # Paths to run directories
-export DA_DIR=$BASE_DIR/DA_input/
+export DA_DIR=$BASE_DIR/DA_input
 export CRTM_COEFFS_PATH=$BASE_DIR/CRTM_coef/crtm_coeffs_2.3.0
 export MAIN_DIR=$BASE_DIR/scripts
 export PROD_DIR=$BASE_DIR/out
@@ -44,4 +44,4 @@ export RUN_WRF=true
 export WRFDA=true
 export RUN_UPP=true
 export RUN_VERIFICATION=false
-export RUN_COPY_GRIB=false
+export RUN_COPY_GRIB=true

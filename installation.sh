@@ -220,8 +220,8 @@ if [ ! -d "$BASE/WRF" ]; then
     export WRF_EM_CORE=1
     export NETCDF=$BASE/libraries/netcdf-c/install
     export NETCDF4=1
-    export HDF5=$BASE/libraries/hdf5/install/
-    export jasper=$BASE/libraries/jasper/install/
+    export HDF5=$BASE/libraries/hdf5/install
+    export jasper=$BASE/libraries/jasper/install
     export JASPERLIB=$BASE/libraries/jasper/install/lib
     export JASPERINC=$BASE/libraries/jasper/install/include
     export WRF_DA_CORE=0
@@ -278,7 +278,7 @@ if [ ! -d "$BASE/WPS" ]; then
     mv WPS-${WPS_VERSION}/ WPS
     cd WPS
 
-    export jasper=$BASE/libraries/jasper/install/
+    export jasper=$BASE/libraries/jasper/install
     export JASPERLIB=$BASE/libraries/jasper/install/lib
     export JASPERINC=$BASE/libraries/jasper/install/include
     export WRF_DIR=$BASE/WRF
@@ -337,7 +337,7 @@ if [ ! -d "$BASE/WRFDA" ]; then
 
     export NETCDF=$BASE/libraries/netcdf-c/install
     export NETCDF4=1
-    export HDF5=$BASE/libraries/hdf5/install/
+    export HDF5=$BASE/libraries/hdf5/install
     export WRFIO_NCD_LARGE_FILE_SUPPORT=1
     
     echo "🔧 Configuring WRFDA..."
@@ -450,8 +450,8 @@ if [ ! -d "$BASE/libraries/NCEPlibs/install" ] || [ -z "$(ls -A $BASE/libraries/
     cd $BASE/libraries/NCEPlibs
     mkdir -p install
     export NETCDF=$BASE/libraries/netcdf-c/install
-    export PNG_INC=$BASE/libraries/libpng/install/include/
-    export JASPER_INC=$BASE/libraries/jasper/install/include/
+    export PNG_INC=$BASE/libraries/libpng/install/include
+    export JASPER_INC=$BASE/libraries/jasper/install/include
     sed -i '/FFLAGS/s|$| -fallow-argument-mismatch -fallow-invalid-boz|' macros.make.linux.gnu
     echo "🏗️ Compiling NCEPlibs... (full output written to compile.log)"
     echo y | ./make_ncep_libs.sh -s linux -c gnu -d $BASE/libraries/NCEPlibs/install/ -o 0 -m 1 -a upp > compile.log 2>&1
@@ -473,7 +473,7 @@ if [ ! -d "$BASE/UPP" ]; then
     
     cd UPP
     export NETCDF=$BASE/libraries/netcdf-c/install
-    export NCEPLIBS_DIR=$BASE/libraries/NCEPlibs/install/
+    export NCEPLIBS_DIR=$BASE/libraries/NCEPlibs/install
     echo "🔧 Configuring UPP..."
     echo 8 | ./configure # Automatically select gfortran dmpar
     sed -i '/^FFLAGS\(.*\)=/s/=\(.*\)/= -fallow-argument-mismatch -fallow-invalid-boz \1/' configure.upp
