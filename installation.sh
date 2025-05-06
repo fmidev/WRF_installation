@@ -173,6 +173,10 @@ install_library() {
     
     # Create symbolic link to version-agnostic name
     cd $BASE/libraries
+    if [ ! -d "$version_dir_name" ]; then
+        echo "ERROR: Directory $version_dir_name not found. Check $log_file. Aborting installation."
+        exit 1
+    fi
     ln -sf $version_dir_name $generic_name
     
     echo "✅ $generic_name installed successfully."
@@ -195,7 +199,19 @@ install_library "https://www.ece.uvic.ca/~frodo/jasper/software/jasper-${JASPER_
 if [ ! -d "$BASE/WRF" ]; then
     echo "🔧 Installing WRF..."
     cd $BASE
-    wget --progress=bar:force https://github.com/wrf-model/WRF/releases/download/v${WRF_VERSION}/v${WRF_VERSION}.tar.gz
+    mkdir -p $BASE/tmp
+    
+    # Check if tarball already exists in tmp directory
+    if [ -f "$BASE/tmp/v${WRF_VERSION}_WRF.tar.gz" ]; then
+        echo "📦 WRF tarball already exists in $BASE/tmp. Using existing file..."
+        cp $BASE/tmp/v${WRF_VERSION}_WRF.tar.gz ./v${WRF_VERSION}.tar.gz
+    else
+        echo "📥 Downloading WRF tarball..."
+        wget --progress=bar:force https://github.com/wrf-model/WRF/releases/download/v${WRF_VERSION}/v${WRF_VERSION}.tar.gz
+        # Save a copy to tmp directory
+        cp v${WRF_VERSION}.tar.gz $BASE/tmp/v${WRF_VERSION}_WRF.tar.gz
+    fi
+    
     tar -xf v${WRF_VERSION}.tar.gz
     mv WRFV${WRF_VERSION} WRF
     cd WRF
@@ -218,24 +234,56 @@ if [ ! -d "$BASE/WRF" ]; then
     # Show progress with a spinner during compilation
     ./compile em_real 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
+
+    cd $BASE
+    rm -f v${WRF_VERSION}.tar.gz
+
+    # Check if the critical executables exist
+    if [ ! -f "$BASE/WRF/main/wrf.exe" ] || [ ! -f "$BASE/WRF/main/real.exe" ]; then
+        echo "❌ ERROR: WRF compilation failed. Could not find wrf.exe or real.exe in $BASE/WRF/main."
+        echo "Check the compilation log for errors: $BASE/WRF/compile.log"
+        echo "If you want to recompile WRF, remove the WRF directory and rerun the installation script."
+        exit 1
+    fi
+
     echo "✅ WRF compiled successfully."
 else
     echo "✅ WRF is already installed. Skipping..."
+    
+    # Check if executables exist in existing installation
+    if [ ! -f "$BASE/WRF/main/wrf.exe" ] || [ ! -f "$BASE/WRF/main/real.exe" ]; then
+        echo "❌ ERROR: Existing WRF installation appears to be incomplete. Could not find wrf.exe or real.exe in $BASE/WRF/main."
+        echo "Consider removing the WRF directory and rerunning the installation script."
+        exit 1
+    fi
 fi
 
 # WPS installation
 if [ ! -d "$BASE/WPS" ]; then
     echo "🔧 Installing WPS..."
     cd $BASE
-    wget --progress=bar:force https://github.com/wrf-model/WPS/archive/refs/tags/v${WPS_VERSION}.tar.gz
+    
+    # Check if tarball already exists in tmp directory
+    if [ -f "$BASE/tmp/v${WPS_VERSION}_WPS.tar.gz" ]; then
+        echo "📦 WPS tarball already exists in $BASE/tmp. Using existing file..."
+        cp $BASE/tmp/v${WPS_VERSION}_WPS.tar.gz ./v${WPS_VERSION}.tar.gz
+    else
+        echo "📥 Downloading WPS tarball..."
+        wget --progress=bar:force https://github.com/wrf-model/WPS/archive/refs/tags/v${WPS_VERSION}.tar.gz
+        # Save a copy to tmp directory
+        cp v${WPS_VERSION}.tar.gz $BASE/tmp/v${WPS_VERSION}_WPS.tar.gz
+    fi
+    
     tar -xf v${WPS_VERSION}.tar.gz
     mv WPS-${WPS_VERSION}/ WPS
     cd WPS
+
     export jasper=$BASE/libraries/jasper/install/
     export JASPERLIB=$BASE/libraries/jasper/install/lib
     export JASPERINC=$BASE/libraries/jasper/install/include
     export WRF_DIR=$BASE/WRF
     export NETCDF=$BASE/libraries/netcdf-c/install
+
     echo "🔧 Configuring WPS..."
     echo 3 | ./configure # Automatically select dmpar with GNU compilers
     sed -i '/COMPRESSION_LIBS/s|=.*|= -L${BASE}/libraries/jasper/install/lib -L${BASE}/libraries/libpng/install/lib -L${BASE}/libraries/zlib/install/lib -ljasper -lpng -lz|' configure.wps
@@ -243,32 +291,82 @@ if [ ! -d "$BASE/WPS" ]; then
     echo "🏗️ Compiling WPS... (full output written to compile.log)"
     ./compile 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
+
+    cd $BASE
+    rm -f v${WPS_VERSION}.tar.gz
+
+    # Check if the critical executables exist
+    if [ ! -f "$BASE/WPS/geogrid.exe" ] || [ ! -f "$BASE/WPS/metgrid.exe" ] || [ ! -f "$BASE/WPS/ungrib.exe" ]; then
+        echo "❌ ERROR: WPS compilation failed. Could not find one or more of the required executables (geogrid.exe, metgrid.exe, ungrib.exe) in $BASE/WPS."
+        echo "Check the compilation log for errors: $BASE/WPS/compile.log"
+        echo "If you want to recompile WPS, remove the WPS directory and rerun the installation script."
+        exit 1
+    fi
+
     echo "✅ WPS compiled successfully."
 else
     echo "✅ WPS is already installed. Skipping..."
+    
+    # Check if executables exist in existing installation
+    if [ ! -f "$BASE/WPS/geogrid.exe" ] || [ ! -f "$BASE/WPS/metgrid.exe" ] || [ ! -f "$BASE/WPS/ungrib.exe" ]; then
+        echo "❌ ERROR: Existing WPS installation appears to be incomplete. Could not find one or more of the required executables (geogrid.exe, metgrid.exe, ungrib.exe) in $BASE/WPS."
+        echo "Consider removing the WPS directory and rerunning the installation script."
+        exit 1
+    fi
 fi
-
 
 # Install WRFDA
 if [ ! -d "$BASE/WRFDA" ]; then
     echo "🔧 Installing WRFDA..."
     cd $BASE
+    
+    # Check if WRF tarball exists in tmp directory (WRFDA uses the same tarball as WRF)
+    if [ -f "$BASE/tmp/v${WRF_VERSION}_WRF.tar.gz" ]; then
+        echo "📦 WRF tarball already exists in $BASE/tmp. Using for WRFDA..."
+        cp $BASE/tmp/v${WRF_VERSION}_WRF.tar.gz ./v${WRF_VERSION}.tar.gz
+    else
+        echo "📥 Downloading WRF tarball for WRFDA..."
+        wget --progress=bar:force https://github.com/wrf-model/WRF/releases/download/v${WRF_VERSION}/v${WRF_VERSION}.tar.gz
+        # Save a copy to tmp directory
+        cp v${WRF_VERSION}.tar.gz $BASE/tmp/v${WRF_VERSION}_WRF.tar.gz
+    fi
+    
     tar -xf v${WRF_VERSION}.tar.gz
     mv WRFV${WRF_VERSION}/ WRFDA
     cd WRFDA
+
     export NETCDF=$BASE/libraries/netcdf-c/install
     export NETCDF4=1
     export HDF5=$BASE/libraries/hdf5/install/
     export WRFIO_NCD_LARGE_FILE_SUPPORT=1
-    export WRFPLUS_DIR=$BASE/WRFPLUS/
+    
     echo "🔧 Configuring WRFDA..."
     echo 34 | ./configure wrfda # Automatically select dmpar with GNU compilers
     echo "🏗️ Compiling WRFDA... (full output written to compile.log)"
     ./compile all_wrfvar 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
-    check_compile_log "compile.log" 
+    check_compile_log "compile.log"
+    
+    cd $BASE 
+    rm -f v${WRF_VERSION}.tar.gz
+
+    # Check if the critical executables exist
+    if [ ! -f "$BASE/WRFDA/var/da/da_wrfvar.exe" ] || [ ! -f "$BASE/WRFDA/var/da/da_update_bc.exe" ]; then
+        echo "❌ ERROR: WRFDA compilation failed. Could not find da_wrfvar.exe or da_update_bc.exe in $BASE/WRFDA/var/da/"
+        echo "Check the compilation log for errors: $BASE/WRFDA/compile.log"
+        echo "If you want to recompile WRFDA, remove the WRFDA directory and rerun the installation script."
+        exit 1
+    fi
+
     echo "✅ WRFDA compiled successfully."
 else
     echo "✅ WRFDA is already installed. Skipping..."
+    
+    # Check if executables exist in existing installation
+    if [ ! -f "$BASE/WRFDA/var/da/da_wrfvar.exe" ] || [ ! -f "$BASE/WRFDA/var/da/da_update_bc.exe" ]; then
+        echo "❌ ERROR: Existing WRFDA installation appears to be incomplete. Could not find da_wrfvar.exe or da_update_bc.exe in $BASE/WRFDA/var/da/"
+        echo "Consider removing the WRFDA directory and rerunning the installation script."
+        exit 1
+    fi
 fi
 
 # Function to perform git clone with retry mechanism
@@ -331,16 +429,25 @@ git_clone_with_retry() {
 }
 
 # Install NCEPlibs
-if [ ! -d "$BASE/libraries/NCEPlibs" ] ; then
+if [ ! -d "$BASE/libraries/NCEPlibs/install" ] || [ -z "$(ls -A $BASE/libraries/NCEPlibs/install)" ]; then
     echo "🔧 Installing NCEPlibs..."
     cd $BASE/libraries/
     
-    if ! git_clone_with_retry "https://github.com/NCAR/NCEPlibs.git" "NCEPlibs" "" "false"; then
-        echo "Failed to clone NCEPlibs repository. Please check your internet connection and try again."
-        exit 1
+    # Create NCEPlibs directory if it doesn't exist
+    mkdir -p $BASE/libraries/NCEPlibs
+    
+    if [ ! -d "$BASE/libraries/NCEPlibs/.git" ]; then
+        # Only clone if not already cloned
+        cd $BASE/libraries/
+        if ! git_clone_with_retry "https://github.com/NCAR/NCEPlibs.git" "NCEPlibs" "" "false"; then
+            echo "Failed to clone NCEPlibs repository. Please check your internet connection and try again."
+            exit 1
+        fi
+    else
+        echo "NCEPlibs repository already cloned. Using existing repository."
     fi
     
-    cd NCEPlibs
+    cd $BASE/libraries/NCEPlibs
     mkdir -p install
     export NETCDF=$BASE/libraries/netcdf-c/install
     export PNG_INC=$BASE/libraries/libpng/install/include/
@@ -351,6 +458,7 @@ if [ ! -d "$BASE/libraries/NCEPlibs" ] ; then
     echo "✅ NCEPlibs compiled successfully."
 else
     echo "✅ NCEPlibs is already installed. Skipping..."
+    echo "If you want to recompile NCEPlibs, remove the $BASE/libraries/NCEPlibs/install directory and rerun the installation script."
 fi
 
 # Install UPP
@@ -372,9 +480,25 @@ if [ ! -d "$BASE/UPP" ]; then
     echo "🏗️ Compiling UPP... (full output written to compile.log)"
     ./compile 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
+    
+    # Check if the critical executable exists
+    if [ ! -f "$BASE/UPP/exec/unipost.exe" ]; then
+        echo "❌ ERROR: UPP compilation failed. Could not find unipost.exe in $BASE/UPP/exec/"
+        echo "Check the compilation log for errors: $BASE/UPP/compile.log"
+        echo "If you want to recompile UPP, remove the UPP directory and rerun the installation script."
+        exit 1
+    fi
+    
     echo "✅ UPP compiled successfully."
 else
     echo "✅ UPP is already installed. Skipping..."
+    
+    # Check if the executable exists in existing installation
+    if [ ! -f "$BASE/UPP/exec/unipost.exe" ]; then
+        echo "❌ ERROR: Existing UPP installation appears to be incomplete. Could not find unipost.exe in $BASE/UPP/exec/"
+        echo "Consider removing the UPP directory and rerunning the installation script."
+        exit 1
+    fi
 fi
 
 # Setup UPP more efficiently
