@@ -3,7 +3,7 @@
 # Package version configuration
 # Change these values to upgrade to newer versions
 # Core components
-export WRF_VERSION="4.6.1"
+export WRF_VERSION="4.7.0"
 export WPS_VERSION="4.6.0"
 export UPP_VERSION="dtc_post_v4.1.0"
 
@@ -12,11 +12,11 @@ export ZLIB_VERSION="1.3.1"
 export OPENMPI_VERSION="5.0.3"
 export SZIP_VERSION="2.1.1"
 export HDF5_VERSION="1.14.4-3"
-export NETCDF_C_VERSION="4.9.2"
-export NETCDF_FORTRAN_VERSION="4.6.1"
+export NETCDF_C_VERSION="4.9.3"
+export NETCDF_FORTRAN_VERSION="4.6.2"
 export JPEG_VERSION="9f"
-export LIBPNG_VERSION="1.6.43"
-export JASPER_VERSION="1.900.1"
+export LIBPNG_VERSION="1.6.48"
+export JASPER_VERSION="4.2.5"
 
 # CRTM coefficients
 export CRTM_COEF_VERSION="2.3.0"
@@ -98,7 +98,7 @@ echo "Installing required packages..."
 sudo dnf config-manager --set-enabled crb
 sudo dnf makecache
 sudo dnf install -y epel-release gcc gfortran g++ emacs wget tar perl libxml2-devel \
-    m4 chrony libcurl-devel csh ksh rsync
+    m4 chrony libcurl-devel csh ksh rsync cmake
 echo "y" | sudo dnf update
 
 # Install verification-related system packages
@@ -122,7 +122,7 @@ check_compile_log() {
     fi
 }
 
-# Function to download, extract, configure, and install libraries with better progress indication
+# Function to download, extract, configure, and install libraries
 install_library() {
     local url=$1
     local version_dir_name=$2
@@ -150,29 +150,51 @@ install_library() {
 
     # Extract the file
     echo "📂 Extracting $file_name..."
-    if [[ $file_name == *.zip ]]; then
-        unzip -q -o $file_name > "$log_file" 2>&1
-    else
-        tar -xf $file_name > "$log_file" 2>&1
-    fi
-
+    tar -xf $file_name > "$log_file" 2>&1
+    
     echo "🔨 Configuring $generic_name..."
-    cd $version_dir_name
     
-    if [ $generic_name == "netcdf-fortran" ]; then
-        eval ./configure --prefix=$BASE/libraries/netcdf-c/install $configure_args > "$log_file" 2>&1
+    if [ $generic_name == "jasper" ]; then
+        # Special handling for Jasper using CMake
+        # Create build directory outside the source tree
+        mkdir -p $BASE/libraries/build-${generic_name}
+        mkdir -p $BASE/libraries/$version_dir_name/install
+
+        cd $BASE/libraries/build-${generic_name}
+        
+        # Configure with CMake pointing to source dir
+        cmake -H$BASE/libraries/$version_dir_name -B. \
+              -DCMAKE_INSTALL_PREFIX=$BASE/libraries/$version_dir_name/install \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DJAS_ENABLE_DOC=false \
+              -DJAS_ENABLE_SHARED=true > "$log_file" 2>&1
+        
+        # Build and install
+        echo "🏗️ Building $generic_name..."
+        cmake --build . >> "$log_file" 2>&1
+        echo "📥 Installing $generic_name..."
+        cmake --build . --target install >> "$log_file" 2>&1
+        
+        # Return to libraries directory for symlinking
+        cd $BASE/libraries
     else
-        mkdir -p install
-        eval ./configure --prefix=$BASE/libraries/$version_dir_name/install $configure_args > "$log_file" 2>&1
+        cd $version_dir_name
+        if [ $generic_name == "netcdf-fortran" ]; then
+            eval ./configure --prefix=$BASE/libraries/netcdf-c/install $configure_args > "$log_file" 2>&1
+        else
+            mkdir -p install
+            eval ./configure --prefix=$BASE/libraries/$version_dir_name/install $configure_args > "$log_file" 2>&1
+        fi  
+        echo "🏗️ Building $generic_name..."
+        make > "$log_file" 2>&1
+        echo "📥 Installing $generic_name..."
+        make install > "$log_file" 2>&1
+        
+        # Return to libraries directory for symlinking
+        cd $BASE/libraries
     fi
-    
-    echo "🏗️ Building $generic_name..."
-    make > "$log_file" 2>&1
-    echo "📥 Installing $generic_name..."
-    make install > "$log_file" 2>&1
     
     # Create symbolic link to version-agnostic name
-    cd $BASE/libraries
     if [ ! -d "$version_dir_name" ]; then
         echo "ERROR: Directory $version_dir_name not found. Check $log_file. Aborting installation."
         exit 1
@@ -182,7 +204,7 @@ install_library() {
     echo "✅ $generic_name installed successfully."
 }
 
-# Install libraries with version-agnostic symbolic links
+# Install libraries
 install_library "https://zlib.net/zlib-${ZLIB_VERSION}.tar.gz" "zlib-${ZLIB_VERSION}" "zlib" "" 
 install_library "https://download.open-mpi.org/release/open-mpi/v${OPENMPI_VERSION%.*}/openmpi-${OPENMPI_VERSION}.tar.gz" "openmpi-${OPENMPI_VERSION}" "openmpi" "--with-zlib=$BASE/libraries/zlib/install" 
 export PATH=$PATH:$BASE/libraries/openmpi/install/bin
@@ -192,10 +214,10 @@ install_library "https://downloads.unidata.ucar.edu/netcdf-c/${NETCDF_C_VERSION}
 export LD_LIBRARY_PATH=$BASE/libraries/netcdf-c/install/lib
 install_library "https://downloads.unidata.ucar.edu/netcdf-fortran/${NETCDF_FORTRAN_VERSION}/netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz" "netcdf-fortran-${NETCDF_FORTRAN_VERSION}" "netcdf-fortran" "LDFLAGS=\"-L$BASE/libraries/netcdf-c/install/lib/\" CPPFLAGS=\"-I$BASE/libraries/netcdf-c/install/include/\" FC=gfortran F77=gfortran"
 install_library "http://www.ijg.org/files/jpegsrc.v${JPEG_VERSION}.tar.gz" "jpeg-${JPEG_VERSION}" "jpeg" ""
-install_library "https://sourceforge.net/projects/libpng/files/libpng16/${LIBPNG_VERSION}/libpng-${LIBPNG_VERSION}.tar.gz" "libpng-${LIBPNG_VERSION}" "libpng" ""
-install_library "https://www.ece.uvic.ca/~frodo/jasper/software/jasper-${JASPER_VERSION}.zip" "jasper-${JASPER_VERSION}" "jasper" "--enable-shared --enable-libjpeg"
+install_library "https://github.com/pnggroup/libpng/archive/refs/tags/v${LIBPNG_VERSION}.tar.gz" "libpng-${LIBPNG_VERSION}" "libpng" ""
+install_library "https://github.com/jasper-software/jasper/releases/download/version-${JASPER_VERSION}/jasper-${JASPER_VERSION}.tar.gz" "jasper-${JASPER_VERSION}" "jasper" ""
 
-# WRF installation with better output handling
+# WRF installation
 if [ ! -d "$BASE/WRF" ]; then
     echo "🔧 Installing WRF..."
     cd $BASE
@@ -216,7 +238,7 @@ if [ ! -d "$BASE/WRF" ]; then
     mv WRFV${WRF_VERSION} WRF
     cd WRF
     
-    # Set all WRF environment variables at once
+    # Set all WRF environment variables
     export WRF_EM_CORE=1
     export NETCDF=$BASE/libraries/netcdf-c/install
     export NETCDF4=1
@@ -230,7 +252,7 @@ if [ ! -d "$BASE/WRF" ]; then
     echo "🔧 Configuring WRF..."
     echo 34 | ./configure # Automatically select dmpar with GNU compilers
     
-    echo "🏗️ Compiling WRF... (full output written to compile.log)"
+    echo "🏗️ Compiling WRF... (full output written to ${BASE}/WRF/compile.log)"
     # Show progress with a spinner during compilation
     ./compile em_real 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
@@ -288,7 +310,7 @@ if [ ! -d "$BASE/WPS" ]; then
     echo 3 | ./configure # Automatically select dmpar with GNU compilers
     sed -i '/COMPRESSION_LIBS/s|=.*|= -L${BASE}/libraries/jasper/install/lib -L${BASE}/libraries/libpng/install/lib -L${BASE}/libraries/zlib/install/lib -ljasper -lpng -lz|' configure.wps
     sed -i '/COMPRESSION_INC/s|=.*|= -I${BASE}/libraries/jasper/install/include -I${BASE}/libraries/libpng/install/include -I${BASE}/libraries/zlib/install/include|' configure.wps
-    echo "🏗️ Compiling WPS... (full output written to compile.log)"
+    echo "🏗️ Compiling WPS... (full output written to ${BASE}/WPS/compile.log)"
     ./compile 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
 
@@ -342,7 +364,7 @@ if [ ! -d "$BASE/WRFDA" ]; then
     
     echo "🔧 Configuring WRFDA..."
     echo 34 | ./configure wrfda # Automatically select dmpar with GNU compilers
-    echo "🏗️ Compiling WRFDA... (full output written to compile.log)"
+    echo "🏗️ Compiling WRFDA... (full output written to ${BASE}/WRFDA/compile.log)"
     ./compile all_wrfvar 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
     
@@ -453,7 +475,7 @@ if [ ! -d "$BASE/libraries/NCEPlibs/install" ] || [ -z "$(ls -A $BASE/libraries/
     export PNG_INC=$BASE/libraries/libpng/install/include
     export JASPER_INC=$BASE/libraries/jasper/install/include
     sed -i '/FFLAGS/s|$| -fallow-argument-mismatch -fallow-invalid-boz|' macros.make.linux.gnu
-    echo "🏗️ Compiling NCEPlibs... (full output written to compile.log)"
+    echo "🏗️ Compiling NCEPlibs... (full output written to ${BASE}/libraries/NCEPlibs/compile.log)"
     echo y | ./make_ncep_libs.sh -s linux -c gnu -d $BASE/libraries/NCEPlibs/install/ -o 0 -m 1 -a upp > compile.log 2>&1
     echo "✅ NCEPlibs compiled successfully."
 else
@@ -477,7 +499,7 @@ if [ ! -d "$BASE/UPP" ]; then
     echo "🔧 Configuring UPP..."
     echo 8 | ./configure # Automatically select gfortran dmpar
     sed -i '/^FFLAGS\(.*\)=/s/=\(.*\)/= -fallow-argument-mismatch -fallow-invalid-boz \1/' configure.upp
-    echo "🏗️ Compiling UPP... (full output written to compile.log)"
+    echo "🏗️ Compiling UPP... (full output written to ${BASE}/UPP/compile.log)"
     ./compile 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
     
