@@ -102,7 +102,7 @@ sudo dnf install -y epel-release gcc gfortran g++ emacs wget tar perl libxml2-de
 echo "y" | sudo dnf update
 
 # Install verification-related system packages
-sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R
+sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco
 
 # Create necessary directories with a single command
 echo "Creating directory structure..."
@@ -622,7 +622,7 @@ sed -i "s|smartmet@ip-address|smartmet@$SMARTMET_IP|g" $BASE/scripts/control_run
 sed -i "s|^export BASE_DIR=.*|export BASE_DIR=$BASE|" "$BASE/scripts/env.sh"
 
 # Update all script paths in a loop to avoid repetition
-for script in control_run_WRF.sh run_WPS.sh run_WRF.sh execute_upp.sh run_WRFDA.sh clean_wrf.sh get_obs.sh; do
+for script in control_run_WRF.sh run_WPS.sh run_WRF.sh execute_upp.sh run_WRFDA.sh clean_wrf.sh get_obs.sh verification.sh; do
     sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/$script"
 done
 
