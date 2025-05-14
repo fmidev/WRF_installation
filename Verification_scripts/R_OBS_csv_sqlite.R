@@ -20,8 +20,8 @@ library(lubridate)
 
 # Set paths
 cat("Starting observation conversion for period:", start_time, "to", end_time, "\n")
-obs_path <- "/home/mihasu/WRF_verification/"  # 
-sqlite_dir <- "/home/mihasu/WRF_verification/"  # Path to save SQLite tables
+obs_path <- "/home/wrf/WRF_Model/Verification/Data/Obs"  # 
+sqlite_dir <- "/home/wrf/WRF_Model/Verification/SQlite_tables/Obs"  # Path to save SQLite tables
 
 # Create date sequence
 start_date <- ymd_h(start_time)

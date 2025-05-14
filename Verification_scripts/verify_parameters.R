@@ -30,7 +30,7 @@ library(ggplot2)
 
 # Path settings
 sqlite_fc_path <- "/home/wrf/WRF_Model/Verification/SQlite_tables/FCtables"
-sqlite_obs_path <- "/home/wrf/WRF_Model/Verification/SQlite_tables/OBS"
+sqlite_obs_path <- "/home/wrf/WRF_Model/Verification/SQlite_tables/Obs"
 base_figure_dir <- "/home/wrf/WRF_Model/Verification/Data/Figures"
 base_results_dir <- "/home/wrf/WRF_Model/Verification/Data/Results"
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #########################################################################
-######## Complete Verification Process - Forecasts and Observations #####
+######## Complete WRF Verification Process #####
 #########################################################################
 
 # Check if arguments are provided
@@ -29,16 +29,13 @@ TEMP_DIR="${DATA_DIR}/temp"
 # Create directories if they don't exist
 mkdir -p ${FORECAST_DIR}
 mkdir -p ${OBS_DIR}
-mkdir -p ${SQLITE_DIR}/OBS
+mkdir -p ${SQLITE_DIR}/Obs
 mkdir -p ${SQLITE_DIR}/FCtables
 mkdir -p ${FIGURES_DIR}
 mkdir -p ${TEMP_DIR}
 
-# Define date ranges
+# Define date
 CURRENT_DATE="${year}${month}${day}${cycle}"
-SEVEN_DAYS_AGO=$(date --utc +'%Y%m%d%H' -d "${year}-${month}-${day} ${cycle}:00:00 - 7 day")
-
-echo "Processing forecasts and observations from ${SEVEN_DAYS_AGO} to ${CURRENT_DATE}"
 
 ##########################################################################
 # Step 1: Extract essential variables from WRF files and concatenate
@@ -121,7 +118,7 @@ if [ "$DAY_OF_WEEK" = "1" ] && [ "$cycle" = "00" ]; then
     Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R ${SEVEN_DAYS_AGO} ${CURRENT_DATE} "weekly"
     Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R ${THIRTY_DAYS_AGO} ${CURRENT_DATE} "monthly"
 else
-    echo "Not Monday at 00 UTC - skipping weekly verification process"
+    echo "Not Monday at 00 UTC - skipping verification process"
 fi
 
 ##########################################################################

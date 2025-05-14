@@ -616,6 +616,16 @@ echo "Copying run scripts into the scripts directory..."
 cp $GIT_REPO/Run_scripts/* $BASE/scripts/
 chmod +x $BASE/scripts/*
 
+echo "Copying verification R scripts into the Verification directory..."
+cp $GIT_REPO/Verification_scripts/* $BASE/Verification/scripts/
+
+# Update paths in R verification scripts
+echo "Updating paths in R verification scripts..."
+for r_script in $BASE/Verification/scripts/*.R; do
+    # Replace all occurrences of default WRF path with the actual BASE path
+    sed -i "s|/home/wrf/WRF_Model|$BASE|g" "$r_script"
+done
+
 # Update SmartMet IP address and update all script paths efficiently
 echo "Updating configuration in run scripts..."
 sed -i "s|smartmet@ip-address|smartmet@$SMARTMET_IP|g" $BASE/scripts/control_run_WRF.sh
