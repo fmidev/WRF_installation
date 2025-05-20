@@ -246,7 +246,7 @@ EOF
 # Step 3: Run data assimilation
 # ===============================================
 echo "Running da_wrfvar.exe..."
-time mpirun -np 20 ${WORK_DIR_DA}/da_wrfvar.exe
+time mpirun -np ${MAX_CPU} ${WORK_DIR_DA}/da_wrfvar.exe
 echo "DA completed."
 
 # Update lateral boundary conditions

@@ -9,7 +9,7 @@
 
 # Load configuration if available
 CONFIG_FILE="gfs.cnf"
-. /lustre/home/hasu/WRF_Model/scripts/$CONFIG_FILE
+. /home/wrf/WRF_Model/scripts/$CONFIG_FILE
 
 # Default Configuration
 : "${AREA:=world}"
@@ -38,7 +38,7 @@ done
 
 # Constants and Variables
 STEP=6
-BASE="/lustre/home/hasu/WRF_Model"
+BASE="/home/wrf/WRF_Model"
 TMP="$BASE/tmp/gfs_${AREA}_${RESOLUTION}_$(date -u +%Y%m%d%H%M)"
 LOGFILE="$BASE/logs/gfs_${AREA}_$(date -u +%H).log"
 OUTNAME="$(date -u +%Y%m%d%H%M)_gfs_$AREA"

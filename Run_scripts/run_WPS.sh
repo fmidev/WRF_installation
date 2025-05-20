@@ -130,7 +130,7 @@ fi
 cat << EOF > run_metgrid.bash
 #!/bin/bash
 cd ${run_dir}
-time mpirun -np 24 ${WPS_DIR}/metgrid.exe
+time mpirun -np ${MAX_CPU} ${WPS_DIR}/metgrid.exe
 EOF
 
 chmod +x run_metgrid.bash

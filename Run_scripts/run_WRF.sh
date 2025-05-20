@@ -190,7 +190,7 @@ EOF
 # ===============================================
 
 echo "Running real.exe..."
-time mpirun -np 10 ${run_dir}/real.exe
+time mpirun -np ${MAX_CPU} ${run_dir}/real.exe
 echo "Real.exe completed."
 
 # ===============================================
@@ -209,7 +209,7 @@ fi
 
 echo "Ready to run WRF.exe"
 cd $run_dir
-time mpirun -np 44 ./wrf.exe
+time mpirun -np ${MAX_CPU} ./wrf.exe
 if [ ! -f "${run_dir}/wrfout_d02_${eyear}-${emonth}-${eday}_${ehour}:00:00" ]; then
   echo "Error: WRF failed."
   exit 1

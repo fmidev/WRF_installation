@@ -17,4 +17,4 @@ VALID_HOURS="00|06|12|18"
 #only 00UTC boundaries are downloaded
 #VALID_HOURS="00|12"
 
-WRF_COPY_DEST=/lustre/home/hasu/WRF_Model/GFS/
+WRF_COPY_DEST=/home/wrf/WRF_Model/GFS/

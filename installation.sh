@@ -108,6 +108,14 @@ sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netc
 echo "Creating directory structure..."
 mkdir -p $BASE/{libraries,WPS_GEOG,scripts,tmp,out,logs,GFS,GEN_BE,CRTM_coef,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc},Verification/{scripts,Data/{Forecast,Obs,Static},Results,SQlite_tables}}
 
+# Detect number of CPU cores and save one less for parallel processes
+CPU_COUNT=$(nproc)
+MAX_CPU=$((CPU_COUNT - 1))
+if [ $MAX_CPU -lt 1 ]; then
+    MAX_CPU=1
+fi
+echo "Detected $CPU_COUNT CPU cores, will use maximum of $MAX_CPU for parallel processes"
+
 # Set compilers and important environment variables once
 export CC=gcc
 export CXX=g++
@@ -552,7 +560,7 @@ if [ -d "$BASE/UPP" ]; then
     sed -i "s|export lastfhr=.*|export lastfhr=72|" "$UNIPOST"
     sed -i "s|export incrementhr=.*|export incrementhr=01|" "$UNIPOST"
     sed -i "s|export domain_list=.*|export domain_list=\"d01 d02\"|" "$UNIPOST"
-    sed -i "s|export RUN_COMMAND=.*|export RUN_COMMAND=\"mpirun -np 10 \${POSTEXEC}/unipost.exe \"|" "$UNIPOST"
+    sed -i "s|export RUN_COMMAND=.*|export RUN_COMMAND=\"mpirun -np ${MAX_CPU} \${POSTEXEC}/unipost.exe \"|" "$UNIPOST"
     sed -i "s|ln -fs \${DOMAINPATH}/parm/post_avblflds_comm.xml post_avblflds.xml|ln -fs \${UNIPOST_HOME}/parm/post_avblflds_comm.xml post_avblflds.xml|" "$UNIPOST"
     sed -i "s|ln -fs \${DOMAINPATH}/parm/params_grib2_tbl_new params_grib2_tbl_new|ln -fs \${UNIPOST_HOME}/parm/params_grib2_tbl_new params_grib2_tbl_new|" "$UNIPOST"
 
@@ -626,12 +634,15 @@ for r_script in $BASE/Verification/scripts/*.R; do
     sed -i "s|/home/wrf/WRF_Model|$BASE|g" "$r_script"
 done
 
-# Update SmartMet IP address and update all script paths efficiently
+# Update SmartMet IP address
 echo "Updating configuration in run scripts..."
 sed -i "s|smartmet@ip-address|smartmet@$SMARTMET_IP|g" $BASE/scripts/control_run_WRF.sh
-sed -i "s|^export BASE_DIR=.*|export BASE_DIR=$BASE|" "$BASE/scripts/env.sh"
 
-# Update all script paths in a loop to avoid repetition
+# Add CPU cores and BASE_DIR into env.sh
+sed -i "s|^export BASE_DIR=.*|export BASE_DIR=$BASE|" "$BASE/scripts/env.sh"
+sed -i "s|^export MAX_CPU=.*|export MAX_CPU=$MAX_CPU|" "$BASE/scripts/env.sh"
+
+# Update all script paths
 for script in control_run_WRF.sh run_WPS.sh run_WRF.sh execute_upp.sh run_WRFDA.sh clean_wrf.sh get_obs.sh verification.sh; do
     sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/$script"
 done
