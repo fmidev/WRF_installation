@@ -21,7 +21,7 @@ Follow these steps for easy installation:
 
 2. Get the code:
    ```
-   git clone git@github.com:fmidev/WRF_installation.git
+   git clone https://github.com/fmidev/WRF_installation.git
    cd WRF_installation
    ```
 
