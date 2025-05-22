@@ -97,6 +97,7 @@ mkdir -p $BASE/install_logs
 echo "Installing required packages..."
 sudo dnf config-manager --set-enabled crb
 sudo dnf makecache
+sudo rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY*
 sudo dnf install -y epel-release gcc gfortran g++ emacs wget tar perl libxml2-devel \
     m4 chrony libcurl-devel csh ksh rsync cmake
 echo "y" | sudo dnf update
@@ -569,6 +570,55 @@ else
     echo "❌ UPP is not installed. Skipping UPP setup..."
 fi
 
+# Setup git repository to track configuration and script files
+setup_git_repository() {
+    echo "🔧 Setting up git repository to track configuration and script files..."
+    
+    # Create a git repository in the BASE directory
+    cd $BASE
+    git init
+    
+    # Create a .gitignore file that ignores everything except specific directories/files
+    cat > .gitignore << EOL
+# Ignore everything by default
+/*
+
+# Allow specific directories and files
+!/scripts/
+!/UPP_wrk/
+/UPP_wrk/*
+!/UPP_wrk/parm/
+!/UPP_wrk/postprd/
+/UPP_wrk/postprd/*
+!/UPP_wrk/postprd/run_unipost
+!/Verification/
+/Verification/*
+!/Verification/scripts/
+
+# Still ignore any compiled files or temporary files in the allowed directories
+*.exe
+*.o
+*.mod
+*.log
+*.tmp
+*.swp
+EOL
+
+    # Add the specified directories and files
+    git add scripts/
+    git add UPP_wrk/parm/
+    git add UPP_wrk/postprd/run_unipost
+    git add Verification/scripts/
+    
+    # Commit the initial state
+    git config --local user.name "WRF admin"
+    git config --local user.email "<>"
+    git commit -m "Initial commit: tracking WRF configuration and script files"
+    
+    echo "✅ Git repository set up successfully at $BASE"
+    echo "   Tracking: scripts/, UPP_wrk/parm/, UPP_wrk/postprd/run_unipost, and Verification/scripts/"
+}
+
 # Setup CRTM coefficients
 if [ -z "$(ls -A $BASE/CRTM_coef)" ]; then
     echo "Setting up CRTM coefficients..."
@@ -643,9 +693,12 @@ sed -i "s|^export BASE_DIR=.*|export BASE_DIR=$BASE|" "$BASE/scripts/env.sh"
 sed -i "s|^export MAX_CPU=.*|export MAX_CPU=$MAX_CPU|" "$BASE/scripts/env.sh"
 
 # Update all script paths
-for script in control_run_WRF.sh run_WPS.sh run_WRF.sh execute_upp.sh run_WRFDA.sh clean_wrf.sh get_obs.sh verification.sh; do
+for script in control_run_WRF.sh run_WRF.sh execute_upp.sh run_WRFDA.sh clean_wrf.sh get_obs.sh verification.sh; do
     sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/$script"
 done
+
+# Set up git repository to track configuration and scripts
+setup_git_repository
 
 # Crontab setup with improved timezone handling
 echo "Setting up crontab for WRF..."
