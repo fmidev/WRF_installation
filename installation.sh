@@ -97,12 +97,12 @@ mkdir -p $BASE/install_logs
 echo "Installing required packages..."
 sudo dnf config-manager --set-enabled crb
 sudo dnf makecache -y -q
-sudo dnf install -y -q epel-release gcc gfortran g++ emacs wget tar perl libxml2-devel \
+sudo dnf install -y epel-release gcc gfortran g++ emacs wget tar perl libxml2-devel \
     m4 chrony libcurl-devel csh ksh rsync cmake
-sudo dnf update -y -q
+sudo dnf update -y
 
 # Install verification-related system packages
-sudo dnf install -y -q htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco
+sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco
 
 # Create necessary directories with a single command
 echo "Creating directory structure..."
