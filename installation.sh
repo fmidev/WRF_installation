@@ -90,8 +90,9 @@ fi
 export GIT_REPO=$(pwd)
 
 
-# Create a log directory for all installation logs
-mkdir -p $BASE/install_logs
+# Create necessary directories
+echo "Creating directory structure..."
+mkdir -p $BASE/{libraries,WPS_GEOG,scripts,tmp,out,logs,install_logs,GFS,GEN_BE,CRTM_coef,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc},Verification/{scripts,Data/{Forecast,Obs,Static},Results,SQlite_tables}}
 
 # Install required system packages
 echo "Installing required packages..."
@@ -104,9 +105,13 @@ sudo dnf update -y
 # Install verification-related system packages
 sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco
 
-# Create necessary directories with a single command
-echo "Creating directory structure..."
-mkdir -p $BASE/{libraries,WPS_GEOG,scripts,tmp,out,logs,GFS,GEN_BE,CRTM_coef,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc},Verification/{scripts,Data/{Forecast,Obs,Static},Results,SQlite_tables}}
+# Install RStudio
+echo "Installing RStudio..."
+cd $BASE/tmp
+wget https://download2.rstudio.org/server/rhel8/x86_64/rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
+wget https://download1.rstudio.org/electron/rhel9/x86_64/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
+sudo dnf install -y rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
+sudo dnf install -y rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
 
 # Detect number of CPU cores and save one less for parallel processes
 CPU_COUNT=$(nproc)
@@ -758,14 +763,7 @@ is_dnf_system() {
 }
 
 if [ "$INSTALL_VERIFICATION" = true ] && is_dnf_system; then
-    # Install RStudio
-    echo "Installing RStudio..."
-    cd $BASE/tmp
-    wget https://download2.rstudio.org/server/rhel8/x86_64/rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
-    wget https://download1.rstudio.org/electron/rhel9/x86_64/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
-    sudo dnf install -y rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
-    sudo dnf install -y rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
-    
+
     # Create user R library directory
     mkdir -p ~/R/library
     
@@ -793,7 +791,7 @@ install.packages("ncdf4")
 EOF
 
     echo "Installing R packages for verification..."
-    Rscript $BASE/tmp/install_r_packages.R
+    Rscript $BASE/tmp/install_r_packages.R > $BASE/install_logs/install_r_packages.log 2>&1
     
     rm -f $BASE/tmp/rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
     rm -f $BASE/tmp/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
