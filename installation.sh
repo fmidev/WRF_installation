@@ -688,8 +688,8 @@ fi
 
 # Copy and update scripts
 echo "Copying run scripts into the scripts directory..."
-cp $GIT_REPO/Run_scripts/* $BASE/scripts/
-chmod +x $BASE/scripts/*
+cp -r $GIT_REPO/Run_scripts/* $BASE/scripts/
+chmod -R +x $BASE/scripts/
 
 echo "Copying verification R scripts into the Verification directory..."
 cp $GIT_REPO/Verification_scripts/* $BASE/Verification/scripts/

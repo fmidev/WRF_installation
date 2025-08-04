@@ -184,7 +184,7 @@ echo "Generated namelist.obsproc"
 
 # Process local observations if country-specific script exists
 echo "Processing local observations..."
-COUNTRY_SCRIPT="$MAIN_DIR/process_local_obs_${COUNTRY}.sh"
+COUNTRY_SCRIPT="$MAIN_DIR/process_local_obs/process_local_obs_${COUNTRY}.sh"
 
 if [ -f "$COUNTRY_SCRIPT" ]; then
     echo "Found country-specific processing script: $COUNTRY_SCRIPT"

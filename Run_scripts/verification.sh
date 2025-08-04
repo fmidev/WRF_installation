@@ -77,14 +77,10 @@ ncrcat ${TEMP_DIR}/wrfout_verif_d02_* ${FORECAST_DIR}/wrf_d02
 ##########################################################################
 echo "Converting observations to SQLite format..."
 
-# Calculate observation start and end dates (last 6 hours) for R script
-SIX_HOURS_AGO=$(date --utc +'%Y%m%d%H' -d "${year}-${month}-${day} ${cycle}:00:00 - 6 hour")
-echo "Using observation period from ${SIX_HOURS_AGO} to ${CURRENT_DATE}"
-
 # Convert CSV observations to SQLite directly using R script
 cd ${VERIFICATION_SCRIPTS}
 echo "Running R_OBS_csv_sqlite.R to convert observations..."
-Rscript R_OBS_csv_sqlite.R ${SIX_HOURS_AGO} ${CURRENT_DATE}
+Rscript R_OBS_csv_sqlite.R ${CURRENT_DATE} 
 
 ##########################################################################
 # Step 3: Read forecast data and save to SQLite
@@ -126,8 +122,6 @@ fi
 ##########################################################################
 echo "Cleaning up temporary files..."
 
-rm -f ${FORECAST_DIR}/wrf_d01
-rm -f ${FORECAST_DIR}/wrf_d02
 rm -rf ${TEMP_DIR}/*
 
 echo "Verification process completed successfully!"
