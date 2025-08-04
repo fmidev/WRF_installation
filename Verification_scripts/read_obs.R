@@ -4,7 +4,7 @@
 
 args = commandArgs(trailingOnly=TRUE)
 if (length(args) != 1){
-  stop("Give current date as input argument in yyyymmddHH format, E.g. Rscript R_OBS_csv_sqlite.R 2023103100")
+  stop("Give current date as input argument in yyyymmddHH format, E.g. Rscript read_obs.R 2023103100")
 }
 
 current_date = args[1]
@@ -87,7 +87,6 @@ read_csv_obs <- function(file_name, dttm, parameter = NULL, ...) {
   list(synop = obs_data, synop_params = obs_units)
 }
 
-# Instead of using register_format_fn which isn't available, we'll use a different approach
 # using RSQLite directly to create the SQLite database
 
 # Check if RSQLite is installed, install if not

@@ -698,7 +698,7 @@ cp $GIT_REPO/Verification_scripts/* $BASE/Verification/scripts/
 echo "Updating paths in R verification scripts..."
 for r_script in $BASE/Verification/scripts/*.R; do
     # Replace all occurrences of default WRF path with the actual BASE path
-    sed -i "s|/home/wrf/WRF_Model|$BASE|g" "$r_script"
+    sed -i "s|/wrf/WRF_Model|$BASE|g" "$r_script"
 done
 
 # Update SmartMet IP address

@@ -79,8 +79,8 @@ echo "Converting observations to SQLite format..."
 
 # Convert CSV observations to SQLite directly using R script
 cd ${VERIFICATION_SCRIPTS}
-echo "Running R_OBS_csv_sqlite.R to convert observations..."
-Rscript R_OBS_csv_sqlite.R ${CURRENT_DATE} 
+echo "Running read_obs.R to convert observations..."
+Rscript read_obs.R ${CURRENT_DATE}
 
 ##########################################################################
 # Step 3: Read forecast data and save to SQLite
@@ -88,10 +88,10 @@ Rscript R_OBS_csv_sqlite.R ${CURRENT_DATE}
 echo "Converting forecast data to SQLite format..."
 
 # Process domain 1 forecasts
-Rscript ${VERIFICATION_SCRIPTS}/read_forecast_wrf_d01.R ${CURRENT_DATE}
+Rscript ${VERIFICATION_SCRIPTS}/read_forecast_wrf.R ${CURRENT_DATE} d01
 
 # Process domain 2 forecasts
-Rscript ${VERIFICATION_SCRIPTS}/read_forecast_wrf_d02.R ${CURRENT_DATE}
+Rscript ${VERIFICATION_SCRIPTS}/read_forecast_wrf.R ${CURRENT_DATE} d02
 
 ##########################################################################
 # Step 4: Perform verification for different parameters (weekly schedule)
