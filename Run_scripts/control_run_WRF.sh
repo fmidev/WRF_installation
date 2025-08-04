@@ -104,7 +104,6 @@ fi
 # ===============================================
 if [ "$RUN_VERIFICATION" = true ]; then
   echo "Starting verification process"
-  cd $VERIFICATION_DIR
   ./verification.sh $year $month $day $hour
 fi
 
@@ -124,7 +123,7 @@ echo "FINISHED !! WE ARE FREE NOW !! YEAH"
 
 # Log the end time and duration of the run
 end_time=$(date +%s)
-run_duration=$((end_time - start_time)/60)
+run_duration=$(( (end_time - start_time) / 60 ))
 echo "Run $hour started at: $(date -d @$start_time)" >> ${BASE_DIR}/logs/historical.log
 echo "Run $hour ended at: $(date -d @$end_time)" >> ${BASE_DIR}/logs/historical.log
 echo "Run $hour duration: $run_duration minutes" >> ${BASE_DIR}/logs/historical.log

@@ -28,6 +28,7 @@ export GRIBNUM=30 # Number of GFS GRIB files needed to be found
 export LEADTIME=72 # Forecast lead time in hours (if changing this, also change the lastfhr in the UPP_wrk/postprd/run_unipost)
 export INTERVAL=6 # Interval between the cycles in hours (needed for WRFDA)
 export MAX_CPU=20  # Number of CPU cores to use
+export COUNTRY="" # Country for country-specific observation processing scripts
 
 # Paths to run directories
 export DA_DIR=$BASE_DIR/DA_input

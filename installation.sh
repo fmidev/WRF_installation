@@ -65,6 +65,19 @@ else
     echo "SmartMet IP address: $SMARTMET_IP"
 fi
 
+# Prompt for country
+echo -n "Enter your country name (or abbreviation) for country-specific observation processing (e.g., Finland, Fin, etc.): "
+read country_name
+
+# Store country name
+if [ -z "$country_name" ]; then
+    export COUNTRY=""
+    echo "No country specified. Country-specific observation processing will be disabled."
+else
+    export COUNTRY="$country_name"
+    echo "Country set to: $COUNTRY"
+fi
+
 # Prompt for GitHub Personal Access Token
 echo " "
 echo "Installing verification tools requires a GitHub Personal Access Token (PAT)."
@@ -539,7 +552,7 @@ fi
 # Setup UPP more efficiently
 if [ -d "$BASE/UPP" ]; then
     echo "Setting up UPP..."
-    mkdir -p $BASE/{UPP_out,UPP_wrk/{parm,postprd,wrprd}}
+    mkdir -p $BASE/{UPP_out,UPP_wrk/{parm,postprd,wrfprd}}
     
     # Copy necessary files
     cp $BASE/UPP/scripts/run_unipost $BASE/UPP_wrk/postprd/
@@ -566,7 +579,7 @@ if [ -d "$BASE/UPP" ]; then
     sed -i "s|export incrementhr=.*|export incrementhr=01|" "$UNIPOST"
     sed -i "s|export domain_list=.*|export domain_list=\"d01 d02\"|" "$UNIPOST"
     sed -i "s|export RUN_COMMAND=.*|export RUN_COMMAND=\"mpirun -np ${MAX_CPU} \${POSTEXEC}/unipost.exe \"|" "$UNIPOST"
-    sed -i "s|ln -fs \${DOMAINPATH}/parm/post_avblflds_comm.xml post_avblflds.xml|ln -fs \${UNIPOST_HOME}/parm/post_avblflds_comm.xml post_avblflds.xml|" "$UNIPOST"
+    sed -i "s|ln -fs \${DOMAINPATH}/parm/post_avblflds_comm.xml post_avblflds.xml|ln -fs \${UNIPOST_HOME}/parm/post_avblflds.xml post_avblflds.xml|" "$UNIPOST"
     sed -i "s|ln -fs \${DOMAINPATH}/parm/params_grib2_tbl_new params_grib2_tbl_new|ln -fs \${UNIPOST_HOME}/parm/params_grib2_tbl_new params_grib2_tbl_new|" "$UNIPOST"
 
     echo "✅ UPP setup completed successfully."
@@ -695,6 +708,7 @@ sed -i "s|smartmet@ip-address|smartmet@$SMARTMET_IP|g" $BASE/scripts/control_run
 # Add CPU cores and BASE_DIR into env.sh
 sed -i "s|^export BASE_DIR=.*|export BASE_DIR=$BASE|" "$BASE/scripts/env.sh"
 sed -i "s|^export MAX_CPU=.*|export MAX_CPU=$MAX_CPU|" "$BASE/scripts/env.sh"
+sed -i "s|^export COUNTRY=.*|export COUNTRY=\"$COUNTRY\"|" "$BASE/scripts/env.sh"
 
 # Update all script paths
 for script in control_run_WRF.sh run_WRF.sh execute_upp.sh run_WRFDA.sh clean_wrf.sh get_obs.sh verification.sh; do
@@ -734,20 +748,20 @@ adjust_crontab_time() {
     echo $adjusted_hour
 }
 
-time_00=$(adjust_crontab_time 5)
-time_06=$(adjust_crontab_time 11)
-time_12=$(adjust_crontab_time 17)
-time_18=$(adjust_crontab_time 23)
+time_00=$(adjust_crontab_time 6)
+time_06=$(adjust_crontab_time 12)
+time_12=$(adjust_crontab_time 18)
+time_18=$(adjust_crontab_time 00)
 
 echo "Adjusted crontab job start times, cycle 00: $time_00:00, cycle 06: $time_06:00, cycle 12: $time_12:00, cycle 18: $time_18:00"
 
 # Update the crontab template with all replacements at once
 echo "Updating crontab settings in $BASE/scripts/crontab_template"
 sed -i "s|#30 \* \* \* \* /home/wrf/WRF_Model/scripts/clean_wrf.sh|#30 \* \* \* \* $BASE/scripts/clean_wrf.sh|" "$BASE/scripts/crontab_template"
-sed -i "s|#0 5 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 00 > /home/wrf/WRF_Model/logs/runlog_00.log|#0 $time_00 \* \* \* $BASE/scripts/control_run_WRF.sh 00 > $BASE/logs/runlog_00.log|" "$BASE/scripts/crontab_template"
-sed -i "s|#0 11 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 06 > /home/wrf/WRF_Model/logs/runlog_06.log|#0 $time_06 \* \* \* $BASE/scripts/control_run_WRF.sh 06 > $BASE/logs/runlog_06.log|" "$BASE/scripts/crontab_template"
-sed -i "s|#0 17 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 12 > /home/wrf/WRF_Model/logs/runlog_12.log|#0 $time_12 \* \* \* $BASE/scripts/control_run_WRF.sh 12 > $BASE/logs/runlog_12.log|" "$BASE/scripts/crontab_template"
-sed -i "s|#0 23 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 18 > /home/wrf/WRF_Model/logs/runlog_18.log|#0 $time_18 \* \* \* $BASE/scripts/control_run_WRF.sh 18 > $BASE/logs/runlog_18.log|" "$BASE/scripts/crontab_template"
+sed -i "s|#30 5 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 00 > /home/wrf/WRF_Model/logs/runlog_00.log|#0 $time_00 \* \* \* $BASE/scripts/control_run_WRF.sh 00 > $BASE/logs/runlog_00.log|" "$BASE/scripts/crontab_template"
+sed -i "s|#30 11 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 06 > /home/wrf/WRF_Model/logs/runlog_06.log|#0 $time_06 \* \* \* $BASE/scripts/control_run_WRF.sh 06 > $BASE/logs/runlog_06.log|" "$BASE/scripts/crontab_template"
+sed -i "s|#30 17 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 12 > /home/wrf/WRF_Model/logs/runlog_12.log|#0 $time_12 \* \* \* $BASE/scripts/control_run_WRF.sh 12 > $BASE/logs/runlog_12.log|" "$BASE/scripts/crontab_template"
+sed -i "s|#30 23 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 18 > /home/wrf/WRF_Model/logs/runlog_18.log|#0 $time_18 \* \* \* $BASE/scripts/control_run_WRF.sh 18 > $BASE/logs/runlog_18.log|" "$BASE/scripts/crontab_template"
 
 crontab $BASE/scripts/crontab_template
 

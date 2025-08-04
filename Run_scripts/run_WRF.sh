@@ -39,10 +39,11 @@ echo "Linked necessary files"
 
 # Configure `namelist.input` for WRF run
 run_days=$((leadtime/24))
+run_hours=$((leadtime%24))
 cat << EOF > namelist.input
 &time_control
  run_days                   = ${run_days},
- run_hours                  = 0,
+ run_hours                  = ${run_hours},
  run_minutes                = 0,
  run_seconds                = 0,
  start_year                 = $year, $year,
@@ -197,7 +198,7 @@ echo "Real.exe completed."
 # Step 2: Data assimilation (optional, WRFDA variable true/false)
 # ===============================================
 if $WRFDA; then
-  cd $run_dir
+  cd ${MAIN_DIR}
   ./run_WRFDA.sh $year $month $day $hour $leadtime $prod_dir
 else
   echo "Running model without data assimilation"
@@ -211,8 +212,7 @@ echo "Ready to run WRF.exe"
 cd $run_dir
 time mpirun -np ${MAX_CPU} ./wrf.exe
 if [ ! -f "${run_dir}/wrfout_d02_${eyear}-${emonth}-${eday}_${ehour}:00:00" ]; then
-  echo "Error: WRF failed."
-  exit 1
+  echo "Error: WRF failed, last output file is missing."
 else
   echo "WRF run completed."
 fi
@@ -228,7 +228,7 @@ if $WRFDA; then
   cp $run_dir/wrfout_d01_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00 $DA_DIR/rc/ || :
   cp $run_dir/wrfout_d02_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00 $DA_DIR/rc/ || :
   #VARBC file
-  cp $WORK_DIR_DA/VARBC.out $DA_DIR/varbc/ || :
+  cp $run_dir/da_wrk/VARBC.out $DA_DIR/varbc/ || :
 fi
 
 echo "Cycle" ${year}${month}${day}${hour}" WRF run finished"

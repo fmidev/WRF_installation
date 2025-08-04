@@ -29,10 +29,20 @@ FILES=(
     "gdas.t${HH}z.gpsro.tm00.bufr_d.nr"
     "gdas.t${HH}z.prepbufr.nr"
 )
+# Create necessary directories with full path checking
+echo "Creating necessary directories..."
+for dir in "$DA_DIR/ob" "$DA_DIR/ob/raw_obs" "$DA_DIR/ob/obsproc"; do
+    if [ ! -d "$dir" ]; then
+        echo "Creating directory: $dir"
+        mkdir -p "$dir" || { echo "ERROR: Failed to create directory $dir"; exit 1; }
+    fi
+done
+
+# Also create needed verification directories
+mkdir -p "${BASE_DIR}/Verification/Data/Obs" || { echo "ERROR: Failed to create directory ${BASE_DIR}/Verification/Data/Obs"; exit 1; }
 
 # Download the files
-mkdir -p $DA_DIR/ob
-cd $DA_DIR/ob
+cd "$DA_DIR/ob" || { echo "ERROR: Failed to change to directory $DA_DIR/ob"; exit 1; }
 for FILE in "${FILES[@]}"; do
     URL="${BASE_URL}${FILE}"
     echo "Downloading ${FILE}..."
@@ -49,10 +59,14 @@ mv gdas.t${HH}z.gpsro.tm00.bufr_d.nr gpsro.bufr
 mv gdas.t${HH}z.prepbufr.nr ob.bufr
 
 
-mkdir -p $DA_DIR/ob/obsproc
-OBSPROC_DIR=$DA_DIR/ob/obsproc
-cd $OBSPROC_DIR
-cp $WRFDA_DIR/var/obsproc/obserr.txt .
+# Make sure obserr.txt exists
+cd "$DA_DIR/ob/obsproc" || { echo "ERROR: Failed to change to directory $DA_DIR/ob/obsproc"; exit 1; }
+if [ -f "$WRFDA_DIR/var/obsproc/obserr.txt" ]; then
+    cp "$WRFDA_DIR/var/obsproc/obserr.txt" .
+else
+    echo "WARNING: Could not find obserr.txt at $WRFDA_DIR/var/obsproc/obserr.txt"
+    echo "You may need to provide this file manually."
+fi
 
 # Set observation window
 s_date="$YYYY-$MM-$DD ${HH}:00:00"
@@ -129,10 +143,10 @@ cat << EOF > namelist.obsproc
  MAXNES =   1,
  NESTIX =  60,  200,
  NESTJX =  90,  200,
- DIS    =  60,  10., 
- NUMC   =    1,    1,  
+ DIS    =  60,  10.,
+ NUMC   =    1,    1,
  NESTI  =    1,   40,
- NESTJ  =    1,   60, 
+ NESTJ  =    1,   60,
  /
 
  &record9
@@ -168,6 +182,21 @@ cat << EOF > namelist.obsproc
 EOF
 echo "Generated namelist.obsproc"
 
+# Process local observations if country-specific script exists
+echo "Processing local observations..."
+COUNTRY_SCRIPT="$MAIN_DIR/process_local_obs_${COUNTRY}.sh"
+
+if [ -f "$COUNTRY_SCRIPT" ]; then
+    echo "Found country-specific processing script: $COUNTRY_SCRIPT"
+    bash "$COUNTRY_SCRIPT" $YYYY $MM $DD $HH $DA_DIR $BASE_DIR
+    PROCESS_EXIT_CODE=$?
+    if [ $PROCESS_EXIT_CODE -ne 0 ]; then
+        echo "WARNING: Country-specific observation processing failed with exit code $PROCESS_EXIT_CODE"
+    fi
+else
+    echo "Country-specific processing script not found: $COUNTRY_SCRIPT"
+    echo "Skipping local observation processing."
+fi
 
 # Check for local observations file and convert to little_r format if it exists
 LOCAL_OBS_FILE="${DA_DIR}/ob/raw_obs/${YYYY}${MM}${DD}${HH}_local_obs.csv"

@@ -82,7 +82,7 @@ echo "link Vtable finish"
 cat << EOF > run_geogrid.bash
 #!/bin/bash
 cd ${run_dir}
-time mpirun -np 1 ${WPS_DIR}/geogrid.exe
+time mpirun -np 10 ${WPS_DIR}/geogrid.exe
 EOF
 
 chmod +x run_geogrid.bash

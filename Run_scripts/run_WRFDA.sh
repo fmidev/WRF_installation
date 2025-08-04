@@ -6,7 +6,7 @@ source /home/wrf/WRF_Model/scripts/env.sh
 year=$1; month=$2; day=$3; hour=$4; leadtime=$5; prod_dir=$6
 
 # Directories and paths
-run_dir="${prod_dir}/${year}${month}${day}${hour}"
+run_dir="${PROD_DIR}/${year}${month}${day}${hour}"
 s_date="$year-$month-$day ${hour}:00:00"
 
 mkdir -p $DA_DIR/rc/
@@ -193,7 +193,7 @@ iz0tlnd                    = 1,
 isftcflx                   = 0,
 ra_lw_physics              = 1,   
 ra_sw_physics              = 1,  
-radt                       = 30,
+radt                       = 10,
 sf_sfclay_physics          = 1,
 sf_surface_physics         = 2,
 bl_pbl_physics             = 1,
