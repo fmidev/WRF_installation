@@ -1,12 +1,17 @@
-# WRF installation 
-This guide explains how to install and set up the WRF weather model and its tools. It shows how to run the model automatically for operational forecasting. Before starting:
+# WRF Installation Guide
 
-1. Check your computer's CPU count - WRF can run on one core but works better with multiple cores
-2. Make sure you have enough disk space:
-   - 100GB for geographical data
-   - 100-200GB for model files (depends on your domain size)
-   - For testing: 200-300GB is enough
-   - For operational use: at least 1TB is recommended
+This guide explains how to install and set up the WRF weather model and its tools. It provides complete instructions for running the model automatically for operational forecasting.
+
+## System Requirements
+
+Before starting, please check:
+
+   - CPU: WRF can run on one core but works best with multiple cores
+   - Disk space:
+     - 100GB for geographical data
+     - 100-200GB for model files (depends on your domain size)
+     - For testing: 300GB is sufficient
+     - For operational use: at least 1TB is recommended
 
 For complete WRF documentation, visit the [WRF User's Guide](https://www2.mmm.ucar.edu/wrf/users/wrf_users_guide/build/html/index.html)
 
@@ -14,41 +19,35 @@ For complete WRF documentation, visit the [WRF User's Guide](https://www2.mmm.uc
 
 Follow these steps for easy installation:
 
-1. Install git:
-   ```
+1. **Install Git**:
+   ```bash
    sudo dnf install git
    ```
 
-2. Get the code:
-   ```
+2. **Get the Code**:
+   ```bash
    git clone https://github.com/fmidev/WRF_installation.git
    cd WRF_installation
    ```
 
-3. Make the script runnable:
-   ```
+3. **Run the Installation**:
+   ```bash
    chmod +x installation.sh
+   ./installation.sh
    ```
 
-4. Run the installation:
-   ```
-   ./installation.sh 
-   ```
+4. **What the Script Does**:
+   - Installs all required dependencies
+   - Downloads and builds necessary libraries
+   - Compiles WRF, WPS, WRFDA, and UPP
+   - Sets up environment variables
+   - Creates directory structure for operational use
+   - Sets up cronjobs for automated runs
+   - Downloads geographical data and CRTM coefficients
+   - Copies configuration and run scripts
 
-5. The script will:
-   - Install all needed dependencies
-   - Download and build required libraries
-   - Compile WRF, WPS, WRFDA and UPP
-   - Set up environment variables
-   - Create folders for operational use
-   - Set up a schedule template (crontab)
-   - Download geographical data and CRTM coefficients
-   - Copies run scripts from this repository to the scripts directory
+## Domain Setup Guide
 
-## Manual Installation
-(Obsoleted, use automated installation as first option ) The `installation` file contains step-by-step instructions for installing all libraries and compiling the WRF software and tools. When running WRF, you need specific environment variables set up by the `env.sh` script.
-
-## Domain Setup
 You can easily create WRF domains using [WRF Domain Wizard](https://wrfdomainwizard.net/):
 
 1. Click "New" in the sidebar and draw your main domain on the map. This will be your outer domain with the base resolution (default 12 km).
@@ -56,20 +55,21 @@ You can easily create WRF domains using [WRF Domain Wizard](https://wrfdomainwiz
 3. Set the inner domain resolution using "Parent_grid_ratio" - the default is 3, which means 4 km resolution if your outer domain is 12 km.
 4. Click "Save" to download the domain settings (namelist.wps) for your WRF setup.
 
-## Work Flow
+## Operational Workflow
 
 ### Environment Setup
-The `env.sh` script in the `WRF_Model/scripts` directory sets up all necessary settings for WRF:
+
+The `env.sh` script in the `WRF_Model/scripts` directory contains all necessary settings for WRF:
 
 1. **Main Settings**:
-   - **Library Paths**: Where to find NetCDF, HDF5, OpenMPI and other libraries
-   - **Program Locations**: Where WRF, WPS and WRFDA programs are installed
-   - **Run Settings**: How long to forecast, time between runs, and other basic options
-   - **Folders**: Where to find and save data, observations, and results
+   - **Library Paths**: NetCDF, HDF5, OpenMPI and other libraries
+   - **Program Locations**: WRF, WPS and WRFDA directories
+   - **Run Settings**: Forecast length, time between runs, etc.
+   - **Folders**: Data, observations, and results directories
 
-2. **On/Off Switches**:
-   The script has simple yes/no options to control which parts run:
-   ```
+2. **Workflow Controls**:
+   The script has simple on/off switches to control which components run:
+   ```bash
    export RUN_CHECK_BOUNDARY_FILES=true  # Check if boundary files exist
    export RUN_GET_OBS=true               # Download observations
    export RUN_WPS=true                   # Run preprocessing
