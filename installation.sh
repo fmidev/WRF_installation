@@ -76,6 +76,36 @@ if [ -z "$country_name" ]; then
 else
     export COUNTRY="$country_name"
     echo "Country set to: $COUNTRY"
+    # Create process_local_obs_$COUNTRY.sh template if COUNTRY is set
+    mkdir -p "$GIT_REPO/Run_scripts/process_local_obs"
+    cat > "$GIT_REPO/Run_scripts/process_local_obs/process_local_obs_${COUNTRY}.sh" << EOF
+#!/bin/bash
+# ===============================================
+# Process local observations for WRF DA and verification in $COUNTRY
+# Author: 
+# Date: 
+# ===============================================
+
+# Check for required arguments
+if [ "$#" -lt 5 ]; then
+    echo "Usage: $0 YYYY MM DD HH DA_DIR BASE_DIR"
+    exit 1
+fi
+
+# Input variables
+YYYY=$1  # Year
+MM=$2    # Month
+DD=$3    # Day
+HH=$4    # Hour
+DA_DIR=$5
+BASE_DIR=$6
+
+##CODE HERE
+
+exit 0
+EOF
+    chmod +x "$GIT_REPO/Run_scripts/process_local_obs/process_local_obs_${COUNTRY}.sh"
+    echo "Created template: Run_scripts/process_local_obs/process_local_obs_${COUNTRY}.sh"
 fi
 
 # Prompt for GitHub Personal Access Token
