@@ -2,169 +2,153 @@
 ## Convert observation CSV files to SQLite format
 #################################################
 
-args = commandArgs(trailingOnly=TRUE)
-if (length(args) != 1){
-  stop("Give current date as input argument in yyyymmddHH format, E.g. Rscript read_obs.R 2023103100")
-}
-
-current_date = args[1]
-
-# Validate the current date format
-if (nchar(current_date) != 10){
-  stop("Current date should be in yyyymmddHH format, E.g. 2023103100")
-}
-
-library(harpIO)  # Use harpIO instead of just harp
-library(dplyr)
-library(lubridate)
-library(tibble)
-
-# Set paths
-cat("Starting observation conversion for date:", current_date, "\n")
-obs_path <- "/wrf/WRF_Model/Verification/Data/Obs"
-sqlite_dir <- "/wrf/WRF_Model/Verification/SQlite_tables/Obs"
-
-# Construct observation filename based on the current_date
-obs_file <- file.path(obs_path, paste0("local_obs", current_date, "00_verif.csv"))
-
-# Check if the file exists
-if (!file.exists(obs_file)) {
-  stop("Observation file not found: ", obs_file)
-}
-
-# Read the observation file
-cat("Reading observation file:", obs_file, "\n")
-obs_data <- tryCatch({
-  read.csv(obs_file, stringsAsFactors = FALSE, sep="\t")
-}, error = function(e) {
-  stop("ERROR reading file: ", e$message)
+# Load required libraries
+suppressPackageStartupMessages({
+  library(harpIO)
+  library(dplyr)
+  library(tibble)
+  library(DBI)
+  library(RSQLite)
 })
 
-# Check if data was loaded successfully
-if (is.null(obs_data) || nrow(obs_data) == 0) {
-  stop("No data found in the observation file")
-}
-
-# Convert the valid_dttm to POSIXct if it's a character
-if (is.character(obs_data$valid_dttm)) {
-  obs_data$valid_dttm <- as.POSIXct(obs_data$valid_dttm, format="%Y-%m-%d %H:%M:%S", tz="UTC")
-}
-
-cat("Found", nrow(obs_data), "total observation records in file\n")
-
-# Define a custom reader function similar to the example
+# Custom function to read CSV observations in harp format
 read_csv_obs <- function(file_name, dttm, parameter = NULL, ...) {
   
-  # read the csv data
-  obs_data <- read.csv(file_name, stringsAsFactors = FALSE, sep="\t")
+  # Read CSV data preserving datetime format - use read.csv for proper parsing
+  obs_data <- read.csv(file_name, header = TRUE, stringsAsFactors = FALSE, 
+                       na.strings = c("", "NA"))
   
-  # Convert the valid_dttm to POSIXct if it's a character
-  if (is.character(obs_data$valid_dttm)) {
-    obs_data$valid_dttm <- as.POSIXct(obs_data$valid_dttm, format="%Y-%m-%d %H:%M:%S", tz="UTC")
+  # Debug: print column names and first few rows
+  cat("CSV columns:", paste(colnames(obs_data), collapse = ", "), "\n")
+  cat("CSV dimensions:", nrow(obs_data), "rows,", ncol(obs_data), "columns\n")
+  
+  # Convert numeric columns safely
+  numeric_cols <- c("SID", "lat", "lon", "elev", "T2m", "Td2m", "Pressure", "Pcp", "Wdir", "WS")
+  existing_numeric_cols <- intersect(names(obs_data), numeric_cols)
+  
+  for (col in existing_numeric_cols) {
+    obs_data[[col]] <- suppressWarnings(as.numeric(obs_data[[col]]))
   }
   
-  # Make sure we have all required columns and convert to numeric as needed
-  obs_data <- obs_data %>%
-    select(valid_dttm, SID, lat, lon, elev, T2m, Wdir, WS, Pressure) %>%
-    mutate(
-      T2m = as.numeric(T2m),
-      WS = as.numeric(WS),
-      Wdir = as.numeric(Wdir),
-      Pressure = as.numeric(Pressure)
-    ) %>%
-    filter(!is.na(valid_dttm), !is.na(SID))  # Filter out any rows with missing key values
+  # Map column names to harp conventions - fix column mapping
+  colname_mapping <- c("Td2m" = "Td2m", "Pressure" = "Pmsl", "Pcp" = "AccPcp1h", 
+                       "Wdir" = "Wdir", "WS" = "S10m")
   
-  # Define parameter units
-  obs_units <- tibble::tribble(
-    ~parameter, ~accum_hours, ~units,
-    "T2m"      , 0, "K",
-    "WS"       , 0, "m/s",
-    "Wdir"     , 0, "degrees",
-    "Pressure" , 0, "hPa"
+  for (old_name in names(colname_mapping)) {
+    if (old_name %in% colnames(obs_data)) {
+      colnames(obs_data)[colnames(obs_data) == old_name] <- colname_mapping[old_name]
+    }
+  }
+  
+  # Convert datetime to UNIX timestamp
+  obs_data$valid_dttm <- as.numeric(as.POSIXct(obs_data$valid_dttm, tz = "UTC"))
+  obs_data <- obs_data[!is.na(obs_data$valid_dttm), ]
+  
+  # Parameter units - create for all available parameters
+  available_params <- intersect(c("T2m", "Td2m", "Pmsl", "AccPcp1h", "Wdir", "S10m"), colnames(obs_data))
+  
+  obs_units <- data.frame(
+    parameter = available_params,
+    accum_hours = c(0, 0, 0, 1, 0, 0)[match(available_params, c("T2m", "Td2m", "Pmsl", "AccPcp1h", "Wdir", "S10m"))],
+    units = c("degC", "degC", "hPa", "mm", "degrees", "m/s")[match(available_params, c("T2m", "Td2m", "Pmsl", "AccPcp1h", "Wdir", "S10m"))],
+    stringsAsFactors = FALSE
   )
   
-  # Return the data as a named list
+  cat("Parameters found:", paste(obs_units$parameter, collapse = ", "), "\n")
+  
   list(synop = obs_data, synop_params = obs_units)
 }
 
-# using RSQLite directly to create the SQLite database
-
-# Check if RSQLite is installed, install if not
-if (!requireNamespace("RSQLite", quietly = TRUE)) {
-  cat("Installing RSQLite package...\n")
-  install.packages("RSQLite")
-}
-library(RSQLite)
-
-# Extract year and month from the current date to create monthly file
-date_parts <- substring(current_date, 1, 8)  # Get YYYYMMDD part
-year_month <- substring(date_parts, 1, 6)    # Get YYYYMM part
-
-# Create a filename using the year and month
-sqlite_filename <- paste0("obstable_monthly_", year_month, ".sqlite")
-sqlite_file <- file.path(sqlite_dir, sqlite_filename)
-
-cat("Using monthly SQLite database:", sqlite_file, "\n")
-
-tryCatch({
-  # Create SQLite connection
-  con <- dbConnect(SQLite(), sqlite_file)
-  
-  # Check if the table exists in the database
-  table_exists <- dbExistsTable(con, "observations")
-  
-  if (table_exists) {
-    cat("Existing observations table found. Checking for duplicates...\n")
-    
-    # Get existing records to check for duplicates
-    # We'll use a query to identify unique combinations of valid_dttm and SID
-    existing_keys <- dbGetQuery(con, "SELECT valid_dttm, SID FROM observations")
-    
-    # Convert timestamps to ensure consistent format for comparison
-    if (is.character(existing_keys$valid_dttm)) {
-      existing_keys$valid_dttm <- as.POSIXct(existing_keys$valid_dttm, format="%Y-%m-%d %H:%M:%S", tz="UTC")
-    }
-    
-    # Create a unique key for each record by combining timestamp and station ID
-    existing_keys$unique_key <- paste(existing_keys$valid_dttm, existing_keys$SID)
-    obs_data$unique_key <- paste(obs_data$valid_dttm, obs_data$SID)
-    
-    # Filter out records that already exist
-    new_records <- obs_data[!(obs_data$unique_key %in% existing_keys$unique_key),]
-    
-    cat("Found", nrow(new_records), "new records out of", nrow(obs_data), "total records\n")
-    
-    if (nrow(new_records) > 0) {
-      # Remove the temporary key column before writing
-      new_records$unique_key <- NULL
-      
-      # Append new records to the existing table
-      dbWriteTable(con, "observations", new_records, append = TRUE)
-      cat("Added new observation records to the database\n")
-    } else {
-      cat("No new records to add\n")
-    }
-    
-    # Clean up the temporary column from the original data frame too
-    obs_data$unique_key <- NULL
-    
-  } else {
-    # Table doesn't exist, create it with all records
-    cat("Creating new observations table\n")
-    dbWriteTable(con, "observations", obs_data, overwrite = TRUE)
-    
-    # Add indexes for faster queries
-    dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_valid_dttm ON observations (valid_dttm)")
-    dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_SID ON observations (SID)")
-    cat("Created new SQLite database with", nrow(obs_data), "records\n")
+# Main function
+process_observations <- function(current_date) {
+  if (nchar(current_date) != 10) {
+    stop("Current date should be in yyyymmddHH format, E.g. 2023103100")
   }
   
-  # Close the connection
-  dbDisconnect(con)
+  # Setup paths
+  year <- substring(current_date, 1, 4)
+  sqlite_dir <- "/wrf/WRF_Model/Verification/SQlite_tables/Obs"
   
-  cat("Monthly observation data successfully processed in SQLite database:", sqlite_file, "\n")
-}, error = function(e) {
-  cat("ERROR with SQLite operations:", e$message, "\n")
-})
+  # Ensure directory exists
+  if (!dir.exists(sqlite_dir)) {
+    dir.create(sqlite_dir, recursive = TRUE)
+  }
+  
+  # Create datetime
+  current_dttm <- ISOdatetime(
+    as.numeric(substring(current_date, 1, 4)),
+    as.numeric(substring(current_date, 5, 6)), 
+    as.numeric(substring(current_date, 7, 8)),
+    as.numeric(substring(current_date, 9, 10)), 0, 0, tz = "UTC"
+  )
+  
+  # Process observations using harp
+  result <- read_obs(
+    dttm = current_dttm,
+    parameter = NULL,
+    file_format = "csv_obs",
+    file_path = "/wrf/WRF_Model/Verification/Data/Obs",
+    file_template = "local_obs{YYYY}{MM}{DD}{HH}00_verif.csv",
+    return_data = TRUE
+  )
+  
+  # Create SQLite database
+  if (!is.null(result) && "synop" %in% names(result) && nrow(result$synop) > 0) {
+    # Group observations by year and month
+    result$synop$obs_year_month <- format(as.POSIXct(result$synop$valid_dttm, origin = "1970-01-01", tz = "UTC"), "%Y%m")
+    obs_by_month <- split(result$synop, result$synop$obs_year_month)
+    
+    total_new_obs <- 0
+    
+    # Process each month separately
+    for (obs_month in names(obs_by_month)) {
+      month_obs <- obs_by_month[[obs_month]]
+      month_obs$obs_year_month <- NULL  # Remove temporary column
+      
+      obstable_file <- file.path(sqlite_dir, paste0("obstable_", obs_month, ".sqlite"))
+      con <- dbConnect(RSQLite::SQLite(), obstable_file)
+      
+      # Filter out existing observations
+      new_obs <- month_obs
+      if (dbExistsTable(con, "SYNOP")) {
+        existing_obs <- dbReadTable(con, "SYNOP")
+        existing_keys <- paste(as.character(existing_obs$SID), as.numeric(existing_obs$valid_dttm), sep = "_")
+        new_keys <- paste(as.character(new_obs$SID), as.numeric(new_obs$valid_dttm), sep = "_")
+        new_obs <- new_obs[!new_keys %in% existing_keys, ]
+        cat("Existing:", nrow(existing_obs), "Before filtering:", nrow(month_obs), "After filtering:", nrow(new_obs), "\n")
+      }
+      
+      # Write new observations and parameters
+      if (nrow(new_obs) > 0) {
+        dbWriteTable(con, "SYNOP", new_obs, append = TRUE)
+        cat("Added", nrow(new_obs), "observations to", basename(obstable_file), "for month", obs_month, "\n")
+        total_new_obs <- total_new_obs + nrow(new_obs)
+      } else {
+        cat("No new observations for month", obs_month, "\n")
+      }
+      
+      # Always write/update SYNOP_params table
+      if ("synop_params" %in% names(result) && nrow(result$synop_params) > 0) {
+        dbWriteTable(con, "SYNOP_params", result$synop_params, overwrite = TRUE)
+        cat("Updated SYNOP_params table with", nrow(result$synop_params), "parameters\n")
+      }
+      
+      # Report database stats
+      total_count <- dbGetQuery(con, "SELECT COUNT(*) as count FROM SYNOP")$count
+      dbDisconnect(con)
+      cat("SQLite file:", basename(obstable_file), "(", file.size(obstable_file), "bytes,", total_count, "observations)\n")
+    }
+    
+    if (total_new_obs == 0) cat("No new observations added across all months\n")
+  } else {
+    stop("No data processed from observations")
+  }
+}
 
-cat("Observation processing completed\n")
+# Main execution
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) != 1) {
+  stop("Usage: Rscript read_obs.R <YYYYMMDDHH>\nExample: Rscript read_obs.R 2023103100")
+}
+
+process_observations(args[1])
