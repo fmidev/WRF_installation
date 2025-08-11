@@ -117,8 +117,8 @@ if [ "$DAY_OF_WEEK" = "1" ] && [ "$cycle" = "00" ]; then
     Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${THIRTY_DAYS_AGO} --end_date ${CURRENT_DATE} --domain d01  #monthly
     Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${THIRTY_DAYS_AGO} --end_date ${CURRENT_DATE} --domain d02  #monthly
 
-    mv /wrf/WRF_Model/Verification/Results/wrf_d01/*rds ~/R/x86_64-redhat-linux-gnu-library/4.5/harpVis/verification/det/
-    mv /wrf/WRF_Model/Verification/Results/wrf_d02/*rds ~/R/x86_64-redhat-linux-gnu-library/4.5/harpVis/verification/det/
+    mv $BASE_DIR/Verification/Results/wrf_d01/*rds ~/R/x86_64-redhat-linux-gnu-library/4.5/harpVis/verification/det/
+    mv $BASE_DIR/Verification/Results/wrf_d02/*rds ~/R/x86_64-redhat-linux-gnu-library/4.5/harpVis/verification/det/
 
 else
     echo "Not Monday at 00 UTC - skipping verification process"

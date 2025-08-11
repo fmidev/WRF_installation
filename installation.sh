@@ -118,13 +118,75 @@ sudo dnf update -y
 # Install verification-related system packages
 sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco
 
-# Install RStudio
-echo "Installing RStudio..."
-cd $BASE/tmp
-wget https://download2.rstudio.org/server/rhel8/x86_64/rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
-wget https://download1.rstudio.org/electron/rhel9/x86_64/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
-sudo dnf install -y rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
-sudo dnf install -y rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
+# Install RStudio and Shiny server (only if verification tools are requested)
+if [ "$INSTALL_VERIFICATION" = true ]; then
+
+    echo "Installing RStudio and Shiny server..."
+    cd $BASE/tmp
+    wget https://download2.rstudio.org/server/rhel8/x86_64/rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
+    wget https://download1.rstudio.org/electron/rhel9/x86_64/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
+    wget https://download3.rstudio.org/centos8/x86_64/shiny-server-1.5.23.1030-x86_64.rpm
+    sudo dnf install -y rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
+    sudo dnf install -y rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
+    sudo dnf install -y shiny-server-1.5.23.1030-x86_64.rpm
+
+    # --- R PACKAGE INSTALLATION ---
+    echo "Installing required R packages for verification tools..."
+    mkdir -p ~/R/library
+
+    cat > $BASE/tmp/install_r_packages.R << 'EOF'
+# Check if GITHUB_PAT is available
+if (Sys.getenv("GITHUB_PAT") == "") {
+  stop("GitHub Personal Access Token not found. Please check your .Renviron file.")
+}
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+.libPaths("~/R/library")
+install.packages("shiny")
+install.packages("jsonlite")
+install.packages("remotes")
+library(remotes)
+install_github("harphub/harp")
+install_github("harphub/Rgrib2")
+install.packages("ncdf4")
+install.packages("optparse")
+EOF
+
+    echo "Installing R packages for verification..."
+    Rscript $BASE/tmp/install_r_packages.R > $BASE/install_logs/install_r_packages.log 2>&1
+
+    rm -f $BASE/tmp/rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
+    rm -f $BASE/tmp/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
+    rm -f $BASE/tmp/install_r_packages.R
+
+    echo "R packages for verification installed successfully."
+    echo "Your GitHub token has been saved to ~/.Renviron"
+
+    # --- CONTINUE WITH SHINY APP DEPLOYMENT AND CONFIGURATION ---
+    sudo mkdir /srv/shiny-server/harpvis
+    sudo chown -R shiny:shiny /srv/shiny-server/harpvis
+
+    echo "Deploying harpVis Shiny app..."
+    sudo cp $GIT_REPO/Verification_scripts/app.R /srv/shiny-server/harpvis/
+
+EOF
+
+    sudo chown shiny:shiny /srv/shiny-server/harpvis/app.R
+    sudo chmod 644 /srv/shiny-server/harpvis/app.R
+
+    echo "harpVis Shiny app deployed successfully."
+    echo "Setting up Shiny user environment and permissions..."
+    sudo echo "R_LIBS_USER=/home/$USER/R/x86_64-redhat-linux-gnu-library/4.5" | sudo tee -a /home/shiny/.Renviron
+    sudo chown shiny:shiny /home/shiny/.Renviron
+    sudo setfacl -m u:shiny:rx /home/$USER
+    sudo setfacl -R -m u:shiny:rx /home/$USER/R
+    
+    echo "Restarting Shiny server..."
+    sudo systemctl restart shiny-server
+    sudo systemctl enable shiny-server
+    echo "Shiny server configured to use R packages from: $USER_R_LIB"
+
+
+fi
 
 # Detect number of CPU cores and save one less for parallel processes
 CPU_COUNT=$(nproc)
@@ -770,57 +832,6 @@ echo "Remember to activate them by running 'crontab -e' and uncommenting the lin
 
 # Install verification tools
 echo "Checking if system is compatible for verification tools installation..."
-# Function to check if the system is using DNF (Fedora/Red Hat based)
-is_dnf_system() {
-    command -v dnf &> /dev/null
-    return $?
-}
-
-if [ "$INSTALL_VERIFICATION" = true ] && is_dnf_system; then
-
-    # Create user R library directory
-    mkdir -p ~/R/library
-    
-    # Create R script for package installation with proper CRAN mirror setting
-    cat > $BASE/tmp/install_r_packages.R << 'EOF'
-# Check if GITHUB_PAT is available
-if (Sys.getenv("GITHUB_PAT") == "") {
-  stop("GitHub Personal Access Token not found. Please check your .Renviron file.")
-}
-
-# Set a CRAN mirror first
-options(repos = c(CRAN = "https://cloud.r-project.org"))
-
-# Install in user's home directory
-.libPaths("~/R/library")
-
-# Install required packages
-install.packages("remotes")
-library(remotes)
-
-# Install GitHub packages using the token
-install_github("harphub/harp")
-install_github("harphub/Rgrib2")
-install.packages("ncdf4")
-EOF
-
-    echo "Installing R packages for verification..."
-    Rscript $BASE/tmp/install_r_packages.R > $BASE/install_logs/install_r_packages.log 2>&1
-    
-    rm -f $BASE/tmp/rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
-    rm -f $BASE/tmp/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
-    rm -f $BASE/tmp/install_r_packages.R
-
-    echo "Verification tools installed successfully."
-    echo "Your GitHub token has been saved to ~/.Renviron"
-elif [ "$INSTALL_VERIFICATION" = true ]; then
-    echo "This system does not appear to be using DNF package manager."
-    echo "Skipping verification tools installation."
-    echo "You need to install verification tools manually."
-else
-    echo "Verification tools installation was skipped based on your input."
-    echo "You can install verification tools manually later."
-fi
 
 # Print summary of installation
 echo "
@@ -836,7 +847,8 @@ echo "
 - Cron jobs set up for WRF runs
 - Geographical dataset in: $BASE/WPS_GEOG
 - SmartMet server IP: $SMARTMET_IP
-- Verification tools: $([ "$INSTALL_VERIFICATION" = true ] && echo "Installed" || echo "Not installed")
+- Verification tools: $([ "$INSTALL_VERIFICATION" = true ] && echo "Installed" || echo "Not installed")$([ "$INSTALL_VERIFICATION" = true ] && echo "
+- harpVis app available at: http://localhost:3838/harpvis/" || echo "")
 
 🔍 POST-INSTALLATION CHECKLIST:
 1. Define your domain in WPS:
