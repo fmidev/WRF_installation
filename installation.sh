@@ -188,6 +188,7 @@ EOF
 
     rm -f $BASE/tmp/rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
     rm -f $BASE/tmp/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
+    rm -f $BASE/tmp/shiny-server-1.5.23.1030-x86_64.rpm
     rm -f $BASE/tmp/install_r_packages.R
 
     echo "R packages for verification installed successfully."
@@ -199,8 +200,6 @@ EOF
 
     echo "Deploying harpVis Shiny app..."
     sudo cp $GIT_REPO/Verification_scripts/app.R /srv/shiny-server/harpvis/
-
-EOF
 
     sudo chown shiny:shiny /srv/shiny-server/harpvis/app.R
     sudo chmod 644 /srv/shiny-server/harpvis/app.R
