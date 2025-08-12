@@ -25,6 +25,8 @@ export CRTM_COEF_VERSION="2.3.0"
 export RSTUDIO_SERVER_VERSION="2024.12.1-563"
 export RSTUDIO_DESKTOP_VERSION="2024.12.1-563"
 
+export GIT_REPO=$(pwd)
+
 # Start timing the installation
 start_time=$(date +%s)
 echo "Starting WRF installation at $(date)"
@@ -130,7 +132,7 @@ else
     chmod 600 ~/.Renviron
 fi
 
-export GIT_REPO=$(pwd)
+
 
 
 # Create necessary directories
