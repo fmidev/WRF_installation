@@ -202,7 +202,7 @@ EOF
     echo "Your GitHub token has been saved to ~/.Renviron"
 
     # --- CONTINUE WITH SHINY APP DEPLOYMENT AND CONFIGURATION ---
-    sudo -p mkdir /srv/shiny-server/harpvis
+    sudo mkdir -p /srv/shiny-server/harpvis
     sudo chown -R shiny:shiny /srv/shiny-server/harpvis
 
     echo "Deploying harpVis Shiny app..."
