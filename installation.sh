@@ -21,9 +21,11 @@ export JASPER_VERSION="4.2.5"
 # CRTM coefficients
 export CRTM_COEF_VERSION="2.3.0"
 
-# RStudio tools
-export RSTUDIO_SERVER_VERSION="2024.12.1-563"
+# RStudio
 export RSTUDIO_DESKTOP_VERSION="2024.12.1-563"
+
+#Shiny server
+export SHINY_SERVER_VERSION="1.5.23.1030"
 
 export GIT_REPO=$(pwd)
 
@@ -155,12 +157,20 @@ if [ "$INSTALL_VERIFICATION" = true ]; then
 
     echo "Installing RStudio and Shiny server..."
     cd $BASE/tmp
-    wget https://download2.rstudio.org/server/rhel8/x86_64/rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
-    wget https://download1.rstudio.org/electron/rhel9/x86_64/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
-    wget https://download3.rstudio.org/centos8/x86_64/shiny-server-1.5.23.1030-x86_64.rpm
-    sudo dnf install -y rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
+    # Download RStudio Desktop only if not already present
+    if [ ! -f "rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm" ]; then
+        wget https://download1.rstudio.org/electron/rhel9/x86_64/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
+    else
+        echo "rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm already exists. Skipping download..."
+    fi
+    # Download Shiny Server only if not already present
+    if [ ! -f "shiny-server-${SHINY_SERVER_VERSION}-x86_64.rpm" ]; then
+        wget https://download3.rstudio.org/centos8/x86_64/shiny-server-${SHINY_SERVER_VERSION}-x86_64.rpm
+    else
+        echo "shiny-server-${SHINY_SERVER_VERSION}-x86_64.rpm already exists. Skipping download..."
+    fi
     sudo dnf install -y rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
-    sudo dnf install -y shiny-server-1.5.23.1030-x86_64.rpm
+    sudo dnf install -y shiny-server-${SHINY_SERVER_VERSION}-x86_64.rpm
 
     # --- R PACKAGE INSTALLATION ---
     echo "Installing required R packages for verification tools..."
@@ -186,16 +196,13 @@ EOF
     echo "Installing R packages for verification..."
     Rscript $BASE/tmp/install_r_packages.R > $BASE/install_logs/install_r_packages.log 2>&1
 
-    rm -f $BASE/tmp/rstudio-server-rhel-${RSTUDIO_SERVER_VERSION}-x86_64.rpm
-    rm -f $BASE/tmp/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
-    rm -f $BASE/tmp/shiny-server-1.5.23.1030-x86_64.rpm
     rm -f $BASE/tmp/install_r_packages.R
 
     echo "R packages for verification installed successfully."
     echo "Your GitHub token has been saved to ~/.Renviron"
 
     # --- CONTINUE WITH SHINY APP DEPLOYMENT AND CONFIGURATION ---
-    sudo mkdir /srv/shiny-server/harpvis
+    sudo -p mkdir /srv/shiny-server/harpvis
     sudo chown -R shiny:shiny /srv/shiny-server/harpvis
 
     echo "Deploying harpVis Shiny app..."
