@@ -15,17 +15,7 @@ ui <- fluidPage(
     )
   ),
   fluidRow(
-    column(4,
-      # Metrics selector UI
-      selectInput(
-        "metrics",
-        "Select Metrics to Display:",
-        choices = c("RMSE", "MAE", "Bias", "CRPS", "Spread"),
-        selected = c("RMSE", "MAE"),
-        multiple = TRUE
-      )
-    ),
-    column(8,
+    column(12,
       # Dashboard output for point verification
       dashboard_point_verifUI("pt_dshbrd")
     )
@@ -36,29 +26,26 @@ server <- function(input, output, session) {
   # Reactive: loaded verification data
   verif_data <- callModule(options_bar, "file_opts")
   
-  # Improved colour table with descriptive labels
+  # Example colour table for plotting (customize as needed)
   colour_table <- reactive({
     df <- verif_data()
-    models <- unique(df$ens_summary_scores$fcst_model)
-    # Assign distinct colours and labels
+    # Build a table matching the models in your data
     data.frame(
-      fcst_model = models,
-      colour = rainbow(length(models)),
-      label = paste("Model:", models)
+      fcst_model = unique(df$ens_summary_scores$fcst_model),
+      colour = rainbow(length(unique(df$ens_summary_scores$fcst_model)))
     )
   })
   
   # Define time axis for the dashboard
   time_axis <- reactive("lead_time")
   
-  # Call the point verification dashboard module with selected metrics
+  # Call the point verification dashboard module
   callModule(
     dashboard_point_verif,
     "pt_dshbrd",
     reactive(verif_data()),
     reactive(colour_table()),
-    time_axis,
-    reactive(input$metrics) # Pass selected metrics to the module
+    time_axis
   )
 }
 

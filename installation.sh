@@ -213,7 +213,7 @@ EOF
 
     echo "harpVis Shiny app deployed successfully."
     echo "Setting up Shiny user environment and permissions..."
-    sudo echo "R_LIBS_USER=/home/$USER/R/x86_64-redhat-linux-gnu-library/4.5" | sudo tee -a /home/shiny/.Renviron
+    sudo echo "R_LIBS_USER=/home/$USER/R/library/" | sudo tee -a /home/shiny/.Renviron
     sudo chown shiny:shiny /home/shiny/.Renviron
     sudo setfacl -m u:shiny:rx /home/$USER
     sudo setfacl -R -m u:shiny:rx /home/$USER/R
@@ -221,7 +221,6 @@ EOF
     echo "Restarting Shiny server..."
     sudo systemctl restart shiny-server
     sudo systemctl enable shiny-server
-    echo "Shiny server configured to use R packages from: $USER_R_LIB"
 
 
 fi
@@ -649,7 +648,7 @@ else
     fi
 fi
 
-# Setup UPP more efficiently
+# Setup UPP
 if [ -d "$BASE/UPP" ]; then
     echo "Setting up UPP..."
     mkdir -p $BASE/{UPP_out,UPP_wrk/{parm,postprd,wrfprd}}
