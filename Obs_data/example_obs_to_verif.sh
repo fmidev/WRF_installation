@@ -1,7 +1,7 @@
 #!/bin/bash
 
-station_url="https://wwcs.tj/observations/stations/"
-data_url="https://wwcs.tj/observations/smartmet/?siteID="
+station_url="https://..."
+data_url="https://..."
 station_file="/home/wrf/WRF_Model/Verification/Data/Static/stations.csv"
 working_file="/home/wrf/WRF_Model/Verification/Data/Obs/obs_from_db.csv"
 output_file="/home/wrf/WRF_Model/Verification/Data/Obs/obs_to_verif.csv"
