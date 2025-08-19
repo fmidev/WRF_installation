@@ -33,8 +33,16 @@ export GIT_REPO=$(pwd)
 start_time=$(date +%s)
 echo "Starting WRF installation at $(date)"
 
-# Exit on error, but allow for proper error handling
-trap 'echo "ERROR: Command failed with exit code $? at line $LINENO"; exit 1' ERR
+# --- sudo rights for installation ---
+echo "$USER ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/temp_wrf_install > /dev/null
+
+trap '
+    sudo rm -f /etc/sudoers.d/temp_wrf_install
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Command failed with exit code $? at line $LINENO"
+        exit 1
+    fi
+' EXIT
 
 # Display banner
 echo "================================================================================"
@@ -134,9 +142,6 @@ else
     chmod 600 ~/.Renviron
 fi
 
-
-
-
 # Create necessary directories
 echo "Creating directory structure..."
 mkdir -p $BASE/{libraries,WPS_GEOG,scripts,tmp,out,logs,install_logs,GFS,GEN_BE,CRTM_coef,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc},Verification/{scripts,Data/{Forecast,Obs,Static},Results,SQlite_tables}}
@@ -151,79 +156,6 @@ sudo dnf update -y
 
 # Install verification-related system packages
 sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco
-
-# Install RStudio and Shiny server (only if verification tools are requested)
-if [ "$INSTALL_VERIFICATION" = true ]; then
-
-    echo "Installing RStudio and Shiny server..."
-    cd $BASE/tmp
-    # Download RStudio Desktop only if not already present
-    if [ ! -f "rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm" ]; then
-        wget https://download1.rstudio.org/electron/rhel9/x86_64/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
-    else
-        echo "rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm already exists. Skipping download..."
-    fi
-    # Download Shiny Server only if not already present
-    if [ ! -f "shiny-server-${SHINY_SERVER_VERSION}-x86_64.rpm" ]; then
-        wget https://download3.rstudio.org/centos8/x86_64/shiny-server-${SHINY_SERVER_VERSION}-x86_64.rpm
-    else
-        echo "shiny-server-${SHINY_SERVER_VERSION}-x86_64.rpm already exists. Skipping download..."
-    fi
-    sudo dnf install -y rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
-    sudo dnf install -y shiny-server-${SHINY_SERVER_VERSION}-x86_64.rpm
-
-    # --- R PACKAGE INSTALLATION ---
-    echo "Installing required R packages for verification tools..."
-    mkdir -p ~/R/library
-
-    cat > $BASE/tmp/install_r_packages.R << 'EOF'
-# Check if GITHUB_PAT is available
-if (Sys.getenv("GITHUB_PAT") == "") {
-  stop("GitHub Personal Access Token not found. Please check your .Renviron file.")
-}
-options(repos = c(CRAN = "https://cloud.r-project.org"))
-.libPaths("~/R/library")
-install.packages("shiny")
-install.packages("jsonlite")
-install.packages("remotes")
-library(remotes)
-install_github("harphub/harp")
-install_github("harphub/Rgrib2")
-install.packages("ncdf4")
-install.packages("optparse")
-EOF
-
-    echo "Installing R packages for verification..."
-    Rscript $BASE/tmp/install_r_packages.R > $BASE/install_logs/install_r_packages.log 2>&1
-
-    rm -f $BASE/tmp/install_r_packages.R
-
-    echo "R packages for verification installed successfully."
-    echo "Your GitHub token has been saved to ~/.Renviron"
-
-    # --- CONTINUE WITH SHINY APP DEPLOYMENT AND CONFIGURATION ---
-    sudo mkdir -p /srv/shiny-server/harpvis
-    sudo chown -R shiny:shiny /srv/shiny-server/harpvis
-
-    echo "Deploying harpVis Shiny app..."
-    sudo cp $GIT_REPO/Verification_scripts/app.R /srv/shiny-server/harpvis/
-
-    sudo chown shiny:shiny /srv/shiny-server/harpvis/app.R
-    sudo chmod 644 /srv/shiny-server/harpvis/app.R
-
-    echo "harpVis Shiny app deployed successfully."
-    echo "Setting up Shiny user environment and permissions..."
-    sudo echo "R_LIBS_USER=/home/$USER/R/library/" | sudo tee -a /home/shiny/.Renviron
-    sudo chown shiny:shiny /home/shiny/.Renviron
-    sudo setfacl -m u:shiny:rx /home/$USER
-    sudo setfacl -R -m u:shiny:rx /home/$USER/R
-    
-    echo "Restarting Shiny server..."
-    sudo systemctl restart shiny-server
-    sudo systemctl enable shiny-server
-
-
-fi
 
 # Detect number of CPU cores and save one less for parallel processes
 CPU_COUNT=$(nproc)
@@ -686,6 +618,78 @@ else
     echo "❌ UPP is not installed. Skipping UPP setup..."
 fi
 
+# Install RStudio and Shiny server (only if verification tools are requested)
+if [ "$INSTALL_VERIFICATION" = true ]; then
+
+    echo "Installing RStudio and Shiny server..."
+    cd $BASE/tmp
+    # Download RStudio Desktop only if not already present
+    if [ ! -f "rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm" ]; then
+        wget https://download1.rstudio.org/electron/rhel9/x86_64/rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
+    else
+        echo "rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm already exists. Skipping download..."
+    fi
+    # Download Shiny Server only if not already present
+    if [ ! -f "shiny-server-${SHINY_SERVER_VERSION}-x86_64.rpm" ]; then
+        wget https://download3.rstudio.org/centos8/x86_64/shiny-server-${SHINY_SERVER_VERSION}-x86_64.rpm
+    else
+        echo "shiny-server-${SHINY_SERVER_VERSION}-x86_64.rpm already exists. Skipping download..."
+    fi
+    sudo dnf install -y rstudio-${RSTUDIO_DESKTOP_VERSION}-x86_64.rpm
+    sudo dnf install -y shiny-server-${SHINY_SERVER_VERSION}-x86_64.rpm
+
+    # --- R PACKAGE INSTALLATION ---
+    echo "Installing required R packages for verification tools..."
+    mkdir -p ~/R/library
+
+    cat > $BASE/tmp/install_r_packages.R << 'EOF'
+# Check if GITHUB_PAT is available
+if (Sys.getenv("GITHUB_PAT") == "") {
+  stop("GitHub Personal Access Token not found. Please check your .Renviron file.")
+}
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+.libPaths("~/R/library")
+install.packages("shiny")
+install.packages("jsonlite")
+install.packages("remotes")
+library(remotes)
+install_github("harphub/harp")
+install_github("harphub/Rgrib2")
+install.packages("ncdf4")
+install.packages("optparse")
+EOF
+
+    echo "Installing R packages for verification..."
+    Rscript $BASE/tmp/install_r_packages.R > $BASE/install_logs/install_r_packages.log 2>&1
+
+    rm -f $BASE/tmp/install_r_packages.R
+
+    echo "R packages for verification installed successfully."
+    echo "Your GitHub token has been saved to ~/.Renviron"
+
+    # --- CONTINUE WITH SHINY APP DEPLOYMENT AND CONFIGURATION ---
+    sudo mkdir -p /srv/shiny-server/harpvis
+    sudo chown -R shiny:shiny /srv/shiny-server/harpvis
+
+    echo "Deploying harpVis Shiny app..."
+    sudo cp $GIT_REPO/Verification_scripts/app.R /srv/shiny-server/harpvis/
+
+    sudo chown shiny:shiny /srv/shiny-server/harpvis/app.R
+    sudo chmod 644 /srv/shiny-server/harpvis/app.R
+
+    echo "harpVis Shiny app deployed successfully."
+    echo "Setting up Shiny user environment and permissions..."
+    sudo echo "R_LIBS_USER=/home/$USER/R/library/" | sudo tee -a /home/shiny/.Renviron
+    sudo chown shiny:shiny /home/shiny/.Renviron
+    sudo setfacl -m u:shiny:rx /home/$USER
+    sudo setfacl -R -m u:shiny:rx /home/$USER/R
+    
+    echo "Restarting Shiny server..."
+    sudo systemctl restart shiny-server
+    sudo systemctl enable shiny-server
+
+fi
+
 # Setup git repository to track configuration and script files
 setup_git_repository() {
     echo "🔧 Setting up git repository to track configuration and script files..."
@@ -909,6 +913,9 @@ echo "
 
 ===============================================================================
 "
+
+# Clean up sudo rights
+sudo rm -f /etc/sudoers.d/temp_wrf_install
 
 # Calculate and display total runtime
 end_time=$(date +%s)
