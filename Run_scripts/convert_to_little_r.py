@@ -1,5 +1,6 @@
 import csv
 import sys
+from datetime import datetime
 
 #Python script to convert CSV data to little_r format
 
@@ -11,20 +12,44 @@ import sys
 
 
 
+def safe_float(val, default=-888888):
+    try:
+        if val is None or val == '':
+            return default
+        return float(val)
+    except ValueError:
+        return default
+
+def format_little_r_date(date_str):
+    # Try to parse date in the format 'YYYY-MM-DD HH:MM:SS_00:00:00'
+    # If fails, fallback to '00000000000000'
+    try:
+        # Remove trailing _00:00:00 if present
+        if '_' in date_str:
+            date_str = date_str.split('_')[0]
+        # Try parsing
+        dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+        return dt.strftime("%Y%m%d%H%M%S")
+    except Exception:
+        return "00000000000000"
+
 def convert_to_little_r(data, elevation):
     little_r_data = ""
     
-    # Extract parameters from data
-    xlat = float(data.get('latitude', -888888))
-    xlon = float(data.get('longitude', -888888))
-    date_char = data.get('date', '00000000000000')
-    slp = float(data.get('sea_level_pressure', -888888))
-    p = float(data.get('pressure', -888888))
-    z = float(data.get('height', -888888))
-    t = float(data.get('temperature', -888888))
-    spd = float(data.get('wind_speed', -888888))
-    direction = float(data.get('wind_direction', -888888))
-    rh = float(data.get('relative_humidity', -888888))
+    # Extract parameters from data using safe_float
+    xlat = safe_float(data.get('latitude'))
+    xlon = safe_float(data.get('longitude'))
+    station_id = str(data.get('station_id', ''))
+    platform_type = 'local'
+    platform = 'FM-12'
+    date_char = format_little_r_date(data.get('date', '00000000000000'))
+    slp = safe_float(data.get('sea_level_pressure'))
+    p = safe_float(data.get('pressure'))
+    z = safe_float(data.get('height'))
+    t = safe_float(data.get('temperature'))
+    spd = safe_float(data.get('wind_speed'))
+    direction = safe_float(data.get('wind_direction'))
+    rh = safe_float(data.get('relative_humidity'))
 
     # Ensure at least one of p or z is available
     if p == -888888 and z == -888888:
@@ -32,12 +57,12 @@ def convert_to_little_r(data, elevation):
 
     # Example header
     header = (
-        f"{xlat:20.5f}{xlon:20.5f}{'':<40}{'':<40}"
-        f"{'':<40}{'':<40}{elevation:20.5f}{-888888:10.0f}{-888888:10.0f}{-888888:10.0f}{-888888:10.0f}{-888888:10.0f}"
+        f"{xlat:20.5f}{xlon:20.5f}{station_id:<40}{platform_type:<40}"
+        f"{platform:<40}{'':<40}{elevation:20.5f}{-888888:10.0f}{-888888:10.0f}{-888888:10.0f}{-888888:10.0f}{-888888:10.0f}"
         f"{'F':<10}{'F':<10}{'F':<10}"
         f"{-888888:10.0f}{-888888:10.0f}{date_char:<20}{slp:13.5f}{0:7.0f}"
-        f"{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}"
-        f"{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}"
+        f"{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}"
+        f"{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}"
         f"{-888888:13.5f}{0:7.0f}{-888888:13.5f}{0:7.0f}\n"
     )
     little_r_data += header
@@ -77,9 +102,19 @@ def fetch_elevation_data(file_path):
     elevation_data = {}
     with open(file_path, mode='r') as file:
         csv_reader = csv.DictReader(file)
+        # Support both 'station_id' and 'SID' as station id column
+        sid_col = None
+        elev_col = None
+        for col in csv_reader.fieldnames:
+            if col.lower() in ['station_id', 'sid']:
+                sid_col = col
+            if col.lower() in ['elevation', 'elev']:
+                elev_col = col
+        if sid_col is None or elev_col is None:
+            raise ValueError("Station file must have a station id column ('station_id' or 'SID') and elevation column ('elevation' or 'elev')")
         for row in csv_reader:
-            station_id = row['station_id']
-            elevation = float(row['elevation'])
+            station_id = row[sid_col]
+            elevation = float(row[elev_col])
             elevation_data[station_id] = elevation
     return elevation_data
 

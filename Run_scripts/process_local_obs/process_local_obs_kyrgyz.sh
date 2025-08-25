@@ -56,10 +56,10 @@ if [ -f "$Raw_obs" ] && [ -f "$Station_file" ]; then
         td2=$9
         split(stations[sid],s,",")
         if(length(stations[sid])>0) {
-            printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", dttm, sid, s[1], s[2], s[3], t2m, td2, pres, "", wdir, wspd
+            printf "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n", dttm, sid, s[1], s[2], s[3], t2m, td2, pres, "", wdir, wspd
         }
     }
-    ' "$Station_file" "$Raw_obs" | awk 'BEGIN{print "valid_dttm\tSID\tlat\tlon\telev\tT2m\tTd2m\tPressure\tPcp\tWdir\tWS"}1' > "$Verif_obs"
+    ' "$Station_file" "$Raw_obs" | awk 'BEGIN{print "valid_dttm,SID,lat,lon,elev,T2m,Td2m,Pressure,Pcp,Wdir,WS"}1' > "$Verif_obs"
     echo "Verification observation created: $Verif_obs"
 
     # Create assimilation observation file with required format
@@ -94,11 +94,11 @@ if [ -f "$Raw_obs" ] && [ -f "$Station_file" ]; then
             # Convert height to numeric if available from station data
             height = s[3];
 
-            printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+            printf "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
                    sid, s[1], s[2], formatted_date, slp, p_value, height, t2m, rh2, wspd, wdir
         }
     }
-    ' "$Station_file" "$Raw_obs" | awk 'BEGIN{print "station_id\tlatitude\tlongitude\tdate\tsea_level_pressure\tpressure\theight\ttemperature\trelative_humidity\twind_speed\twind_direction"}1' > "$Assim_obs"
+    ' "$Station_file" "$Raw_obs" | awk 'BEGIN{print "station_id,latitude,longitude,date,sea_level_pressure,pressure,height,temperature,relative_humidity,wind_speed,wind_direction"}1' > "$Assim_obs"
     echo "Assimilation observation created: $Assim_obs"
 else
     echo "Observation or station file missing, cannot combine."

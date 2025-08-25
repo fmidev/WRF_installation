@@ -134,14 +134,15 @@ Test your WPS setup:
 
 If successful, this creates the input files needed for WRF.
 
-### Observations (Optional for Data Assimilation)
+### Observations and Obsproc Namelist Domain Settings (Optional for Data Assimilation)
+
 For data assimilation, you need observation data. The system uses NCEP's real-time database.
 
 1. **Data Types**: The `get_obs.sh` script downloads satellite data and global observations from [NCEP](https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/).
 
 2. **Limitations**: 
    - NCEP only keeps 2-3 days of recent data
-   - Local data, radar data, and custom observations need special formatting (not included)
+   - Local data, radar data, and custom observations need special formatting (Users must prepare raw data for obsproc by themselves)
 
 3. **Getting Data**: Run the script with date and time:
    ```
@@ -151,6 +152,29 @@ For data assimilation, you need observation data. The system uses NCEP's real-ti
    ```
 
 4. **Result**: The script organizes files for WRFDA to use.
+
+#### Obsproc Namelist Domain Settings
+
+When running data assimilation with local observations, the `namelist.obsproc` file controls how observations are processed. The domain settings in this file must match your WRF domain configuration. Key parameters are set in the `&record7` and `&record8` sections:
+
+- **&record7**: Map projection and domain center
+  - `IPROJ`: Map projection type (3 = Mercator, 1 = Lambert, 2 = Polar Stereographic)
+  - `PHIC`: Central latitude of the domain
+  - `XLONC`: Central longitude of the domain
+  - `TRUELAT1`: First true latitude (for Mercator, must be set to 0)
+  - `MOAD_CEN_LAT`: Center latitude of the main domain
+  - `STANDARD_LON`: Standard longitude for the projection
+
+  **Note:** If you use Mercator projection (`IPROJ = 3`), set `TRUELAT1 = 0`. Other values may cause errors or incorrect domain setup.
+
+- **&record8**: Domain size and nesting
+  - `IDD`: When XLONC /= STANDARD_LON, set IDD=2, otherwise set to 1
+  - `MAXNES`: Maximum number of nests
+  - `NESTIX`, `NESTJX`: Grid points in x and y directions for each nest
+  - `DIS`: Grid spacing for each nest
+  - `NUMC`: Number of columns for each nest
+  - `NESTI`, `NESTJ`: Starting indices for each nest
+
 
 ### Running the Model
 The `Run_WRF.sh` script manages the WRF model run, including optional data assimilation.
@@ -183,7 +207,25 @@ The `Run_WRF.sh` script manages the WRF model run, including optional data assim
 UPP (Unified Post Processor) converts WRF output (NetCDF) to GRIB format. The `installation` file shows how to compile UPP. The `setup_upp` file explains how to set up UPP (not needed with automated installation). The `Run_scripts/execute_upp.sh` script converts NetCDF to GRIB automatically.
 
 ### Verification
-Instructions for using HARP verification with WRF will be added in the future.
+
+The WRF verification workflow uses a combination of Bash and R scripts to process model output and observations, convert them to SQLite format, and perform statistical verification.
+
+#### Scripts Overview
+
+- **verification.sh**: Main Bash script that orchestrates the verification process. It extracts essential variables from WRF output files, converts observations and forecasts to SQLite databases, and triggers R scripts for verification and plotting.
+- **read_obs.R**: R script that reads observation CSV files, converts them to SQLite format, and stores them in the appropriate database for later use.
+- **read_forecast_wrf.R**: R script that reads WRF forecast NetCDF files, interpolates them to station locations, and writes the results to SQLite format.
+- **verify_parameters.R**: R script that performs statistical verification using the harp package. Currently, it verifies only 2-meter temperature (`T2m`). Results are saved and can be visualized with harpVis.
+
+#### Workflow Steps
+
+1. **Extract Variables**: `verification.sh` uses `ncks` and `ncrcat` to extract and concatenate key variables from WRF output files for each domain.
+2. **Convert Observations**: `read_obs.R` processes local observation CSV files and writes them to SQLite databases.
+3. **Convert Forecasts**: `read_forecast_wrf.R` processes WRF forecast files, interpolates to station locations, and writes to SQLite.
+4. **Verification**: `verify_parameters.R` compares forecasts and observations for `T2m` and computes verification scores.
+5. **Automation**: The workflow supports weekly and monthly verification, triggered automatically on Mondays at 00 UTC.
+
+**Note:** The verification currently supports only 2-meter temperature (`T2m`). Support for additional parameters may be added in the future.
 
 ### Cleaning and Automation
 The `clean_wrf` script removes old GFS, WRF, and UPP files. You can set this up to run automatically once a day.
