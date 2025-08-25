@@ -55,6 +55,9 @@ You can easily create WRF domains using [WRF Domain Wizard](https://wrfdomainwiz
 3. Set the inner domain resolution using "Parent_grid_ratio" - the default is 3, which means 4 km resolution if your outer domain is 12 km.
 4. Click "Save" to download the domain settings (namelist.wps) for your WRF setup.
 
+**Important:**  
+If you plan to use the Mercator projection (`map_proj = 'mercator'`) and run obsproc for data assimilation with local observations, you must set `TRUELAT1 = 0` in your domain settings and in `namelist.obsproc`. Other values will cause obsproc to fail.
+
 ## Operational Workflow
 
 ### Environment Setup
