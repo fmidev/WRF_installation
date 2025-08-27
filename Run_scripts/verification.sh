@@ -104,21 +104,21 @@ DAY_OF_WEEK=$(date --utc +'%w' -d "${year}-${month}-${day}")
 # Run only on Monday (1) at 00 UTC cycle
 if [ "$DAY_OF_WEEK" = "1" ] && [ "$cycle" = "00" ]; then
     echo "Today is Monday at 00 UTC - performing weekly and monthly verification..."
-    
-    # Calculate dates for weekly and monthly verification
-    SEVEN_DAYS_AGO=$(date --utc +'%Y%m%d%H' -d "${year}-${month}-${day} ${cycle}:00:00 - 7 day")
-    THIRTY_DAYS_AGO=$(date --utc +'%Y%m%d%H' -d "${year}-${month}-${day} ${cycle}:00:00 - 30 day")
+
+    DATE_STRING="${year}-${month}-${day} ${cycle}:00:00"
+    SEVEN_DAYS_AGO=$(date -u -d "$DATE_STRING UTC -7 days" +'%Y%m%d%H')
+    THIRTY_DAYS_AGO=$(date -u -d "$DATE_STRING UTC -30 days" +'%Y%m%d%H')
+
+    echo "CURRENT_DATE: $CURRENT_DATE"
+    echo "SEVEN_DAYS_AGO: $SEVEN_DAYS_AGO"
+    echo "THIRTY_DAYS_AGO: $THIRTY_DAYS_AGO"
     
     # Run verification for various parameters with both weekly and monthly periods
     echo "Performing verification for meteorological parameters..."
-    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${SEVEN_DAYS_AGO} --end_date ${CURRENT_DATE} --domain d01  #weekly
-    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${SEVEN_DAYS_AGO} --end_date ${CURRENT_DATE} --domain d02  #weekly
+    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${SEVEN_DAYS_AGO} --end_date ${CURRENT_DATE} #weekly
+    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${THIRTY_DAYS_AGO} --end_date ${CURRENT_DATE} #monthly
 
-    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${THIRTY_DAYS_AGO} --end_date ${CURRENT_DATE} --domain d01  #monthly
-    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${THIRTY_DAYS_AGO} --end_date ${CURRENT_DATE} --domain d02  #monthly
-
-    cp $BASE_DIR/Verification/Results/wrf_d01/*rds ~/R/library/harpVis/verification/det/
-    cp $BASE_DIR/Verification/Results/wrf_d02/*rds ~/R/library/harpVis/verification/det/
+    cp $BASE_DIR/Verification/Results/*rds ~/R/library/harpVis/verification/det/
 
 else
     echo "Not Monday at 00 UTC - skipping verification process"

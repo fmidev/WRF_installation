@@ -23,7 +23,7 @@ read_csv_obs <- function(file_name, dttm, parameter = NULL, ...) {
   cat("CSV dimensions:", nrow(obs_data), "rows,", ncol(obs_data), "columns\n")
   
   # Convert numeric columns safely
-  numeric_cols <- c("SID", "lat", "lon", "elev", "T2m", "Td2m", "Pressure", "Pcp", "Wdir", "WS")
+  numeric_cols <- c("SID", "lat", "lon", "elev", "T2m", "Td2m", "Pressure", "Wdir", "WS")
   existing_numeric_cols <- intersect(names(obs_data), numeric_cols)
   
   for (col in existing_numeric_cols) {
@@ -31,8 +31,7 @@ read_csv_obs <- function(file_name, dttm, parameter = NULL, ...) {
   }
   
   # Map column names to harp conventions - fix column mapping
-  colname_mapping <- c("Td2m" = "Td2m", "Pressure" = "Pmsl", "Pcp" = "AccPcp1h", 
-                       "Wdir" = "Wdir", "WS" = "S10m")
+  colname_mapping <- c("Td2m" = "Td2m", "Pressure" = "Ps", "Wdir" = "D10m", "WS" = "S10m")
   
   for (old_name in names(colname_mapping)) {
     if (old_name %in% colnames(obs_data)) {
@@ -45,12 +44,12 @@ read_csv_obs <- function(file_name, dttm, parameter = NULL, ...) {
   obs_data <- obs_data[!is.na(obs_data$valid_dttm), ]
   
   # Parameter units - create for all available parameters
-  available_params <- intersect(c("T2m", "Td2m", "Pmsl", "AccPcp1h", "Wdir", "S10m"), colnames(obs_data))
+  available_params <- intersect(c("T2m", "Td2m", "Ps", "D10m", "S10m"), colnames(obs_data))
   
   obs_units <- data.frame(
     parameter = available_params,
-    accum_hours = c(0, 0, 0, 1, 0, 0)[match(available_params, c("T2m", "Td2m", "Pmsl", "AccPcp1h", "Wdir", "S10m"))],
-    units = c("degC", "degC", "hPa", "mm", "degrees", "m/s")[match(available_params, c("T2m", "Td2m", "Pmsl", "AccPcp1h", "Wdir", "S10m"))],
+    accum_hours = c(0, 0, 0, 1, 0, 0)[match(available_params, c("T2m", "Td2m", "Ps", "D10m", "S10m"))],
+    units = c("degC", "degC", "hPa", "degrees", "m/s")[match(available_params, c("T2m", "Td2m", "Ps", "D10m", "S10m"))],
     stringsAsFactors = FALSE
   )
   
