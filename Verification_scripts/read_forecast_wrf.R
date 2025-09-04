@@ -78,7 +78,7 @@ tryCatch({
         "Q2" = "Q2"
       )
     ),
-    lead_time = seq(0, 60, 1),
+    lead_time = seq(0, 72, 1),
     transformation = "interpolate",
     transformation_opts = interpolate_opts(
       stations = station_list,
