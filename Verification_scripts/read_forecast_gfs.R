@@ -1,14 +1,13 @@
 ####################################
-# Read_forecast and save to SQLite #
+# Read GFS forecast and save to SQLite #
 ####################################
 
-# Parse command line arguments - expecting forecast date in format yyyymmddHH and domain (d01 or d02)
+# Parse command line arguments - expecting forecast date in format yyyymmddHH
 args = commandArgs(trailingOnly=TRUE)
-if (length(args) != 2 || nchar(args[1]) != 10 || !(args[2] %in% c("d01", "d02"))){
-  stop("Usage: Rscript read_forecast_wrf.R <yyyymmddHH> <domain>\n  Where domain is either d01 or d02\n  Example: Rscript read_forecast_wrf.R 2024010100 d01")
+if (length(args) != 1 || nchar(args[1]) != 10){
+  stop("Usage: Rscript read_forecast_gfs.R <yyyymmddHH>\n  Example: Rscript read_forecast_gfs.R 2024010100")
 }
 datetime = args[1]
-domain = args[2]
 
 # Load required libraries for forecast processing and NetCDF handling
 library(harp)
@@ -37,13 +36,14 @@ station_list <- read.csv("/wrf/WRF_Model/Verification/Data/Static/stationlist_KY
 file_path <- "/wrf/WRF_Model/Verification/Data/Forecast" 
 template <- "{fcst_model}_{YYYY}{MM}{DD}{HH}"
 sql_folder <- "/wrf/WRF_Model/Verification/SQlite_tables/FCtables"
-fcst_model <- paste0("wrf_", domain)
-forecast_file <- paste0(file_path, "/", fcst_model, "_", datetime)
+fcst_model <- "gfs"
+forecast_file <- paste0(file_path, "/", fcst_model)
 
-# Define WRF variable names
-wrf_vars <- c("T2", "U10", "V10", "RAINC", "RAINNC", "PSFC", "Q2")
+# Define GFS variable names and their mapping
+# These should match the variables extracted in the verification.sh script
+gfs_vars <- c("TMP", "UGRD", "VGRD", "PRES", "SPFH")
 
-cat("Processing forecast for date:", datetime, "\n")
+cat("Processing GFS forecast for date:", datetime, "\n")
 cat("Using model:", fcst_model, "\n")
 
 # Check if forecast file exists
@@ -64,18 +64,16 @@ tryCatch({
   read_forecast(
     dttm = datetime,
     fcst_model = fcst_model,
-    parameter = wrf_vars,
+    parameter = gfs_vars,
     file_format = "netcdf",
     file_format_opts = netcdf_opts(
-      "wrf",
+      "gfs",
       param_find = list(
-        "T2" = "T2",
-        "U10" = "U10", 
-        "V10" = "V10",
-        "RAINC" = "RAINC",
-        "RAINNC" = "RAINNC", 
-        "PSFC" = "PSFC",
-        "Q2" = "Q2"
+        "T2" = "TMP",    # 2m temperature
+        "U10" = "UGRD", # 10m U wind
+        "V10" = "VGRD", # 10m V wind
+        "PSFC" = "PRES", # Surface pressure
+        "Q2" = "SPFH"   # 2m specific humidity
       )
     ),
     lead_time = seq(0, as.numeric(Sys.getenv("LEADTIME")), 1),
@@ -103,7 +101,7 @@ tryCatch({
   cat("Detailed error diagnostics:\n")
   cat("- File path:", file_path, "\n")
   cat("- File template:", template, "\n")
-  cat("- Variables requested:", paste(wrf_vars, collapse=", "), "\n")
+  cat("- Variables requested:", paste(gfs_vars, collapse=", "), "\n")
 }) 
  
-cat("Forecast processing completed for", fcst_model, "\n")
+cat("GFS forecast processing completed\n")

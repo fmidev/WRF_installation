@@ -25,6 +25,7 @@ FORECAST_DIR="${DATA_DIR}/Forecast"
 OBS_DIR="${DATA_DIR}/Obs"
 FIGURES_DIR="${DATA_DIR}/Figures"
 TEMP_DIR="${DATA_DIR}/temp"
+GFS_DIR="${BASE_DIR}/WRF_Model/GFS/${CURRENT_DATE}"
 
 # Create directories if they don't exist
 mkdir -p ${FORECAST_DIR}
@@ -38,7 +39,7 @@ mkdir -p ${TEMP_DIR}
 CURRENT_DATE="${year}${month}${day}${cycle}"
 
 ##########################################################################
-# Step 1: Extract essential variables from WRF files and concatenate
+# Step 1a: Extract essential variables from WRF files and concatenate
 ##########################################################################
 echo "Extracting essential variables from WRF output files..."
 
@@ -73,6 +74,43 @@ echo "Concatenating filtered domain 2 files..."
 ncrcat ${TEMP_DIR}/wrfout_verif_d02_* ${FORECAST_DIR}/wrf_d02
 
 ##########################################################################
+# Step 1b: Process and concatenate GFS files
+##########################################################################
+echo "Processing GFS grib2 files..."
+
+# Define the variables we need from GFS
+GFS_VARS="TMP:2 m above ground|PRES:surface|HGT:surface|LAND:surface|UGRD:10 m above ground|VGRD:10 m above ground|SPFH:2 m above ground"
+
+# Process each GFS file
+for gfs_file in ${GFS_DIR}/gfs.t${cycle}z.pgrb2.0p25.f*; do
+    if [ -f "$gfs_file" ]; then
+        # Extract the forecast hour from filename
+        f_hour=$(basename "$gfs_file" | sed 's/.*\.f\([0-9]*\)$/\1/')
+        
+        # Skip if forecast hour exceeds LEADTIME
+        if [ "${f_hour}" -gt "${LEADTIME}" ]; then
+            continue
+        fi
+        
+        output_file="${TEMP_DIR}/gfs_processed_${f_hour}"
+        
+        echo "Processing GFS file for forecast hour ${f_hour}..."
+        
+        # Extract required variables using wgrib2
+        wgrib2 "$gfs_file" -s | grep -E "${GFS_VARS}" | wgrib2 -i "$gfs_file" -netcdf "$output_file"
+        
+        if [ $? -ne 0 ]; then
+            echo "Error processing GFS file: $gfs_file"
+            exit 1
+        fi
+    fi
+done
+
+# Concatenate processed GFS files
+echo "Concatenating processed GFS files..."
+ncrcat ${TEMP_DIR}/gfs_processed_* ${FORECAST_DIR}/gfs
+
+##########################################################################
 # Step 2: Process observations directly to SQLite
 ##########################################################################
 echo "Converting observations to SQLite format..."
@@ -87,11 +125,17 @@ Rscript read_obs.R ${CURRENT_DATE}
 ##########################################################################
 echo "Converting forecast data to SQLite format..."
 
+# Process WRF forecasts
+echo "Processing WRF forecasts..."
 # Process domain 1 forecasts
 Rscript ${VERIFICATION_SCRIPTS}/read_forecast_wrf.R ${CURRENT_DATE} d01
 
 # Process domain 2 forecasts
 Rscript ${VERIFICATION_SCRIPTS}/read_forecast_wrf.R ${CURRENT_DATE} d02
+
+# Process GFS forecasts
+echo "Processing GFS forecasts..."
+Rscript ${VERIFICATION_SCRIPTS}/read_forecast_gfs.R ${CURRENT_DATE}
 
 ##########################################################################
 # Step 4: Perform verification for different parameters (weekly schedule)

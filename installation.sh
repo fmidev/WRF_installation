@@ -155,7 +155,7 @@ sudo dnf install -y epel-release gcc gfortran g++ emacs wget tar perl libxml2-de
 sudo dnf update -y
 
 # Install verification-related system packages
-sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco
+sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco wgrib2
 
 # Detect number of CPU cores and save one less for parallel processes
 CPU_COUNT=$(nproc)
@@ -797,7 +797,7 @@ cp -r $GIT_REPO/Run_scripts/* $BASE/scripts/
 chmod -R +x $BASE/scripts/
 
 echo "Copying verification R scripts into the Verification directory..."
-cp $GIT_REPO/Verification_scripts/* $BASE/Verification/scripts/
+cp $GIT_REPO/Verification_scripts/!(app.R) $BASE/Verification/scripts/
 
 # Update paths in R verification scripts
 echo "Updating paths in R verification scripts..."

@@ -38,7 +38,7 @@ read_forecasts <- function(start_date, end_date, models, fcst_dir) {
     parameter = "T2m",
     file_path = fcst_dir,
     file_template = "{fcst_model}/{YYYY}/{MM}/FCTABLE_T2_{YYYY}{MM}_{HH}.sqlite",
-    lead_time = seq(0, 72, 1)
+    lead_time = seq(0, as.numeric(Sys.getenv("LEADTIME")), 1)
   )
   fcst_psfc <- read_point_forecast(
     dttm = seq_dttm(start_date, end_date, "6h"),
@@ -46,7 +46,7 @@ read_forecasts <- function(start_date, end_date, models, fcst_dir) {
     parameter = "PSFC",
     file_path = fcst_dir,
     file_template = "{fcst_model}/{YYYY}/{MM}/FCTABLE_PSFC_{YYYY}{MM}_{HH}.sqlite",
-    lead_time = seq(0, 72, 1)
+    lead_time = seq(0, as.numeric(Sys.getenv("LEADTIME")), 1)
   )
   list(T2m = fcst_t2m, PSFC = fcst_psfc)
 }
@@ -126,8 +126,8 @@ verify_and_save <- function(fcst, obs, output_dir) {
 
 # Main script
 opt <- parse_and_validate_args()
-cat("Starting temperature and pressure verification for:", opt$start_date, "to", opt$end_date, "- Domains: d01 & d02\n")
-fcst_models <- c("wrf_d01", "wrf_d02")
+cat("Starting temperature and pressure verification for:", opt$start_date, "to", opt$end_date, "- Models: WRF (d01 & d02) and GFS\n")
+fcst_models <- c("wrf_d01", "wrf_d02", "gfs")
 fcst_dir <- "/wrf/WRF_Model/Verification/SQlite_tables/FCtables"
 obs_dir  <- "/wrf/WRF_Model/Verification/SQlite_tables/Obs"
 
