@@ -657,6 +657,8 @@ install_github("harphub/harp")
 install_github("harphub/Rgrib2")
 install.packages("ncdf4")
 install.packages("optparse")
+install.packages("DT")
+install.packages("plotly")
 EOF
 
     echo "Installing R packages for verification..."
