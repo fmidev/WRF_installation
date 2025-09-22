@@ -151,7 +151,7 @@ echo "Installing required packages..."
 sudo dnf config-manager --set-enabled crb
 sudo dnf makecache -y -q
 sudo dnf install -y epel-release gcc gfortran g++ emacs wget tar perl libxml2-devel \
-    m4 chrony libcurl-devel csh ksh rsync cmake
+    m4 chrony libcurl-devel csh ksh rsync cmake time
 sudo dnf update -y
 
 # Install verification-related system packages
