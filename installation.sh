@@ -155,7 +155,7 @@ sudo dnf install -y epel-release gcc gfortran g++ emacs wget tar perl libxml2-de
 sudo dnf update -y
 
 # Install verification-related system packages
-sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco wgrib2
+sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco wgrib2 openssl-devel 
 
 # Detect number of CPU cores and save one less for parallel processes
 CPU_COUNT=$(nproc)
