@@ -820,9 +820,6 @@ for script in control_run_WRF.sh run_WRF.sh execute_upp.sh run_WRFDA.sh clean_wr
     sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/$script"
 done
 
-# Set up git repository to track configuration and scripts
-setup_git_repository
-
 # Crontab setup with improved timezone handling
 echo "Setting up crontab for WRF..."
 echo "Adjusting crontab times to match system time zone..."
@@ -873,8 +870,8 @@ crontab $BASE/scripts/crontab_template
 echo "Crontab for WRF set up successfully but run commands are not active by default."
 echo "Remember to activate them by running 'crontab -e' and uncommenting the lines."
 
-# Install verification tools
-echo "Checking if system is compatible for verification tools installation..."
+# Set up git repository to track configuration and scripts
+setup_git_repository
 
 # Print summary of installation
 echo "

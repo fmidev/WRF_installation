@@ -228,7 +228,46 @@ The WRF verification workflow uses a combination of Bash and R scripts to proces
 4. **Verification**: `verify_parameters.R` compares forecasts and observations for `T2m` and computes verification scores.
 5. **Automation**: The workflow supports weekly and monthly verification, triggered automatically on Mondays at 00 UTC.
 
-**Note:** The verification currently supports only 2-meter temperature (`T2m`). Support for additional parameters may be added in the future.
+**Note:** The verification currently supports only 2-meter temperature (`T2m`). Support for additional parameters will be added in the future.
+
+#### Accessing the harpVis Web Interface
+
+The installation automatically sets up a Shiny server with the harpVis web application for interactive verification visualization. To access the web interface:
+
+1. **From the WRF server directly** (if you have a desktop environment):
+   Open a web browser and navigate to:
+   ```
+   http://localhost:3838/harpvis/
+   ```
+
+2. **From a remote computer using SSH tunnel**:
+   Create an SSH tunnel to forward the Shiny server port to your local machine:
+   ```bash
+   ssh -L <localport>:localhost:3838 <wrf-server-user>@<wrf-server-ip>
+   ```
+   
+   Example:
+   ```bash
+   ssh -L 8080:localhost:3838 wrf@0.0.0.0
+   ```
+   
+   Then open your local web browser and navigate to:
+   ```
+   http://localhost:<localport>/harpvis/
+   ```
+   
+   Using the example above:
+   ```
+   http://localhost:8080/harpvis/
+   ```
+
+The harpVis web interface provides an interactive dashboard for:
+- Loading and visualizing verification data
+- Comparing multiple forecast models
+- Generating verification plots and statistics
+- Exporting results for further analysis
+
+**Note:** The Shiny server (as well as other verification tools) is only installed if you provided a GitHub Personal Access Token during installation.
 
 ### Cleaning and Automation
 The `clean_wrf` script removes old GFS, WRF, and UPP files. You can set this up to run automatically once a day.
