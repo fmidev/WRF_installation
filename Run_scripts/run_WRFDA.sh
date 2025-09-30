@@ -180,7 +180,7 @@ dy                   = 7000.0000,
 &tc
 /
 &physics
-mp_physics                 = 2, 
+mp_physics                 = 8, 
 mp_zero_out                = 0,
 mp_zero_out_thresh         = 1.e-8
 mp_tend_lim                = 10.
@@ -191,8 +191,8 @@ topo_wind                  = 0,
 isfflx                     = 1,
 iz0tlnd                    = 1,
 isftcflx                   = 0,
-ra_lw_physics              = 1,   
-ra_sw_physics              = 1,  
+ra_lw_physics              = 4,   
+ra_sw_physics              = 4,  
 radt                       = 10,
 sf_sfclay_physics          = 1,
 sf_surface_physics         = 2,
@@ -217,7 +217,7 @@ sf_lake_physics            = 1,
 &scm
 /
 &dynamics
-diff_opt                   = 1,
+diff_opt                   = 2,
 km_opt                     = 4,
 /
 &bdy_control

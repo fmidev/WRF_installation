@@ -99,7 +99,7 @@ cat << EOF > namelist.input
 
 
 &physics
- mp_physics                 = 2,     2,
+ mp_physics                 = 8,     8,
  mp_zero_out                = 0,
  mp_zero_out_thresh         = 1.e-8
  mp_tend_lim                = 10.
@@ -110,8 +110,8 @@ cat << EOF > namelist.input
  isfflx                     = 1,
  iz0tlnd                    = 1,
  isftcflx                   = 0,
- ra_lw_physics              = 1,     1,
- ra_sw_physics              = 1,     1,
+ ra_lw_physics              = 4,     4,
+ ra_sw_physics              = 4,     4,
  radt                       = 10,    2,
  sf_sfclay_physics          = 1,     1,
  sf_surface_physics         = 2,     2,
@@ -142,7 +142,7 @@ cat << EOF > namelist.input
  hybrid_opt                 = 2,
  etac                       = 0.1,
  w_damping                  = 1,
- diff_opt                   = 1,      1,
+ diff_opt                   = 2,      2,
  km_opt                     = 4,      4,
  diff_6th_opt               = 2,      2,
  diff_6th_factor            = 0.12,   0.12,
