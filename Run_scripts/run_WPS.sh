@@ -82,7 +82,7 @@ echo "link Vtable finish"
 cat << EOF > run_geogrid.bash
 #!/bin/bash
 cd ${run_dir}
-time mpirun -np 10 ${WPS_DIR}/geogrid.exe
+time mpirun -np $((MAX_CPU < 10 ? MAX_CPU : 10)) ${WPS_DIR}/geogrid.exe
 EOF
 
 chmod +x run_geogrid.bash
@@ -130,7 +130,7 @@ fi
 cat << EOF > run_metgrid.bash
 #!/bin/bash
 cd ${run_dir}
-time mpirun -np ${MAX_CPU} ${WPS_DIR}/metgrid.exe
+time mpirun -np $((MAX_CPU < 20 ? MAX_CPU : 20)) ${WPS_DIR}/metgrid.exe
 EOF
 
 chmod +x run_metgrid.bash

@@ -191,7 +191,7 @@ EOF
 # ===============================================
 
 echo "Running real.exe..."
-time mpirun -np ${MAX_CPU} ${run_dir}/real.exe
+time mpirun -np $((MAX_CPU < 10 ? MAX_CPU : 10)) ${run_dir}/real.exe
 echo "Real.exe completed."
 
 # ===============================================

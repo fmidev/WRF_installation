@@ -609,7 +609,7 @@ if [ -d "$BASE/UPP" ]; then
     sed -i "s|export lastfhr=.*|export lastfhr=72|" "$UNIPOST"
     sed -i "s|export incrementhr=.*|export incrementhr=01|" "$UNIPOST"
     sed -i "s|export domain_list=.*|export domain_list=\"d01 d02\"|" "$UNIPOST"
-    sed -i "s|export RUN_COMMAND=.*|export RUN_COMMAND=\"mpirun -np ${MAX_CPU} \${POSTEXEC}/unipost.exe \"|" "$UNIPOST"
+    sed -i "s|export RUN_COMMAND=.*|export RUN_COMMAND=\"mpirun -np \\\$((MAX_CPU < 20 ? MAX_CPU : 20)) \${POSTEXEC}/unipost.exe \"|" "$UNIPOST"
     sed -i "s|ln -fs \${DOMAINPATH}/parm/post_avblflds_comm.xml post_avblflds.xml|ln -fs \${UNIPOST_HOME}/parm/post_avblflds.xml post_avblflds.xml|" "$UNIPOST"
     sed -i "s|ln -fs \${DOMAINPATH}/parm/params_grib2_tbl_new params_grib2_tbl_new|ln -fs \${UNIPOST_HOME}/parm/params_grib2_tbl_new params_grib2_tbl_new|" "$UNIPOST"
 
