@@ -41,7 +41,7 @@ fcst_model <- paste0("wrf_", domain)
 forecast_file <- paste0(file_path, "/", fcst_model, "_", datetime)
 
 # Define WRF variable names
-wrf_vars <- c("T2", "U10", "V10", "RAINC", "RAINNC", "PSFC", "Q2")
+wrf_vars <- c("t2m", "q2m", "topo", "ws10m", "psfc", "pcp")
 
 cat("Processing forecast for date:", datetime, "\n")
 cat("Using model:", fcst_model, "\n")
@@ -58,6 +58,26 @@ if (!file.exists(forecast_file)) {
 cat("Forecast file found! Inspecting contents...\n")
 inspect_netcdf(forecast_file)
 
+# Sum RAINC and RAINNC to create PCP and add it to the original file
+cat("Summing RAINC and RAINNC to create PCP...\n")
+nc <- nc_open(forecast_file, write=TRUE)
+rainc <- ncvar_get(nc, "RAINC")
+rainnc <- ncvar_get(nc, "RAINNC")
+pcp <- rainc + rainnc
+
+# Add PCP variable to the file if it doesn't exist
+if (!("PCP" %in% names(nc$var))) {
+  # Get dimensions - unlimited dimension (Time) must be last
+  dim_west_east <- nc$dim[["west_east"]]
+  dim_south_north <- nc$dim[["south_north"]]
+  dim_time <- nc$dim[["Time"]]
+  ncvar_def_pcp <- ncvar_def("PCP", "mm", list(dim_west_east, dim_south_north, dim_time), missval=NA, longname="Accumulated precipitation")
+  nc <- ncvar_add(nc, ncvar_def_pcp)
+}
+ncvar_put(nc, "PCP", pcp)
+nc_close(nc)
+cat("PCP variable added to original file\n")
+
 # Process and write forecast data
 cat("Reading forecast data and writing to SQLite...\n")
 tryCatch({
@@ -69,13 +89,8 @@ tryCatch({
     file_format_opts = netcdf_opts(
       "wrf",
       param_find = list(
-        "T2" = "T2",
-        "U10" = "U10", 
-        "V10" = "V10",
-        "RAINC" = "RAINC",
-        "RAINNC" = "RAINNC", 
-        "PSFC" = "PSFC",
-        "Q2" = "Q2"
+        "psfc" = "PSFC",
+        "pcp" = "PCP"
       )
     ),
     lead_time = seq(0, as.numeric(Sys.getenv("LEADTIME")), 1),

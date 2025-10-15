@@ -44,7 +44,7 @@ CURRENT_DATE="${year}${month}${day}${cycle}"
 echo "Extracting essential variables from WRF output files..."
 
 # Define the variables we need for verification
-VERIF_VARS="T2,RAINC,RAINNC,RAINSH,HGT,LANDMASK,U10,V10,PSFC,Q2,Times"
+VERIF_VARS="T2,RAINC,RAINNC,HGT,U10,V10,PSFC,Q2,Times"
 
 # Process domain 1 files
 echo "Processing domain 1 files..."
@@ -68,10 +68,10 @@ done
 
 # Concatenate the filtered files
 echo "Concatenating filtered domain 1 files..."
-ncrcat ${TEMP_DIR}/wrfout_verif_d01_* ${FORECAST_DIR}/wrf_d01
+ncrcat ${TEMP_DIR}/wrfout_verif_d01_* ${FORECAST_DIR}/wrf_d01_${CURRENT_DATE}
 
 echo "Concatenating filtered domain 2 files..."
-ncrcat ${TEMP_DIR}/wrfout_verif_d02_* ${FORECAST_DIR}/wrf_d02
+ncrcat ${TEMP_DIR}/wrfout_verif_d02_* ${FORECAST_DIR}/wrf_d02_${CURRENT_DATE}
 
 ##########################################################################
 # Step 1b: Process and concatenate GFS files
@@ -79,7 +79,7 @@ ncrcat ${TEMP_DIR}/wrfout_verif_d02_* ${FORECAST_DIR}/wrf_d02
 echo "Processing GFS grib2 files..."
 
 # Define the variables we need from GFS
-GFS_VARS="TMP:2 m above ground|PRES:surface|HGT:surface|LAND:surface|UGRD:10 m above ground|VGRD:10 m above ground|SPFH:2 m above ground"
+GFS_VARS="2t|pres|orog|10u|10v|prate|2sh"
 
 # Process each GFS file
 for gfs_file in ${GFS_DIR}/gfs.t${cycle}z.pgrb2.0p25.f*; do
@@ -108,7 +108,7 @@ done
 
 # Concatenate processed GFS files
 echo "Concatenating processed GFS files..."
-ncrcat ${TEMP_DIR}/gfs_processed_* ${FORECAST_DIR}/gfs
+ncrcat ${TEMP_DIR}/gfs_processed_* ${FORECAST_DIR}/gfs_${CURRENT_DATE}
 
 ##########################################################################
 # Step 2: Process observations directly to SQLite

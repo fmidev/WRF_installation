@@ -9,24 +9,24 @@ if (length(args) != 1 || nchar(args[1]) != 10){
 }
 datetime = args[1]
 
-# Load required libraries for forecast processing and NetCDF handling
+# Load required libraries for forecast processing and GRIB handling
 library(harp)
-library(ncdf4)
 
-# Function to inspect NetCDF file contents and verify variables
-inspect_netcdf <- function(file_path) {
+# Function to inspect GRIB file contents and verify variables
+inspect_grib <- function(file_path) {
   tryCatch({
     if (!file.exists(file_path)) {
       cat("File does not exist:", file_path, "\n")
       return(FALSE)
     }
     
-    nc <- nc_open(file_path)
-    cat("NetCDF file variables:", paste(names(nc$var), collapse=", "), "\n")
-    nc_close(nc)
+    # For GRIB files, we can use system commands to inspect
+    cat("GRIB file found, checking contents...\n")
+    system(paste("grib_ls", file_path, "| head -20"), ignore.stdout = FALSE)
     return(TRUE)
   }, error = function(e) {
-    cat("Error inspecting NetCDF file:", e$message, "\n")
+    cat("Error inspecting GRIB file:", e$message, "\n")
+    cat("Note: Make sure grib_ls is available or install eccodes tools\n")
     return(FALSE)
   })
 }
@@ -37,11 +37,11 @@ file_path <- "/wrf/WRF_Model/Verification/Data/Forecast"
 template <- "{fcst_model}_{YYYY}{MM}{DD}{HH}"
 sql_folder <- "/wrf/WRF_Model/Verification/SQlite_tables/FCtables"
 fcst_model <- "gfs"
-forecast_file <- paste0(file_path, "/", fcst_model)
+forecast_file <- paste0(file_path, "/", fcst_model, "_", datetime)
 
 # Define GFS variable names and their mapping
 # These should match the variables extracted in the verification.sh script
-gfs_vars <- c("TMP", "UGRD", "VGRD", "PRES", "SPFH")
+gfs_vars <- c("t2m", "ws10m", "q2m", "psfc", "topo", "pcp")
 
 cat("Processing GFS forecast for date:", datetime, "\n")
 cat("Using model:", fcst_model, "\n")
@@ -54,9 +54,9 @@ if (!file.exists(forecast_file)) {
   stop(paste0("Forecast file not found: ", forecast_file))
 }
 
-# Inspect NetCDF file to verify variables
+# Inspect GRIB file to verify variables
 cat("Forecast file found! Inspecting contents...\n")
-inspect_netcdf(forecast_file)
+inspect_grib(forecast_file)
 
 # Process and write forecast data
 cat("Reading forecast data and writing to SQLite...\n")
@@ -65,15 +65,10 @@ tryCatch({
     dttm = datetime,
     fcst_model = fcst_model,
     parameter = gfs_vars,
-    file_format = "netcdf",
-    file_format_opts = netcdf_opts(
-      "gfs",
+    file_format = "grib",
+    file_format_opts = grib_opts(
       param_find = list(
-        "T2" = "TMP",    # 2m temperature
-        "U10" = "UGRD", # 10m U wind
-        "V10" = "VGRD", # 10m V wind
-        "PSFC" = "PRES", # Surface pressure
-        "Q2" = "SPFH"   # 2m specific humidity
+        "q2m" = "2sh",
       )
     ),
     lead_time = seq(0, as.numeric(Sys.getenv("LEADTIME")), 1),
@@ -93,6 +88,7 @@ tryCatch({
     ),
     return_data = FALSE
   )
+  
   cat("Forecast data successfully written to SQLite\n")
 }, error = function(e) {
   cat("Error processing forecast:", e$message, "\n")
