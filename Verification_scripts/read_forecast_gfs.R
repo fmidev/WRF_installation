@@ -57,6 +57,7 @@ if (!file.exists(forecast_file)) {
 # Inspect GRIB file to verify variables
 cat("Forecast file found! Inspecting contents...\n")
 inspect_grib(forecast_file)
+leadtime_hours <- as.numeric(Sys.getenv("LEADTIME"))
 
 # Process and write forecast data
 cat("Reading forecast data and writing to SQLite...\n")
@@ -68,10 +69,11 @@ tryCatch({
     file_format = "grib",
     file_format_opts = grib_opts(
       param_find = list(
-        "q2m" = "2sh",
+        q2m = list(key = "shortName", value = "2sh"),
+        psfc = list(key = "shortName", value = "sp")
       )
     ),
-    lead_time = seq(0, as.numeric(Sys.getenv("LEADTIME")), 1),
+    lead_time = seq(0, leadtime_hours, 3), 
     transformation = "interpolate",
     transformation_opts = interpolate_opts(
       stations = station_list,

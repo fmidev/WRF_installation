@@ -48,7 +48,7 @@ read_csv_obs <- function(file_name, dttm, parameter = NULL, ...) {
   
   obs_units <- data.frame(
     parameter = available_params,
-    accum_hours = c(0, 0, 0, 1, 0, 0)[match(available_params, c("T2m", "Td2m", "Ps", "D10m", "S10m"))],
+    accum_hours = c(0, 0, 0, 0, 0)[match(available_params, c("T2m", "Td2m", "Ps", "D10m", "S10m"))],
     units = c("degC", "degC", "hPa", "degrees", "m/s")[match(available_params, c("T2m", "Td2m", "Ps", "D10m", "S10m"))],
     stringsAsFactors = FALSE
   )

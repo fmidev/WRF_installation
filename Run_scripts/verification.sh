@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #########################################################################
-######## Complete WRF Verification Process #####
+######## WRF Verification Process #####
 #########################################################################
 
 # Check if arguments are provided
@@ -17,6 +17,9 @@ cycle=$4
 
 source /home/wrf/WRF_Model/scripts/env.sh
 
+# Define date
+CURRENT_DATE="${year}${month}${day}${cycle}"
+
 # Define paths based on env.sh variables
 VERIFICATION_SCRIPTS="${BASE_DIR}/Verification/scripts"
 DATA_DIR="${BASE_DIR}/Verification/Data"
@@ -25,7 +28,7 @@ FORECAST_DIR="${DATA_DIR}/Forecast"
 OBS_DIR="${DATA_DIR}/Obs"
 FIGURES_DIR="${DATA_DIR}/Figures"
 TEMP_DIR="${DATA_DIR}/temp"
-GFS_DIR="${BASE_DIR}/WRF_Model/GFS/${CURRENT_DATE}"
+GFS_DIR="${BASE_DIR}/GFS/${CURRENT_DATE}"
 
 # Create directories if they don't exist
 mkdir -p ${FORECAST_DIR}
@@ -35,8 +38,6 @@ mkdir -p ${SQLITE_DIR}/FCtables
 mkdir -p ${FIGURES_DIR}
 mkdir -p ${TEMP_DIR}
 
-# Define date
-CURRENT_DATE="${year}${month}${day}${cycle}"
 
 ##########################################################################
 # Step 1a: Extract essential variables from WRF files and concatenate
@@ -78,37 +79,90 @@ ncrcat ${TEMP_DIR}/wrfout_verif_d02_* ${FORECAST_DIR}/wrf_d02_${CURRENT_DATE}
 ##########################################################################
 echo "Processing GFS grib2 files..."
 
-# Define the variables we need from GFS
-GFS_VARS="2t|pres|orog|10u|10v|prate|2sh"
+# Define the list of variables to extract
+GFS_VARS=':TMP:2 m above ground:|:PRES:surface:|:HGT:surface:|:UGRD:10 m above ground:|:VGRD:10 m above ground:|:SPFH:2 m above ground:|:PRATE:surface:'
 
-# Process each GFS file
+# Extract variables to GRIB
+echo "Extracting GFS variables..."
 for gfs_file in ${GFS_DIR}/gfs.t${cycle}z.pgrb2.0p25.f*; do
     if [ -f "$gfs_file" ]; then
-        # Extract the forecast hour from filename
         f_hour=$(basename "$gfs_file" | sed 's/.*\.f\([0-9]*\)$/\1/')
-        
-        # Skip if forecast hour exceeds LEADTIME
         if [ "${f_hour}" -gt "${LEADTIME}" ]; then
             continue
         fi
+        echo "Processing file: $gfs_file (forecast hour ${f_hour})..."
+
+        # Extract selected variables to a new GRIB file
+        grib_output="${TEMP_DIR}/gfs_${f_hour}.grb2"
         
-        output_file="${TEMP_DIR}/gfs_processed_${f_hour}"
-        
-        echo "Processing GFS file for forecast hour ${f_hour}..."
-        
-        # Extract required variables using wgrib2
-        wgrib2 "$gfs_file" -s | grep -E "${GFS_VARS}" | wgrib2 -i "$gfs_file" -netcdf "$output_file"
-        
-        if [ $? -ne 0 ]; then
-            echo "Error processing GFS file: $gfs_file"
-            exit 1
+        wgrib2 "$gfs_file" \
+            -match "${GFS_VARS}" \
+            -grib "${grib_output}"
+
+        # Calculate Total Precipitation from PRATE
+        if [ -s "$grib_output" ]; then
+            tp_cumulative="${TEMP_DIR}/gfs_tp_cumulative.grb2"
+            tp_base_6h="${TEMP_DIR}/gfs_tp_base_6h.grb2"  # Stores cumulative at last 6h mark
+            
+            f_hour_num=$((10#${f_hour}))
+            
+            # For f000, initialize with zero
+            if [ "${f_hour}" = "000" ]; then
+                wgrib2 "$grib_output" -match ":PRATE:surface:anl:" \
+                    -set_var "APCP" -set_lev "surface" -set_grib_type simple -grib_out "$tp_cumulative"
+            else
+                if [ $((f_hour_num % 6)) -eq 0 ]; then
+                    # 6-hour mark: use the 6h averaged PRATE field
+                    wgrib2 "$grib_output" -match ":PRATE:surface:.*ave fcst:" -rpn "21600:*" \
+                        -set_var "APCP" -set_lev "surface" -set_grib_type simple -grib_out "${TEMP_DIR}/gfs_tp_6h.grb2"
+                    
+                    # Add this 6h period to the base from the previous 6h mark
+                    if [ -s "$tp_base_6h" ]; then
+                        cat "$tp_base_6h" "${TEMP_DIR}/gfs_tp_6h.grb2" | wgrib2 - -rpn "sto_1:-1:sto_2:rcl_1:rcl_2:+" -grib_out "$tp_cumulative"
+                    else
+                        cp "${TEMP_DIR}/gfs_tp_6h.grb2" "$tp_cumulative"
+                    fi
+                    # Update the base for next cycle
+                    cp "$tp_cumulative" "$tp_base_6h"
+                else
+                    # 3-hour mark: use the 3h averaged PRATE field
+                    wgrib2 "$grib_output" -match ":PRATE:surface:.*ave fcst:" -rpn "10800:*" \
+                        -set_var "APCP" -set_lev "surface" -set_grib_type simple -grib_out "${TEMP_DIR}/gfs_tp_3h.grb2"
+                    
+                    # Add this 3h period to the base from the last 6h mark
+                    if [ -s "$tp_base_6h" ]; then
+                        cat "$tp_base_6h" "${TEMP_DIR}/gfs_tp_3h.grb2" | wgrib2 - -rpn "sto_1:-1:sto_2:rcl_1:rcl_2:+" -grib_out "$tp_cumulative"
+                    else
+                        cp "${TEMP_DIR}/gfs_tp_3h.grb2" "$tp_cumulative"
+                    fi
+                fi
+            fi
+            
+            # Remove PRATE and APCP from grib_output, then add our cumulative APCP
+            wgrib2 "$grib_output" -not_if ":PRATE:" -not_if ":APCP:" -grib "${grib_output}.tmp"
+            cat "${grib_output}.tmp" "$tp_cumulative" > "$grib_output"
+            rm -f "${grib_output}.tmp"
         fi
+
+        echo "Successfully created: $grib_output"
+    else
+        echo "File not found: $gfs_file"
     fi
 done
 
-# Concatenate processed GFS files
-echo "Concatenating processed GFS files..."
-ncrcat ${TEMP_DIR}/gfs_processed_* ${FORECAST_DIR}/gfs_${CURRENT_DATE}
+# Move processed files to forecast directory with proper naming
+echo "Moving GFS files to forecast directory..."
+for f_hour in $(seq -f "%03g" 0 3 ${LEADTIME}); do
+    if [ -f "${TEMP_DIR}/gfs_${f_hour}.grb2" ]; then
+        # Calculate the valid time for this forecast hour
+        f_hour_num=$((10#${f_hour}))
+        valid_time=$(date -u -d "${year}-${month}-${day} ${cycle}:00:00 UTC +${f_hour_num} hours" +'%Y%m%d%H')
+        mv "${TEMP_DIR}/gfs_${f_hour}.grb2" "${FORECAST_DIR}/gfs_${valid_time}"
+        echo "Created: ${FORECAST_DIR}/gfs_${valid_time}"
+    fi
+done
+
+echo "GFS processing completed."
 
 ##########################################################################
 # Step 2: Process observations directly to SQLite
@@ -169,11 +223,12 @@ else
 fi
 
 ##########################################################################
-# Step 5: Clean up temporary files
+# Step 5: Clean up
 ##########################################################################
-echo "Cleaning up temporary files..."
+echo "Cleaning up files..."
 
 rm -rf ${TEMP_DIR}/*
+rm -f ${FORECAST_DIR}/gfs*
 
 echo "Verification process completed successfully!"
 
