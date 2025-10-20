@@ -103,33 +103,33 @@ for gfs_file in ${GFS_DIR}/gfs.t${cycle}z.pgrb2.0p25.f*; do
         if [ -s "$grib_output" ]; then
             tp_cumulative="${TEMP_DIR}/gfs_tp_cumulative.grb2"
             tp_base_6h="${TEMP_DIR}/gfs_tp_base_6h.grb2"  # Stores cumulative at last 6h mark
-            
             f_hour_num=$((10#${f_hour}))
-            
-            # For f000, initialize with zero
+
+            # For f000, initialize cumulative APCP to zero
             if [ "${f_hour}" = "000" ]; then
-                wgrib2 "$grib_output" -match ":PRATE:surface:anl:" \
-                    -set_var "APCP" -set_lev "surface" -set_grib_type simple -grib_out "$tp_cumulative"
+                # Create a zero APCP from a TMP field using rpn zeroing (avoids -mulc dependency)
+                wgrib2 "$grib_output" -match ":PRATE:surface:anl:" -rpn "1:*" | \
+                    wgrib2 - -set_var "APCP" -set_lev "surface" -set_grib_type simple -set_ftime "0 hour fcst" -grib_out "$tp_cumulative"
             else
+                # build cumulative APCP from 3h/6h incrementals
                 if [ $((f_hour_num % 6)) -eq 0 ]; then
-                    # 6-hour mark: use the 6h averaged PRATE field
+                    # 6-hour mark: use the 6h averaged PRATE field to create a 6h total
                     wgrib2 "$grib_output" -match ":PRATE:surface:.*ave fcst:" -rpn "21600:*" \
-                        -set_var "APCP" -set_lev "surface" -set_grib_type simple -grib_out "${TEMP_DIR}/gfs_tp_6h.grb2"
-                    
-                    # Add this 6h period to the base from the previous 6h mark
+                        -set_var "APCP" -set_lev "surface" -set_grib_type simple -set_ftime "${f_hour} hour fcst" -grib_out "${TEMP_DIR}/gfs_tp_6h.grb2"
+
+                    # Add this 6h period to the base from the previous 6h mark to get cumulative
                     if [ -s "$tp_base_6h" ]; then
                         cat "$tp_base_6h" "${TEMP_DIR}/gfs_tp_6h.grb2" | wgrib2 - -rpn "sto_1:-1:sto_2:rcl_1:rcl_2:+" -grib_out "$tp_cumulative"
                     else
                         cp "${TEMP_DIR}/gfs_tp_6h.grb2" "$tp_cumulative"
                     fi
-                    # Update the base for next cycle
                     cp "$tp_cumulative" "$tp_base_6h"
                 else
-                    # 3-hour mark: use the 3h averaged PRATE field
+                    # 3-hour mark: use the 3h averaged PRATE field to create a 3h total
                     wgrib2 "$grib_output" -match ":PRATE:surface:.*ave fcst:" -rpn "10800:*" \
-                        -set_var "APCP" -set_lev "surface" -set_grib_type simple -grib_out "${TEMP_DIR}/gfs_tp_3h.grb2"
-                    
-                    # Add this 3h period to the base from the last 6h mark
+                        -set_var "APCP" -set_lev "surface" -set_grib_type simple -set_ftime "${f_hour} hour fcst" -grib_out "${TEMP_DIR}/gfs_tp_3h.grb2"
+
+                    # Add this 3h period to the base from the last 6h mark to get cumulative
                     if [ -s "$tp_base_6h" ]; then
                         cat "$tp_base_6h" "${TEMP_DIR}/gfs_tp_3h.grb2" | wgrib2 - -rpn "sto_1:-1:sto_2:rcl_1:rcl_2:+" -grib_out "$tp_cumulative"
                     else
@@ -137,10 +137,28 @@ for gfs_file in ${GFS_DIR}/gfs.t${cycle}z.pgrb2.0p25.f*; do
                     fi
                 fi
             fi
-            
-            # Remove PRATE and APCP from grib_output, then add our cumulative APCP
+
+            # Ensure tp_cumulative contains exactly one APCP message (keep the last one)
+            if [ -s "$tp_cumulative" ]; then
+                # find last APCP message index in tp_cumulative
+                apcp_line=$(wgrib2 "$tp_cumulative" | grep ':APCP:' | tail -n1 || true)
+                if [ -n "$apcp_line" ]; then
+                    apcp_idx=$(echo "$apcp_line" | sed 's/:.*//')
+                    wgrib2 "$tp_cumulative" -d "$apcp_idx" -grib_out "${tp_cumulative}.single"
+                    if [ -s "${tp_cumulative}.single" ]; then
+                        mv "${tp_cumulative}.single" "$tp_cumulative"
+                    fi
+                fi
+            fi
+
+            # Remove existing PRATE and APCP messages from grib_output, then merge exactly one cumulative APCP
             wgrib2 "$grib_output" -not_if ":PRATE:" -not_if ":APCP:" -grib "${grib_output}.tmp"
-            cat "${grib_output}.tmp" "$tp_cumulative" > "$grib_output"
+            if command -v grib_copy >/dev/null 2>&1; then
+                grib_copy "${grib_output}.tmp" "$tp_cumulative" "${grib_output}"
+            else
+                # fallback to simple concatenation if grib_copy not available
+                cat "${grib_output}.tmp" "$tp_cumulative" > "${grib_output}"
+            fi
             rm -f "${grib_output}.tmp"
         fi
 
@@ -150,18 +168,23 @@ for gfs_file in ${GFS_DIR}/gfs.t${cycle}z.pgrb2.0p25.f*; do
     fi
 done
 
-# Move processed files to forecast directory with proper naming
-echo "Moving GFS files to forecast directory..."
+echo "Combining GFS single-step files into one multi-step GRIB..."
+# Temporary list of files to combine
+GRB_LIST=()
 for f_hour in $(seq -f "%03g" 0 3 ${LEADTIME}); do
     if [ -f "${TEMP_DIR}/gfs_${f_hour}.grb2" ]; then
-        # Calculate the valid time for this forecast hour
-        f_hour_num=$((10#${f_hour}))
-        valid_time=$(date -u -d "${year}-${month}-${day} ${cycle}:00:00 UTC +${f_hour_num} hours" +'%Y%m%d%H')
-        mv "${TEMP_DIR}/gfs_${f_hour}.grb2" "${FORECAST_DIR}/gfs_${valid_time}"
-        echo "Created: ${FORECAST_DIR}/gfs_${valid_time}"
+        GRB_LIST+=("${TEMP_DIR}/gfs_${f_hour}.grb2")
     fi
 done
 
+# Define the combined output filename (based on init datetime)
+INIT_DATETIME="${year}${month}${day}${cycle}"
+COMBINED_FILE="${FORECAST_DIR}/gfs_${INIT_DATETIME}"
+
+# Combine all GRIB files into one multi-step GRIB
+grib_copy "${GRB_LIST[@]}" "${COMBINED_FILE}"
+
+echo "Created combined GFS file: ${COMBINED_FILE}"
 echo "GFS processing completed."
 
 ##########################################################################

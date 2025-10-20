@@ -23,15 +23,16 @@ read_csv_obs <- function(file_name, dttm, parameter = NULL, ...) {
   cat("CSV dimensions:", nrow(obs_data), "rows,", ncol(obs_data), "columns\n")
   
   # Convert numeric columns safely
-  numeric_cols <- c("SID", "lat", "lon", "elev", "T2m", "Td2m", "Pressure", "Wdir", "WS")
+  numeric_cols <- c("SID", "lat", "lon", "elev", "T2m", "Td2m", "RH2m", "Q2m", 
+                    "Pressure", "Wdir", "WS", "Pcp")
   existing_numeric_cols <- intersect(names(obs_data), numeric_cols)
   
   for (col in existing_numeric_cols) {
     obs_data[[col]] <- suppressWarnings(as.numeric(obs_data[[col]]))
   }
   
-  # Map column names to harp conventions - fix column mapping
-  colname_mapping <- c("Td2m" = "Td2m", "Pressure" = "Ps", "Wdir" = "D10m", "WS" = "S10m")
+  # Map column names to harp conventions
+  colname_mapping <- c("Pressure" = "Ps", "Wdir" = "D10m", "WS" = "S10m")
   
   for (old_name in names(colname_mapping)) {
     if (old_name %in% colnames(obs_data)) {
@@ -43,15 +44,38 @@ read_csv_obs <- function(file_name, dttm, parameter = NULL, ...) {
   obs_data$valid_dttm <- as.numeric(as.POSIXct(obs_data$valid_dttm, tz = "UTC"))
   obs_data <- obs_data[!is.na(obs_data$valid_dttm), ]
   
-  # Parameter units - create for all available parameters
-  available_params <- intersect(c("T2m", "Td2m", "Ps", "D10m", "S10m"), colnames(obs_data))
-  
-  obs_units <- data.frame(
-    parameter = available_params,
-    accum_hours = c(0, 0, 0, 0, 0)[match(available_params, c("T2m", "Td2m", "Ps", "D10m", "S10m"))],
-    units = c("degC", "degC", "hPa", "degrees", "m/s")[match(available_params, c("T2m", "Td2m", "Ps", "D10m", "S10m"))],
-    stringsAsFactors = FALSE
+  # Define all possible parameters with their metadata
+  all_params <- list(
+    T2m = list(accum_hours = 0, units = "degC"),
+    Td2m = list(accum_hours = 0, units = "degC"),
+    RH2m = list(accum_hours = 0, units = "%"),
+    Q2m = list(accum_hours = 0, units = "kg/kg"),
+    Ps = list(accum_hours = 0, units = "hPa"),
+    D10m = list(accum_hours = 0, units = "degrees"),
+    S10m = list(accum_hours = 0, units = "m/s"),
+    Pcp = list(accum_hours = 1, units = "mm")
   )
+  
+  # Filter to only include parameters that exist in the data
+  available_params <- c()
+  for (param in names(all_params)) {
+    if (param %in% colnames(obs_data)) {
+      available_params <- c(available_params, param)
+    }
+  }
+  
+  # Create parameter units dataframe for available parameters
+  if (length(available_params) > 0) {
+    obs_units <- data.frame(
+      parameter = available_params,
+      accum_hours = sapply(available_params, function(p) all_params[[p]]$accum_hours),
+      units = sapply(available_params, function(p) all_params[[p]]$units),
+      stringsAsFactors = FALSE,
+      row.names = NULL
+    )
+  } else {
+    stop("No valid parameters with data found in CSV file")
+  }
   
   cat("Parameters found:", paste(obs_units$parameter, collapse = ", "), "\n")
   

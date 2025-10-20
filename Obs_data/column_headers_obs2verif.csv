@@ -1,1 +1,1 @@
-valid_dttm,SID,lat,lon,elev,T2m,Td2m,Pressure,Pcp,Wdir,WS
+valid_dttm,SID,lat,lon,elev,T2m,Td2m,RH2m,Q2m,Pressure,Pcp,Wdir,WS
