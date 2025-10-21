@@ -129,14 +129,16 @@ read_forecasts <- function(start_date, end_date, wrf_models, gfs_model, fcst_dir
     t2m = combine_models(wrf_fcst$t2m, gfs_fcst$t2m),
     psfc = combine_models(wrf_fcst$psfc, gfs_fcst$psfc),
     q2m = combine_models(wrf_fcst$q2m, gfs_fcst$q2m),
-    ws = combine_models(wrf_fcst$ws10m, gfs_fcst$ws10m)
+    ws = combine_models(wrf_fcst$ws10m, gfs_fcst$ws10m),
+    pcp = combine_models(wrf_fcst$pcp, gfs_fcst$pcp)
   )
 
   wrf_only <- list(
     t2m = wrf_only_models(wrf_fcst$t2m),
     psfc = wrf_only_models(wrf_fcst$psfc),
     q2m = wrf_only_models(wrf_fcst$q2m),
-    ws = wrf_only_models(wrf_fcst$ws10m)
+    ws = wrf_only_models(wrf_fcst$ws10m),
+    pcp = wrf_only_models(wrf_fcst$pcp)
   )
 
   list(combined = combined, wrf_only = wrf_only)
@@ -203,6 +205,13 @@ read_observations <- function(fcst, obs_dir) {
     obs_path = obs_dir,
     obsfile_template = "obstable_{YYYY}{MM}.sqlite"
   )
+  obs_pcp <- read_point_obs(
+    dttm = sort(unique(unlist(lapply(fcst, unique_valid_dttm)))),
+    parameter = "Pcp",
+    stations = unique_stations(fcst$pcp),
+    obs_path = obs_dir,
+    obsfile_template = "obstable_{YYYY}{MM}.sqlite"
+  )
   
   # Try moisture parameters
   cat("- Checking available moisture parameters...\n")
@@ -217,8 +226,9 @@ read_observations <- function(fcst, obs_dir) {
   cat("- Observation T2m data points:", if(is.null(obs_t2m)) 0 else nrow(obs_t2m), "\n")
   cat("- Observation Pressure data points:", if(is.null(obs_pressure)) 0 else nrow(obs_pressure), "\n")
   cat("- Observation Wind Speed data points:", if(is.null(obs_ws)) 0 else nrow(obs_ws), "\n")
+  cat("- Observation Precipitation data points:", if(is.null(obs_pcp)) 0 else nrow(obs_pcp), "\n")
   
-  list(T2m = obs_t2m, Pressure = obs_pressure, Td2m = obs_td, RH2m = obs_rh, Q2m = obs_q, WindSpeed = obs_ws)
+  list(T2m = obs_t2m, Pressure = obs_pressure, Td2m = obs_td, RH2m = obs_rh, Q2m = obs_q, WindSpeed = obs_ws, Pcp = obs_pcp)
 }
 
 # Verification workflow
@@ -256,6 +266,12 @@ verify_and_save <- function(fcst, obs, output_dir) {
   valid_ws <- verify_param(
     fcst$ws |> set_units("m/s") |> common_cases() |> join_to_fcst(obs$WindSpeed),
     obs$WindSpeed, "S10m", "Wind Speed"
+  )
+
+  # Precipitation (accumulated, mm)
+  valid_pcp <- verify_param(
+    fcst$pcp |> set_units("mm") |> common_cases() |> join_to_fcst(obs$Pcp),
+    obs$Pcp, "Pcp", "Precipitation"
   )
   
   if (!valid_t2m && !valid_psfc && !valid_moisture && !valid_ws) {

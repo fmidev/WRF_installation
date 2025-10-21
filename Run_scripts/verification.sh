@@ -215,34 +215,87 @@ echo "Processing GFS forecasts..."
 Rscript ${VERIFICATION_SCRIPTS}/read_forecast_gfs.R ${CURRENT_DATE}
 
 ##########################################################################
-# Step 4: Perform verification for different parameters (weekly schedule)
+# Step 4: Perform verification on Wednesday at 12 UTC
 ##########################################################################
 
 # Get current day of week (0 is Sunday, 6 is Saturday)
 DAY_OF_WEEK=$(date --utc +'%w' -d "${year}-${month}-${day}")
 
-# Determine whether to run weekly verification
-# Run only on Monday (1) at 00 UTC cycle
-if [ "$DAY_OF_WEEK" = "1" ] && [ "$cycle" = "00" ]; then
-    echo "Today is Monday at 00 UTC - performing weekly and monthly verification..."
+# Normalize numeric month/day (handles leading zeros) for arithmetic/comparisons
+month_num=$((10#${month}))
+day_num=$((10#${day}))
 
-    DATE_STRING="${year}-${month}-${day} ${cycle}:00:00"
-    SEVEN_DAYS_AGO=$(date -u -d "$DATE_STRING UTC -7 days" +'%Y%m%d%H')
-    THIRTY_DAYS_AGO=$(date -u -d "$DATE_STRING UTC -30 days" +'%Y%m%d%H')
+# Determine whether to run weekly verification
+# Run only on Wednesday (3) at 12 UTC cycle
+if [ "$DAY_OF_WEEK" = "3" ] && [ "$cycle" = "12" ]; then
+    echo "Today is Wednesday at 12 UTC - performing verification..."
+
+    DATE_STRING="${year}-${month}-${day} 00:00:00"
+    VERIF_START=$(date -u -d "$DATE_STRING UTC -2 days" +'%Y%m%d%H')
+    SEVEN_DAYS_AGO=$(date -u -d "$VERIF_START UTC -7 days" +'%Y%m%d%H')
+    THIRTY_DAYS_AGO=$(date -u -d "$VERIF_START UTC -30 days" +'%Y%m%d%H')
 
     echo "CURRENT_DATE: $CURRENT_DATE"
+    echo "VERIF_START: $VERIF_START"
     echo "SEVEN_DAYS_AGO: $SEVEN_DAYS_AGO"
     echo "THIRTY_DAYS_AGO: $THIRTY_DAYS_AGO"
     
     # Run verification for various parameters with both weekly and monthly periods
     echo "Performing verification for meteorological parameters..."
-    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${SEVEN_DAYS_AGO} --end_date ${CURRENT_DATE} #weekly
-    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${THIRTY_DAYS_AGO} --end_date ${CURRENT_DATE} #monthly
+    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${SEVEN_DAYS_AGO} --end_date ${VERIF_START} #weekly (past 7 days)
+    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${THIRTY_DAYS_AGO} --end_date ${VERIF_START} #past 30 days
 
-    cp $BASE_DIR/Verification/Results/*rds ~/R/library/harpVis/verification/det/
+    # Seasonal verification: run on the first Wednesday (day 1-7) at 12 UTC when a new season starts
+    # New season months: March(3)->MAM, June(6)->JJA, September(9)->SON, December(12)->DJF
+    if { [ ${month_num} -eq 3 ] || [ ${month_num} -eq 6 ] || [ ${month_num} -eq 9 ] || [ ${month_num} -eq 12 ]; } && [ ${day_num} -le 7 ]; then
+        echo "First Wednesday of season-start month detected (month=${month_num}, day=${day_num}) - performing seasonal verification for last season..."
+
+        # Determine last season start/end (YYYY MM) depending on the new season month
+        case "${month_num}" in
+            3)
+                # New season MAM -> last season DJF (Dec prev year - Feb current year)
+                s_start_year=$((year-1)); s_start_month=12
+                s_end_year=${year}; s_end_month=2
+                season_name="DJF"
+                ;;
+            6)
+                # New season JJA -> last season MAM (Mar - May)
+                s_start_year=${year}; s_start_month=3
+                s_end_year=${year}; s_end_month=5
+                season_name="MAM"
+                ;;
+            9)
+                # New season SON -> last season JJA (Jun - Aug)
+                s_start_year=${year}; s_start_month=6
+                s_end_year=${year}; s_end_month=8
+                season_name="JJA"
+                ;;
+            12)
+                # New season DJF -> last season SON (Sep - Nov)
+                s_start_year=${year}; s_start_month=9
+                s_end_year=${year}; s_end_month=11
+                season_name="SON"
+                ;;
+        esac
+
+        # Format months to two digits
+        s_start_month=$(printf "%02d" ${s_start_month})
+        s_end_month=$(printf "%02d" ${s_end_month})
+
+        # Season start: first day of start month at 00 UTC
+        season_start="${s_start_year}${s_start_month}0100"
+
+        # Season end: last day of end month at 23 UTC
+        last_day=$(date -u -d "${s_end_year}-${s_end_month}-01 +1 month -1 day" +'%d')
+        last_day=$(printf "%02d" ${last_day})
+        season_end="${s_end_year}${s_end_month}${last_day}23"
+
+        echo "Season: ${season_name}, start: ${season_start}, end: ${season_end}"
+        Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${season_start} --end_date ${season_end} #seasonal
+    fi
 
 else
-    echo "Not Monday at 00 UTC - skipping verification process"
+    echo "Not Wednesday at 12 UTC - skipping verification process"
 fi
 
 ##########################################################################

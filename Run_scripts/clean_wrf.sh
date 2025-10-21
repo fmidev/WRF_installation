@@ -19,5 +19,4 @@ find $BASE_DIR/UPP_out -type f -ctime +5 | xargs -r rm
 find $BASE_DIR/UPP_out -mindepth 1 -type d -empty -delete
 find $BASE_DIR/Verification/Data/Obs -type f -ctime +0 | xargs -r rm
 find $BASE_DIR/Verification/Data/Forecast -type f -ctime +0 | xargs -r rm
-find $BASE_DIR/Verification/Results -type f -ctime +90 | xargs -r rm
-find ~/R/library/harpVis/verification/det/ -type f -ctime +90 | xargs -r rm
+find $BASE_DIR/Verification/Results -type f -ctime +750 | xargs -r rm
