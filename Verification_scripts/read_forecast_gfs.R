@@ -32,7 +32,7 @@ inspect_grib <- function(file_path) {
 }
 
 # Set up paths and configuration for forecast processing
-station_list <- read.csv("/wrf/WRF_Model/Verification/Data/Static/stationlist_KYR.csv")
+station_list <- read.csv("/wrf/WRF_Model/Verification/Data/Static/stationlist.csv")
 file_path <- "/wrf/WRF_Model/Verification/Data/Forecast" 
 template <- "{fcst_model}_{YYYY}{MM}{DD}{HH}"
 sql_folder <- "/wrf/WRF_Model/Verification/SQlite_tables/FCtables"
