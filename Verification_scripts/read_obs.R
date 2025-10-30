@@ -32,7 +32,7 @@ read_csv_obs <- function(file_name, dttm, parameter = NULL, ...) {
   }
   
   # Map column names to harp conventions
-  colname_mapping <- c("Pressure" = "Ps", "Wdir" = "D10m", "WS" = "S10m")
+  colname_mapping <- c("Pressure" = "Ps", "Wdir" = "D10m", "WS" = "S10m", "Pcp" = "AccPcp1h")
   
   for (old_name in names(colname_mapping)) {
     if (old_name %in% colnames(obs_data)) {
@@ -53,7 +53,7 @@ read_csv_obs <- function(file_name, dttm, parameter = NULL, ...) {
     Ps = list(accum_hours = 0, units = "hPa"),
     D10m = list(accum_hours = 0, units = "degrees"),
     S10m = list(accum_hours = 0, units = "m/s"),
-    Pcp = list(accum_hours = 1, units = "mm")
+    AccPcp1h = list(accum_hours = 1, units = "mm")
   )
   
   # Filter to only include parameters that exist in the data

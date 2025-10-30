@@ -3,7 +3,7 @@
 # Package version configuration
 # Change these values to upgrade to newer versions
 # Core components
-export WRF_VERSION="4.7.0"
+export WRF_VERSION="4.7.1"
 export WPS_VERSION="4.6.0"
 export UPP_VERSION="dtc_post_v4.1.0"
 

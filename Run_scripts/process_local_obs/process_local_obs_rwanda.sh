@@ -3,9 +3,8 @@
 # process_local_obs_rwanda.sh
 #
 # Usage:
-#   process_local_obs_rwanda.sh [input_dir] [stationlist.csv] [output.csv]
+#   process_local_obs_rwanda.sh YYYY MM DD HH [input_dir] [stationlist.csv] [output.csv]
 #
-# Default: current directory, stationlist.csv, combined_obs.csv
 
 die() { echo "$*" >&2; exit 1; }
 
@@ -32,15 +31,13 @@ prepare_output() {
 }
 
 run_awk() {
-	"$AWK_CMD" -F',' -v OFS=',' -v valid_dttm="$valid_dttm" -v DATE="${YEAR}-${MONTH}-${DAY}" -v unmatched_file="$UNMATCHED_FILE" -v tscol="$TS_COL" -f - "$STATION_FILE" "$FILE_PATH" >> "$OUT_FILE" <<'AWK'
-	# helper: convert empty or missing numeric markers (like -9999) to empty fields
+	"$AWK_CMD" -F',' -v OFS=',' -v valid_dttm="$valid_dttm" -v DATE="${YEAR}-${MONTH}-${DAY}" \
+	           -v unmatched_file="$UNMATCHED_FILE" -v tscol="$TS_COL" \
+	           -f - "$STATION_FILE" "$FILE_PATH" >> "$OUT_FILE" <<'AWK'
 	function empty_if_missing(x) { if (x == "" || x+0 < -9000) return ""; return x }
-	function is_missing(x) { return (x == "" || x+0 < -9000) }
 
 	NR==FNR {
-	    # read stationlist: remove quotes from fields if present
 	    for (i=1;i<=NF;i++) gsub(/"/, "", $i)
-	    # skip header line if present
 	    if (FNR==1) next
 	    sid = $1+0
 	    lat[sid] = $2
@@ -52,115 +49,59 @@ run_awk() {
 	{
 	    sid = $1+0
 	    if (sid == 0) next
-	    # raw input fields (may be empty)
-		ts = $(tscol)
-	    T = $3
-	    RH = $4
-	    WS = $5
-	    Wdir = $6
-	    P = $7
-	    Pcp = $8
+	    ts = $(tscol)
+	    T = $3; RH = $4; WS = $5; Wdir = $6; P = $7; Pcp = $8
 
-	    # Only keep observations that are exactly on the hour
-	    minute = ""
-	    second = ""
-	    if (ts ~ /:/) {
-	        # formats like "YYYY-MM-DD HH:MM:SS", "HH:MM:SS" or "HH:MM"
-	        n = split(ts, parts, /[ T]/)
-	        timepart = parts[n]
-	        m = split(timepart, tparts, ":")
-	        if (m >= 2) {
-	            minute = tparts[2]
-	            if (m >= 3) second = tparts[3]
-	            else second = "00"
+	    gsub(/T/, " ", ts)
+	    split(ts, dt_parts, /[ :T-]/)
+	    yyyy = dt_parts[1]; mm = dt_parts[2]; dd = dt_parts[3]
+	    hh = dt_parts[4];  minu = dt_parts[5]
+	    if (yyyy == "" || hh == "") next
+
+	    hour = hh + 0; minute = minu + 0
+
+	    # accumulation ends at this top of hour
+	    end_hour = hour
+	    out_ts = sprintf("%s-%s-%s %02d:00:00", yyyy, mm, dd, end_hour)
+	    accum_key = out_ts
+
+	    pcp_sum[sid, accum_key] += (Pcp == "" || Pcp+0 < -9000 ? 0 : Pcp+0)
+	    T_last[sid, accum_key] = T
+	    RH_last[sid, accum_key] = RH
+	    WS_last[sid, accum_key] = WS
+	    Wdir_last[sid, accum_key] = Wdir
+	    P_last[sid, accum_key] = P
+	}
+
+	END {
+	    PROCINFO["sorted_in"] = "@ind_str_asc"
+	    for (key in pcp_sum) {
+	        split(key, k, SUBSEP)
+	        sid = k[1]
+	        hourkey = k[2]
+
+	        latv = (sid in lat ? lat[sid] : "")
+	        lonv = (sid in lon ? lon[sid] : "")
+	        elevv = (sid in elev ? elev[sid] : "")
+	        if (latv == "" && lonv == "" && elevv == "") {
+	            unmatched[sid] = 1
+	            continue
 	        }
-	    } else if (ts ~ /^[0-9]+$/) {
-	        len = length(ts)
-	        if (len >= 14) {
-	            # YYYYMMDDHHMMSS
-	            minute = substr(ts, len-3, 2)
-	            second = substr(ts, len-1, 2)
-	        } else if (len == 12) {
-	            # YYYYMMDDHHMM
-	            minute = substr(ts, len-1, 2)
-	            second = "00"
-	        } else if (len == 10) {
-	            # YYYYMMDDHH (no minutes)
-	            minute = "00"
-	            second = "00"
-	        } else if (len == 6) {
-	            # HHMMSS
-	            minute = substr(ts, len-3, 2)
-	            second = substr(ts, len-1, 2)
-	        }
+
+	        print hourkey, sid, latv, lonv, elevv, \
+	              empty_if_missing(T_last[sid, hourkey]), "", \
+	              empty_if_missing(RH_last[sid, hourkey]), "", \
+	              empty_if_missing(P_last[sid, hourkey]), \
+	              empty_if_missing(pcp_sum[sid, hourkey]), \
+	              empty_if_missing(Wdir_last[sid, hourkey]), \
+	              empty_if_missing(WS_last[sid, hourkey])
 	    }
 
-		# If couldn't determine minute, skip the row to be safe
-		if (minute == "") next
-		# Only accept minute == "00" and second == "" or "00"
-		if (!(minute == "00" && (second == "" || second == "00"))) next
-
-		# Normalize original timestamp (ts) into YYYY-MM-DD HH:MM:SS for output
-		out_ts = ""
-		if (ts ~ /:/) {
-			n = split(ts, parts, /[ T]/)
-			if (n >= 2) datepart = parts[1]
-			else datepart = DATE
-			timepart = parts[n]
-			m = split(timepart, tparts, ":")
-			if (m == 2) timepart = tparts[1] ":" tparts[2] ":00"
-			else if (m >= 3) timepart = tparts[1] ":" tparts[2] ":" tparts[3]
-			out_ts = datepart " " timepart
-		} else if (ts ~ /^[0-9]+$/) {
-			len = length(ts)
-			if (len >= 14) {
-				yyyy = substr(ts,1,4); mm = substr(ts,5,2); dd = substr(ts,7,2)
-				hh = substr(ts,9,2); minu = substr(ts,11,2); sec = substr(ts,13,2)
-				out_ts = yyyy "-" mm "-" dd " " hh ":" minu ":" sec
-			} else if (len == 12) {
-				yyyy = substr(ts,1,4); mm = substr(ts,5,2); dd = substr(ts,7,2)
-				hh = substr(ts,9,2); minu = substr(ts,11,2)
-				out_ts = yyyy "-" mm "-" dd " " hh ":" minu ":00"
-			} else if (len == 10) {
-				yyyy = substr(ts,1,4); mm = substr(ts,5,2); dd = substr(ts,7,2)
-				hh = substr(ts,9,2)
-				out_ts = yyyy "-" mm "-" dd " " hh ":00:00"
-			} else if (len == 6) {
-				hh = substr(ts,1,2); minu = substr(ts,3,2); sec = substr(ts,5,2)
-				out_ts = DATE " " hh ":" minu ":" sec
-			} else {
-				out_ts = DATE " " ts
-			}
-		} else {
-			out_ts = DATE " " ts
-		}
-
-	    # output Td2m and Q2m are left empty
-	    Td_out = ""
-	    Q_out = ""
-
-	    latv = (sid in lat ? lat[sid] : "")
-	    lonv = (sid in lon ? lon[sid] : "")
-	    elevv = (sid in elev ? elev[sid] : "")
-	    # if coordinates missing, record unmatched sid
-	    if (latv == "" && lonv == "" && elevv == "") {
-		# append SID once per occurrence; we'll dedupe later and skip printing
-		print sid >> unmatched_file
-	    }
-	    else {
-		T_out = empty_if_missing(T)
-		RH_out = empty_if_missing(RH)
-		P_out = empty_if_missing(P)
-		Pcp_out = empty_if_missing(Pcp)
-		Wdir_out = empty_if_missing(Wdir)
-		WS_out = empty_if_missing(WS)
-
-	print out_ts, sid, latv, lonv, elevv, T_out, Td_out, RH_out, Q_out, P_out, Pcp_out, Wdir_out, WS_out
-			}
+	    for (s in unmatched) print s >> unmatched_file
 	}
 AWK
-
 }
+
 
 # main
 if [ "$#" -lt 4 ]; then usage; fi
@@ -170,7 +111,7 @@ MONTH=$(printf "%02d" "$2")
 DAY=$(printf "%02d" "$3")
 HOUR=$(printf "%02d" "$4")
 
-INPUT_DIR="${5:-.}"
+INPUT_DIR="${5:-/home/wrf/Verification/OBS/}"
 # default stationlist and output directory per request
 STATION_FILE="${6:-/home/wrf/Verification/Data/Static/stationlist.csv}"
 OUT_FILE="${7:-/home/wrf/Verification/Data/Obs/verif_obs_${YEAR}${MONTH}${DAY}${HOUR}00.csv}"

@@ -79,93 +79,81 @@ ncrcat ${TEMP_DIR}/wrfout_verif_d02_* ${FORECAST_DIR}/wrf_d02_${CURRENT_DATE}
 ##########################################################################
 echo "Processing GFS grib2 files..."
 
-# Define the list of variables to extract
 GFS_VARS=':TMP:2 m above ground:|:PRES:surface:|:HGT:surface:|:UGRD:10 m above ground:|:VGRD:10 m above ground:|:SPFH:2 m above ground:|:PRATE:surface:'
 
-# Extract variables to GRIB
 echo "Extracting GFS variables..."
+tp_cumulative="${TEMP_DIR}/gfs_tp_cumulative.grb2"
+
+# Initialize cumulative precipitation file to zero
+init_zero_base() {
+    local sample_file=$1
+    echo "Initializing zero cumulative precipitation..."
+    wgrib2 "$sample_file" -match ":PRATE:surface:" \
+        -set_var "APCP" -set_lev "surface" \
+        -set_grib_type simple -set_ftime "0 hour fcst" \
+        -grib_out "$tp_cumulative"
+}
+
 for gfs_file in ${GFS_DIR}/gfs.t${cycle}z.pgrb2.0p25.f*; do
-    if [ -f "$gfs_file" ]; then
-        f_hour=$(basename "$gfs_file" | sed 's/.*\.f\([0-9]*\)$/\1/')
-        if [ "${f_hour}" -gt "${LEADTIME}" ]; then
-            continue
-        fi
-        echo "Processing file: $gfs_file (forecast hour ${f_hour})..."
-
-        # Extract selected variables to a new GRIB file
-        grib_output="${TEMP_DIR}/gfs_${f_hour}.grb2"
-        
-        wgrib2 "$gfs_file" \
-            -match "${GFS_VARS}" \
-            -grib "${grib_output}"
-
-        # Calculate Total Precipitation from PRATE
-        if [ -s "$grib_output" ]; then
-            tp_cumulative="${TEMP_DIR}/gfs_tp_cumulative.grb2"
-            tp_base_6h="${TEMP_DIR}/gfs_tp_base_6h.grb2"  # Stores cumulative at last 6h mark
-            f_hour_num=$((10#${f_hour}))
-
-            # For f000, initialize cumulative APCP to zero
-            if [ "${f_hour}" = "000" ]; then
-                # Create a zero APCP from a TMP field using rpn zeroing (avoids -mulc dependency)
-                wgrib2 "$grib_output" -match ":PRATE:surface:anl:" -rpn "1:*" | \
-                    wgrib2 - -set_var "APCP" -set_lev "surface" -set_grib_type simple -set_ftime "0 hour fcst" -grib_out "$tp_cumulative"
-            else
-                # build cumulative APCP from 3h/6h incrementals
-                if [ $((f_hour_num % 6)) -eq 0 ]; then
-                    # 6-hour mark: use the 6h averaged PRATE field to create a 6h total
-                    wgrib2 "$grib_output" -match ":PRATE:surface:.*ave fcst:" -rpn "21600:*" \
-                        -set_var "APCP" -set_lev "surface" -set_grib_type simple -set_ftime "${f_hour} hour fcst" -grib_out "${TEMP_DIR}/gfs_tp_6h.grb2"
-
-                    # Add this 6h period to the base from the previous 6h mark to get cumulative
-                    if [ -s "$tp_base_6h" ]; then
-                        cat "$tp_base_6h" "${TEMP_DIR}/gfs_tp_6h.grb2" | wgrib2 - -rpn "sto_1:-1:sto_2:rcl_1:rcl_2:+" -grib_out "$tp_cumulative"
-                    else
-                        cp "${TEMP_DIR}/gfs_tp_6h.grb2" "$tp_cumulative"
-                    fi
-                    cp "$tp_cumulative" "$tp_base_6h"
-                else
-                    # 3-hour mark: use the 3h averaged PRATE field to create a 3h total
-                    wgrib2 "$grib_output" -match ":PRATE:surface:.*ave fcst:" -rpn "10800:*" \
-                        -set_var "APCP" -set_lev "surface" -set_grib_type simple -set_ftime "${f_hour} hour fcst" -grib_out "${TEMP_DIR}/gfs_tp_3h.grb2"
-
-                    # Add this 3h period to the base from the last 6h mark to get cumulative
-                    if [ -s "$tp_base_6h" ]; then
-                        cat "$tp_base_6h" "${TEMP_DIR}/gfs_tp_3h.grb2" | wgrib2 - -rpn "sto_1:-1:sto_2:rcl_1:rcl_2:+" -grib_out "$tp_cumulative"
-                    else
-                        cp "${TEMP_DIR}/gfs_tp_3h.grb2" "$tp_cumulative"
-                    fi
-                fi
-            fi
-
-            # Ensure tp_cumulative contains exactly one APCP message (keep the last one)
-            if [ -s "$tp_cumulative" ]; then
-                # find last APCP message index in tp_cumulative
-                apcp_line=$(wgrib2 "$tp_cumulative" | grep ':APCP:' | tail -n1 || true)
-                if [ -n "$apcp_line" ]; then
-                    apcp_idx=$(echo "$apcp_line" | sed 's/:.*//')
-                    wgrib2 "$tp_cumulative" -d "$apcp_idx" -grib_out "${tp_cumulative}.single"
-                    if [ -s "${tp_cumulative}.single" ]; then
-                        mv "${tp_cumulative}.single" "$tp_cumulative"
-                    fi
-                fi
-            fi
-
-            # Remove existing PRATE and APCP messages from grib_output, then merge exactly one cumulative APCP
-            wgrib2 "$grib_output" -not_if ":PRATE:" -not_if ":APCP:" -grib "${grib_output}.tmp"
-            if command -v grib_copy >/dev/null 2>&1; then
-                grib_copy "${grib_output}.tmp" "$tp_cumulative" "${grib_output}"
-            else
-                # fallback to simple concatenation if grib_copy not available
-                cat "${grib_output}.tmp" "$tp_cumulative" > "${grib_output}"
-            fi
-            rm -f "${grib_output}.tmp"
-        fi
-
-        echo "Successfully created: $grib_output"
-    else
+    if [ ! -f "$gfs_file" ]; then
         echo "File not found: $gfs_file"
+        continue
     fi
+
+    f_hour=$(basename "$gfs_file" | sed 's/.*\.f\([0-9]*\)$/\1/')
+    f_hour_num=$((10#${f_hour}))
+    if [ "${f_hour_num}" -gt "${LEADTIME}" ]; then
+        continue
+    fi
+
+    echo "Processing file: $gfs_file (forecast hour ${f_hour})..."
+    grib_output="${TEMP_DIR}/gfs_${f_hour}.grb2"
+
+    # Extract desired variables
+    wgrib2 "$gfs_file" -match "${GFS_VARS}" -grib "$grib_output"
+
+    # Determine step length (3h or 6h)
+    if [ $((f_hour_num % 6)) -eq 0 ]; then
+        step_seconds=21600
+    else
+        step_seconds=10800
+    fi
+
+    tp_step="${TEMP_DIR}/gfs_tp_${f_hour}.grb2"
+
+    # Convert PRATE (kg/m2/s) → precipitation (mm)
+    wgrib2 "$grib_output" \
+        -match ":PRATE:surface:[0-9]*-[0-9]* hour ave fcst:" \
+        -rpn "${step_seconds}:*" \
+        -set_var "APCP" -set_lev "surface" -set_grib_type simple \
+        -set_ftime "${f_hour} hour fcst" \
+        -grib_out "$tp_step"
+
+    # Initialize cumulative baseline if missing
+    if [ ! -s "$tp_cumulative" ]; then
+        init_zero_base "$grib_output"
+    fi
+
+    # Add new step to cumulative total
+    if [ -s "$tp_step" ]; then
+        wgrib2 "$tp_cumulative" -match ":APCP:" -rpn sto_1 \
+        -import_grib "$tp_step" -match ":APCP:" -rpn rcl_1:+ \
+        -set_var "APCP" -set_lev "surface" \
+        -set_grib_type simple -set_ftime "${f_hour} hour fcst" \
+        -grib_out "${tp_cumulative}.new"
+        mv "${tp_cumulative}.new" "$tp_cumulative"
+    fi
+
+    # Merge cumulative APCP with other fields
+    wgrib2 "$grib_output" -not_if ":PRATE:" -not_if ":APCP:" -grib "${grib_output}.tmp"
+    if command -v grib_copy >/dev/null 2>&1; then
+        grib_copy "${grib_output}.tmp" "$tp_cumulative" "${grib_output}"
+    else
+        cat "${grib_output}.tmp" "$tp_cumulative" > "${grib_output}"
+    fi
+    rm -f "${grib_output}.tmp"
+
+    echo "Created cumulative precip: $grib_output"
 done
 
 echo "Combining GFS single-step files into one multi-step GRIB..."
@@ -232,8 +220,8 @@ if [ "$DAY_OF_WEEK" = "3" ] && [ "$cycle" = "12" ]; then
 
     DATE_STRING="${year}-${month}-${day} 00:00:00"
     VERIF_START=$(date -u -d "$DATE_STRING UTC -2 days" +'%Y%m%d%H')
-    SEVEN_DAYS_AGO=$(date -u -d "$VERIF_START UTC -7 days" +'%Y%m%d%H')
-    THIRTY_DAYS_AGO=$(date -u -d "$VERIF_START UTC -30 days" +'%Y%m%d%H')
+    SEVEN_DAYS_AGO=$(date -u -d "$DATE_STRING UTC -9 days" +'%Y%m%d%H')
+    THIRTY_DAYS_AGO=$(date -u -d "$DATE_STRING UTC -32 days" +'%Y%m%d%H')
 
     echo "CURRENT_DATE: $CURRENT_DATE"
     echo "VERIF_START: $VERIF_START"

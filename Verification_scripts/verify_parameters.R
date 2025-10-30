@@ -207,7 +207,7 @@ read_observations <- function(fcst, obs_dir) {
   )
   obs_pcp <- read_point_obs(
     dttm = sort(unique(unlist(lapply(fcst, unique_valid_dttm)))),
-    parameter = "Pcp",
+    parameter = "AccPcp1h",
     stations = unique_stations(fcst$pcp),
     obs_path = obs_dir,
     obsfile_template = "obstable_{YYYY}{MM}.sqlite"
@@ -227,8 +227,8 @@ read_observations <- function(fcst, obs_dir) {
   cat("- Observation Pressure data points:", if(is.null(obs_pressure)) 0 else nrow(obs_pressure), "\n")
   cat("- Observation Wind Speed data points:", if(is.null(obs_ws)) 0 else nrow(obs_ws), "\n")
   cat("- Observation Precipitation data points:", if(is.null(obs_pcp)) 0 else nrow(obs_pcp), "\n")
-  
-  list(T2m = obs_t2m, Pressure = obs_pressure, Td2m = obs_td, RH2m = obs_rh, Q2m = obs_q, WindSpeed = obs_ws, Pcp = obs_pcp)
+
+  list(T2m = obs_t2m, Pressure = obs_pressure, Td2m = obs_td, RH2m = obs_rh, Q2m = obs_q, WindSpeed = obs_ws, AccPcp1h = obs_pcp)
 }
 
 # Verification workflow
@@ -269,10 +269,43 @@ verify_and_save <- function(fcst, obs, output_dir) {
   )
 
   # Precipitation (accumulated, mm)
-  valid_pcp <- verify_param(
-    fcst$pcp |> set_units("mm") |> common_cases() |> join_to_fcst(obs$Pcp),
-    obs$Pcp, "Pcp", "Precipitation"
+  fcst$pcp <- set_units(fcst$pcp, "mm")
+
+  # Convert accumulated forecast to hourly increments
+  timestep <- as.numeric(difftime(fcst$timestamp[2], fcst$timestamp[1], units = "hours"))
+  fcst_hourly <- if (timestep == 1) {
+    c(fcst$pcp[1], diff(fcst$pcp))
+  } else {
+    increments <- diff(fcst$pcp) / timestep
+    rep_increments <- rep(increments, each = timestep)
+    c(fcst$pcp[1], rep_increments)
+  }
+
+  fcst_hourly <- common_cases(fcst_hourly)
+  fcst_aligned <- join_to_fcst(fcst_hourly, obs$AccPcp1h)
+
+  # 1-hour verification
+  valid_pcp_1h <- verify_param(
+    fcst_aligned,
+    obs$AccPcp1h,
+    "AccPcp1h",
+    "Precipitation 1-hour"
   )
+
+  # 12-hour and 24-hour accumulation
+  accumulate_hours <- function(x, n) {
+    # sum of hourly increments over n hours
+    stats::filter(x, rep(1, n), sides = 1)
+  }
+
+  fcst_12h <- accumulate_hours(fcst_aligned, 12)
+  fcst_24h <- accumulate_hours(fcst_aligned, 24)
+
+  obs_12h <- accumulate_hours(obs$AccPcp1h, 12)
+  obs_24h <- accumulate_hours(obs$AccPcp1h, 24)
+
+  valid_pcp_12h <- verify_param(fcst_12h, obs_12h, "AccPcp12h", "Precipitation 12-hour")
+  valid_pcp_24h <- verify_param(fcst_24h, obs_24h, "AccPcp24h", "Precipitation 24-hour")
   
   if (!valid_t2m && !valid_psfc && !valid_moisture && !valid_ws) {
     cat("No valid forecast-observation pairs found after joining. Exiting.\n")

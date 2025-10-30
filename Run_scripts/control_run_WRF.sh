@@ -100,15 +100,7 @@ if [ "$RUN_UPP" = true ]; then
 fi
 
 # ===============================================
-# Step 5: Run the Verification 
-# ===============================================
-if [ "$RUN_VERIFICATION" = true ]; then
-  echo "Starting verification process"
-  ./verification.sh $year $month $day $hour
-fi
-
-# ===============================================
-# Step 6: Copy GRIB files to SmartMet 
+# Step 5: Copy GRIB files to SmartMet 
 # ===============================================
 if [ "$RUN_COPY_GRIB" = true ]; then
   echo "Copying GRIB files to SmartMet for visualization" >> ${BASE_DIR}/logs/main.log
@@ -116,6 +108,14 @@ if [ "$RUN_COPY_GRIB" = true ]; then
   rsync -e ssh -av --include='*/' --include="*d02*" --exclude="*" $BASE_DIR/UPP_out/$year$month$day$hour smartmet@ip-address:/smartmet/data/incoming/wrf/d02/
   ssh smartmet@ip-address /smartmet/bin/ingest-model.sh -m wrf -a large # For larger domain d01
   ssh smartmet@ip-address /smartmet/bin/ingest-model.sh -m wrf -a small # For smaller domain d02
+fi
+
+# ===============================================
+# Step 6: Run the Verification 
+# ===============================================
+if [ "$RUN_VERIFICATION" = true ]; then
+  echo "Starting verification process"
+  ./verification.sh $year $month $day $hour
 fi
 
 echo "WRF Run completed successfully! All tasks finished." >> ${BASE_DIR}/logs/main.log
