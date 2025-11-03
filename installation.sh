@@ -659,6 +659,8 @@ install.packages("ncdf4")
 install.packages("optparse")
 install.packages("DT")
 install.packages("plotly")
+install.packages("zoo")
+install.packages("lubridate")
 EOF
 
     echo "Installing R packages for verification..."

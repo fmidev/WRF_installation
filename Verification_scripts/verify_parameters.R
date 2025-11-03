@@ -8,6 +8,8 @@ suppressPackageStartupMessages({
   library(dplyr)
   library(ggplot2)
   library(optparse)
+  library(zoo)
+  library(lubridate)
 })
 
 # Argument parsing and validation
@@ -90,72 +92,149 @@ calc_q_from_rh <- function(rh, t, p) {
   return(q)
 }
 
+# Interpolate 3-hourly data to hourly for a single model dataframe
+interpolate_to_hourly <- function(fcst_data, model_name = "unknown") {
+  if (is.null(fcst_data) || !is.data.frame(fcst_data) || nrow(fcst_data) == 0) {
+    return(fcst_data)
+  }
+  
+  # Check if already hourly
+  lead_times <- sort(unique(fcst_data$lead_time))
+  if (length(lead_times) < 2) return(fcst_data)
+  timestep <- median(diff(lead_times))
+  if (timestep == 1) return(fcst_data)
+  
+  cat("  - Interpolating", model_name, "from", timestep, "hour to 1-hour timestep\n")
+  
+  # Store original classes to restore later
+  orig_classes <- class(fcst_data)
+  
+  # Get forecast value column
+  fcst_col <- names(fcst_data)[!(names(fcst_data) %in% 
+    c("SID", "valid_dttm", "lead_time", "fcst_dttm", "fcst_cycle", "units", "fcst_model", "parameter", "z"))]
+  if (length(fcst_col) == 0) return(fcst_data)
+  fcst_col <- fcst_col[1]
+  
+  # Interpolate for each station and forecast cycle
+  result_list <- list()
+  
+  for (sid in unique(fcst_data$SID)) {
+    for (fd in unique(fcst_data$fcst_dttm[fcst_data$SID == sid])) {
+      subset_df <- fcst_data |> filter(SID == sid, fcst_dttm == fd) |> arrange(lead_time)
+      
+      if (nrow(subset_df) < 2) {
+        result_list[[length(result_list) + 1]] <- subset_df
+        next
+      }
+      
+      # Create hourly sequence
+      hourly_leads <- seq(min(subset_df$lead_time), max(subset_df$lead_time), by = 1)
+      
+      # Linear interpolation
+      interpolated <- approx(
+        x = subset_df$lead_time,
+        y = subset_df[[fcst_col]],
+        xout = hourly_leads,
+        method = "linear",
+        rule = 2
+      )
+      
+      # Build result dataframe - preserve datetime types
+      new_df <- data.frame(
+        SID = sid,
+        lead_time = hourly_leads,
+        value = interpolated$y,
+        stringsAsFactors = FALSE
+      )
+      names(new_df)[names(new_df) == "value"] <- fcst_col
+      
+      # Add datetime columns with correct type
+      new_df$fcst_dttm <- as.POSIXct(fd, origin = "1970-01-01", tz = "UTC")
+      new_df$valid_dttm <- new_df$fcst_dttm + lubridate::hours(hourly_leads)
+      
+      # Add metadata from original
+      new_df$fcst_cycle <- subset_df$fcst_cycle[1]
+      new_df$fcst_model <- subset_df$fcst_model[1]
+      new_df$parameter <- subset_df$parameter[1]
+      new_df$units <- subset_df$units[1]
+      
+      result_list[[length(result_list) + 1]] <- new_df
+    }
+  }
+  
+  result <- bind_rows(result_list)
+  
+  # Restore original class (harp_df if it was)
+  class(result) <- orig_classes
+  
+  return(result)
+}
+
 # Forecast reading
 read_forecasts <- function(start_date, end_date, wrf_models, gfs_model, fcst_dir) {
-  cat("Step 1: Reading forecasts for both domains...\n")
+  cat("Step 1: Reading and processing forecasts...\n")
   leadtime_max <- as.numeric(Sys.getenv("LEADTIME"))
-
-  # Helper function to read forecasts for a model
-  read_model_forecasts <- function(models, lead_times, interval_desc) {
-    cat("- Reading", interval_desc, "forecasts...\n")
-    params <- c("t2m", "psfc", "q2m", "ws10m")
-    lapply(setNames(params, params), function(param) {
-      read_point_forecast(
+  
+  # Read all models
+  all_models <- c(wrf_models, gfs_model)
+  params <- c("t2m", "psfc", "q2m", "ws10m", "pcp")
+  
+  # Store all forecast data by parameter
+  all_fcst <- lapply(setNames(params, params), function(param) {
+    cat("- Reading", param, "for all models...\n")
+    
+    # Read all models for this parameter
+    fcst_list <- list()
+    
+    # Read WRF models (hourly)
+    for (model in wrf_models) {
+      cat("  - Reading", model, "(hourly)\n")
+      fcst <- read_point_forecast(
         dttm = seq_dttm(start_date, end_date, "6h"),
-        fcst_model = models,
+        fcst_model = model,
+        fcst_type = "det",
         parameter = param,
         file_path = fcst_dir,
         file_template = paste0("{fcst_model}/{YYYY}/{MM}/FCTABLE_", param, "_{YYYY}{MM}_{HH}.sqlite"),
-        lead_time = lead_times
+        lead_time = seq(0, leadtime_max, 1)
       )
-    })
-  }
-
-  # Read WRF (hourly) and GFS (3-hourly) forecasts
-  wrf_fcst <- read_model_forecasts(wrf_models, seq(0, leadtime_max, 1), "WRF (hourly)")
-  gfs_fcst <- read_model_forecasts(gfs_model, seq(0, leadtime_max, 3), "GFS (3-hourly)")
-
-  # Combine models for each parameter (WRF + GFS)
-  combine_models <- function(wrf_data, gfs_data) {
-    as_harp_list(c(as.list(wrf_data), as.list(as_harp_list(list(gfs = gfs_data)))))
-  }
-
-  # Create WRF-only harp lists
-  wrf_only_models <- function(wrf_data) {
-    as_harp_list(as.list(wrf_data))
-  }
-
-  combined <- list(
-    t2m = combine_models(wrf_fcst$t2m, gfs_fcst$t2m),
-    psfc = combine_models(wrf_fcst$psfc, gfs_fcst$psfc),
-    q2m = combine_models(wrf_fcst$q2m, gfs_fcst$q2m),
-    ws = combine_models(wrf_fcst$ws10m, gfs_fcst$ws10m),
-    pcp = combine_models(wrf_fcst$pcp, gfs_fcst$pcp)
-  )
-
-  wrf_only <- list(
-    t2m = wrf_only_models(wrf_fcst$t2m),
-    psfc = wrf_only_models(wrf_fcst$psfc),
-    q2m = wrf_only_models(wrf_fcst$q2m),
-    ws = wrf_only_models(wrf_fcst$ws10m),
-    pcp = wrf_only_models(wrf_fcst$pcp)
-  )
-
-  list(combined = combined, wrf_only = wrf_only)
+      fcst_list[[model]] <- fcst
+    }
+    
+    # Read GFS (3-hourly, needs interpolation)
+    cat("  - Reading", gfs_model, "(3-hourly)\n")
+    gfs_fcst <- read_point_forecast(
+      dttm = seq_dttm(start_date, end_date, "6h"),
+      fcst_model = gfs_model,
+      fcst_type = "det",
+      parameter = param,
+      file_path = fcst_dir,
+      file_template = paste0("{fcst_model}/{YYYY}/{MM}/FCTABLE_", param, "_{YYYY}{MM}_{HH}.sqlite"),
+      lead_time = seq(0, leadtime_max, 3)
+    )
+    
+    # Interpolate GFS to hourly
+    gfs_fcst_hourly <- interpolate_to_hourly(gfs_fcst, gfs_model)
+    fcst_list[[gfs_model]] <- gfs_fcst_hourly
+    
+    # Return as harp_list
+    as_harp_list(fcst_list)
+  })
+  
+  return(all_fcst)
 }
 
 # Print forecast summary
-print_forecast_summary <- function(fcst, title = "") {
-  if (title != "") cat("\n", title, "\n")
-  cat("Data summary:\n")
+print_forecast_summary <- function(fcst) {
+  cat("\nForecast Data Summary:\n")
   for (param in names(fcst)) {
     cat("- Parameter:", param, "\n")
     for (model in names(fcst[[param]])) {
-      cat("  - Forecast model:", model, "\n")
+      cat("  - Model:", model, "\n")
       if (is.data.frame(fcst[[param]][[model]]) && nrow(fcst[[param]][[model]]) > 0) {
-        cat("    - Forecast data points:", nrow(fcst[[param]][[model]]), "\n")
+        cat("    - Data points:", nrow(fcst[[param]][[model]]), "\n")
       } else {
-        cat("    - Forecast data: No valid data found\n")
+        cat("    - No valid data found\n")
       }
     }
   }
@@ -169,7 +248,7 @@ read_observations <- function(fcst, obs_dir) {
   read_obs_safe <- function(param, desc = NULL) {
     tryCatch({
       obs <- read_point_obs(
-        dttm = sort(unique(unlist(lapply(fcst, unique_valid_dttm)))),
+        dttm = unique_valid_dttm(fcst$q2m),
         parameter = param,
         stations = unique_stations(fcst$q2m),
         obs_path = obs_dir,
@@ -185,28 +264,28 @@ read_observations <- function(fcst, obs_dir) {
   
   # Read standard observations
   obs_t2m <- read_point_obs(
-    dttm = sort(unique(unlist(lapply(fcst, unique_valid_dttm)))),
+    dttm = unique_valid_dttm(fcst$t2m),
     parameter = "T2m",
     stations = unique_stations(fcst$t2m),
     obs_path = obs_dir,
     obsfile_template = "obstable_{YYYY}{MM}.sqlite"
   )
   obs_pressure <- read_point_obs(
-    dttm = sort(unique(unlist(lapply(fcst, unique_valid_dttm)))),
+    dttm = unique_valid_dttm(fcst$psfc),
     parameter = "Ps",
     stations = unique_stations(fcst$psfc),
     obs_path = obs_dir,
     obsfile_template = "obstable_{YYYY}{MM}.sqlite"
   )
   obs_ws <- read_point_obs(
-    dttm = sort(unique(unlist(lapply(fcst, unique_valid_dttm)))),
+    dttm = unique_valid_dttm(fcst$ws10m),
     parameter = "S10m",
-    stations = unique_stations(fcst$ws),
+    stations = unique_stations(fcst$ws10m),
     obs_path = obs_dir,
     obsfile_template = "obstable_{YYYY}{MM}.sqlite"
   )
   obs_pcp <- read_point_obs(
-    dttm = sort(unique(unlist(lapply(fcst, unique_valid_dttm)))),
+    dttm = unique_valid_dttm(fcst$pcp),
     parameter = "AccPcp1h",
     stations = unique_stations(fcst$pcp),
     obs_path = obs_dir,
@@ -229,6 +308,138 @@ read_observations <- function(fcst, obs_dir) {
   cat("- Observation Precipitation data points:", if(is.null(obs_pcp)) 0 else nrow(obs_pcp), "\n")
 
   list(T2m = obs_t2m, Pressure = obs_pressure, Td2m = obs_td, RH2m = obs_rh, Q2m = obs_q, WindSpeed = obs_ws, AccPcp1h = obs_pcp)
+}
+
+# Calculate N-hour accumulated precipitation from 1-hour data
+accumulate_precipitation <- function(fcst_1h_list, hours) {
+  lapply(fcst_1h_list, function(df) {
+    if (is.null(df) || nrow(df) == 0) return(NULL)
+    
+    orig_class <- class(df)
+    
+    result <- df |>
+      arrange(SID, fcst_dttm, valid_dttm) |>
+      group_by(SID, fcst_dttm) |>
+      mutate(
+        fcst_accum = zoo::rollapply(fcst, width = hours, FUN = sum, align = "right", fill = NA, partial = FALSE)
+      ) |>
+      ungroup() |>
+      filter(!is.na(fcst_accum)) |>
+      select(SID, valid_dttm, lead_time, fcst_dttm, fcst_accum) |>
+      rename(fcst = fcst_accum) |>
+      mutate(parameter = paste0("AccPcp", hours, "h"), units = "mm")
+    
+    class(result) <- orig_class
+    return(result)
+  })
+}
+
+# Verify precipitation for a specific accumulation period
+verify_pcp_period <- function(fcst_list, obs_1h, hours, output_dir) {
+  param_name <- paste0("AccPcp", hours, "h")
+  cat("  - Calculating", hours, "-hour accumulated precipitation...\n")
+  
+  # Calculate observed accumulation
+  obs_accum <- obs_1h |>
+    arrange(SID, valid_dttm) |>
+    group_by(SID) |>
+    mutate(
+      accum = zoo::rollapply(AccPcp1h, width = hours, FUN = sum, align = "right", fill = NA, partial = FALSE)
+    ) |>
+    ungroup() |>
+    filter(!is.na(accum)) |>
+    select(valid_dttm, SID, lon, lat, elev, accum) |>
+    mutate(units = "mm")
+  
+  names(obs_accum)[names(obs_accum) == "accum"] <- param_name
+  
+  if (length(fcst_list) == 0 || nrow(obs_accum) == 0) {
+    cat("    - Insufficient data for", hours, "-hour verification\n")
+    return(FALSE)
+  }
+  
+  # Join and verify
+  fcst_harp <- as_harp_list(fcst_list) |> set_units("mm") |> common_cases() |> join_to_fcst(obs_accum)
+  
+  # Filter NA values
+  for (model in names(fcst_harp)) {
+    if (is.data.frame(fcst_harp[[model]]) && nrow(fcst_harp[[model]]) > 0) {
+      fcst_harp[[model]] <- fcst_harp[[model]] |> filter(!is.na(fcst) & !is.na(.data[[param_name]]))
+    }
+  }
+  
+  if (any(sapply(fcst_harp, function(x) is.data.frame(x) && nrow(x) > 0))) {
+    verif <- det_verify(fcst_harp, !!sym(param_name))
+    save_point_verif(verif, verif_path = file.path(output_dir))
+    cat("    -", hours, "-hour precipitation verification saved\n")
+    return(TRUE)
+  }
+  
+  return(FALSE)
+}
+
+# Precipitation verification helper
+verify_precipitation <- function(fcst_pcp, obs_pcp, output_dir) {
+  if (is.null(obs_pcp) || nrow(obs_pcp) == 0) {
+    cat("  - No precipitation observations available\n")
+    return(FALSE)
+  }
+  
+  # Convert total accumulated forecasts to 1-hour increments
+  cat("  - Converting total accumulated forecasts to 1-hour increments...\n")
+  
+  fcst_1h_list <- lapply(names(fcst_pcp), function(model) {
+    df <- fcst_pcp[[model]]
+    if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) return(NULL)
+    
+    orig_class <- class(df)
+    
+    # Get forecast value column
+    fcst_col <- names(df)[!(names(df) %in% c("SID", "valid_dttm", "lead_time", "fcst_dttm", "fcst_cycle", "units", "fcst_model", "parameter", "z"))]
+    if (length(fcst_col) == 0) return(NULL)
+    fcst_col <- fcst_col[1]
+    
+    # Calculate 1-hour increments from total accumulation
+    result <- df |>
+      arrange(SID, fcst_dttm, lead_time) |>
+      group_by(SID, fcst_dttm) |>
+      mutate(
+        pcp_1h = c(.data[[fcst_col]][1], diff(.data[[fcst_col]])),
+        pcp_1h = ifelse(pcp_1h < 0, .data[[fcst_col]], pcp_1h)  # Handle resets
+      ) |>
+      ungroup() |>
+      select(SID, valid_dttm, lead_time, fcst_dttm, pcp_1h) |>
+      rename(fcst = pcp_1h) |>
+      mutate(parameter = "AccPcp1h", units = "mm")
+    
+    class(result) <- orig_class
+    return(result)
+  })
+  names(fcst_1h_list) <- names(fcst_pcp)
+  fcst_1h_list <- fcst_1h_list[!sapply(fcst_1h_list, is.null)]
+  
+  if (length(fcst_1h_list) == 0) {
+    cat("  - No valid precipitation forecast data\n")
+    return(FALSE)
+  }
+  
+  # Verify 1-hour precipitation
+  cat("  - Verifying 1-hour accumulated precipitation...\n")
+  valid_1h <- verify_pcp_period(fcst_1h_list, obs_pcp, 1, output_dir)
+  
+  # Calculate and verify 12-hour accumulation
+  fcst_12h_list <- accumulate_precipitation(fcst_1h_list, 12)
+  names(fcst_12h_list) <- names(fcst_1h_list)
+  fcst_12h_list <- fcst_12h_list[!sapply(fcst_12h_list, is.null)]
+  valid_12h <- verify_pcp_period(fcst_12h_list, obs_pcp, 12, output_dir)
+  
+  # Calculate and verify 24-hour accumulation
+  fcst_24h_list <- accumulate_precipitation(fcst_1h_list, 24)
+  names(fcst_24h_list) <- names(fcst_1h_list)
+  fcst_24h_list <- fcst_24h_list[!sapply(fcst_24h_list, is.null)]
+  valid_24h <- verify_pcp_period(fcst_24h_list, obs_pcp, 24, output_dir)
+  
+  return(valid_1h || valid_12h || valid_24h)
 }
 
 # Verification workflow
@@ -264,50 +475,15 @@ verify_and_save <- function(fcst, obs, output_dir) {
   
   # Wind Speed
   valid_ws <- verify_param(
-    fcst$ws |> set_units("m/s") |> common_cases() |> join_to_fcst(obs$WindSpeed),
+    fcst$ws10m |> set_units("m/s") |> common_cases() |> join_to_fcst(obs$WindSpeed),
     obs$WindSpeed, "S10m", "Wind Speed"
   )
 
-  # Precipitation (accumulated, mm)
-  fcst$pcp <- set_units(fcst$pcp, "mm")
-
-  # Convert accumulated forecast to hourly increments
-  timestep <- as.numeric(difftime(fcst$timestamp[2], fcst$timestamp[1], units = "hours"))
-  fcst_hourly <- if (timestep == 1) {
-    c(fcst$pcp[1], diff(fcst$pcp))
-  } else {
-    increments <- diff(fcst$pcp) / timestep
-    rep_increments <- rep(increments, each = timestep)
-    c(fcst$pcp[1], rep_increments)
-  }
-
-  fcst_hourly <- common_cases(fcst_hourly)
-  fcst_aligned <- join_to_fcst(fcst_hourly, obs$AccPcp1h)
-
-  # 1-hour verification
-  valid_pcp_1h <- verify_param(
-    fcst_aligned,
-    obs$AccPcp1h,
-    "AccPcp1h",
-    "Precipitation 1-hour"
-  )
-
-  # 12-hour and 24-hour accumulation
-  accumulate_hours <- function(x, n) {
-    # sum of hourly increments over n hours
-    stats::filter(x, rep(1, n), sides = 1)
-  }
-
-  fcst_12h <- accumulate_hours(fcst_aligned, 12)
-  fcst_24h <- accumulate_hours(fcst_aligned, 24)
-
-  obs_12h <- accumulate_hours(obs$AccPcp1h, 12)
-  obs_24h <- accumulate_hours(obs$AccPcp1h, 24)
-
-  valid_pcp_12h <- verify_param(fcst_12h, obs_12h, "AccPcp12h", "Precipitation 12-hour")
-  valid_pcp_24h <- verify_param(fcst_24h, obs_24h, "AccPcp24h", "Precipitation 24-hour")
+  # Precipitation verification
+  cat("- Processing precipitation...\n")
+  valid_pcp <- verify_precipitation(fcst$pcp, obs$AccPcp1h, output_dir)
   
-  if (!valid_t2m && !valid_psfc && !valid_moisture && !valid_ws) {
+  if (!valid_t2m && !valid_psfc && !valid_moisture && !valid_ws && !valid_pcp) {
     cat("No valid forecast-observation pairs found after joining. Exiting.\n")
     quit(status = 1)
   }
@@ -494,6 +670,14 @@ verify_moisture_param <- function(fcst_moisture, obs_data, param, param_desc,
   })
   names(fcst_list) <- names(fcst_moisture)
   
+  # Standardize observation units to match forecast
+  if (!is.null(obs_data) && "units" %in% names(obs_data)) {
+    # Handle relative humidity unit variants (% vs percent)
+    if (units == "percent" && any(obs_data$units == "%")) {
+      obs_data$units <- "percent"
+    }
+  }
+  
   cat("  - Creating harp_list and joining...\n")
   cat("  - Observation rows:", nrow(obs_data), "\n")
   if (nrow(obs_data) > 0) {
@@ -555,24 +739,23 @@ verify_moisture_param <- function(fcst_moisture, obs_data, param, param_desc,
 # Main script
 opt <- parse_and_validate_args()
 cat("Starting verification for:", opt$start_date, "to", opt$end_date, "- Models: WRF (d01 & d02) and GFS\n")
-cat("Parameters: Temperature, Pressure, Moisture (Td/RH/Q), Wind Speed\n")
-cat("Note: WRF models use hourly intervals, GFS uses 3-hourly intervals\n")
-cat("Note: Moisture verification uses available obs (Td2m, RH2m, or Q2m)\n")
+cat("Parameters: Temperature, Pressure, Moisture (Td/RH/Q), Wind Speed, Precipitation\n")
+cat("Note: GFS data interpolated from 3-hourly to 1-hourly for uniform processing\n")
+cat("Note: Precipitation verified at 1h, 12h, and 24h accumulation periods\n")
 wrf_models <- c("wrf_d01", "wrf_d02")
 gfs_model <- "gfs"
 fcst_dir <- "/wrf/WRF_Model/Verification/SQlite_tables/FCtables"
 obs_dir  <- "/wrf/WRF_Model/Verification/SQlite_tables/Obs"
 
-fcst_sets <- read_forecasts(opt$start_date, opt$end_date, wrf_models, gfs_model, fcst_dir)
-print_forecast_summary(fcst_sets$combined, "Combined forecasts (WRF + GFS):")
-print_forecast_summary(fcst_sets$wrf_only, "WRF-only forecasts (d01 & d02):")
-obs <- read_observations(fcst_sets$combined, obs_dir)
+fcst <- read_forecasts(opt$start_date, opt$end_date, wrf_models, gfs_model, fcst_dir)
+print_forecast_summary(fcst)
+obs <- read_observations(fcst, obs_dir)
 
 cat("\n=== Forecast/observation time alignment check ===\n")
 
-for (m in names(fcst_sets$combined$t2m)) {
+for (m in names(fcst$t2m)) {
   cat("Model:", m, "\n")
-  tmp <- fcst_sets$combined$t2m[[m]]
+  tmp <- fcst$t2m[[m]]
   if (!is.null(tmp) && nrow(tmp) > 0) {
     print(range(tmp$valid_dttm))
     cat("Unique lead times:", paste(sort(unique(tmp$lead_time)), collapse = ", "), "\n")
@@ -587,8 +770,7 @@ if (!is.null(obs$T2m) && nrow(obs$T2m) > 0) {
 } else {
   cat("No T2m observations available to compute time range or step.\n")
 }
-# Run verification for combined set (WRF + GFS)
-verify_and_save(fcst_sets$combined, obs, opt$output_dir)
 
-# Run verification for WRF-only set
-verify_and_save(fcst_sets$wrf_only, obs, opt$output_dir)
+# Run verification
+verify_and_save(fcst, obs, opt$output_dir)
+
