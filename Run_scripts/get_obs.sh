@@ -21,11 +21,14 @@ BASE_URL="https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/gdas.${YYY
 # Files to download
 FILES=(
     "gdas.t${HH}z.1bamua.tm00.bufr_d"
+    "gdas.t${HH}z.eshrs3.tm00.bufr_d"
     "gdas.t${HH}z.1bhrs4.tm00.bufr_d"
     "gdas.t${HH}z.1bmhs.tm00.bufr_d"
-    "gdas.t${HH}z.airsev.tm00.bufr_d"
+    "gdas.t${HH}z.ahicsr.tm00.bufr_d"
     "gdas.t${HH}z.atms.tm00.bufr_d"
     "gdas.t${HH}z.mtiasi.tm00.bufr_d"
+    "gdas.t${HH}z.sevasr.tm00.bufr_d"
+    "gdas.t${HH}z.ssmisu.tm00.bufr_d"
     "gdas.t${HH}z.gpsro.tm00.bufr_d.nr"
     "gdas.t${HH}z.prepbufr.nr"
 )
@@ -50,11 +53,14 @@ for FILE in "${FILES[@]}"; do
 done
 
 mv gdas.t${HH}z.1bamua.tm00.bufr_d amsua.bufr
+mv gdas.t${HH}z.eshrs3.tm00.bufr_d hirs3.bufr
 mv gdas.t${HH}z.1bhrs4.tm00.bufr_d hirs4.bufr
 mv gdas.t${HH}z.1bmhs.tm00.bufr_d mhs.bufr
-mv gdas.t${HH}z.airsev.tm00.bufr_d airs.bufr
+mv gdas.t${HH}z.ahicsr.tm00.bufr_d airs.bufr
 mv gdas.t${HH}z.atms.tm00.bufr_d atms.bufr
 mv gdas.t${HH}z.mtiasi.tm00.bufr_d iasi.bufr
+mv gdas.t${HH}z.sevasr.tm00.bufr_d seviri.bufr
+mv gdas.t${HH}z.ssmisu.tm00.bufr_d ssmis.bufr
 mv gdas.t${HH}z.gpsro.tm00.bufr_d.nr gpsro.bufr
 mv gdas.t${HH}z.prepbufr.nr ob.bufr
 
@@ -184,7 +190,7 @@ echo "Generated namelist.obsproc"
 
 # Process local observations if country-specific script exists
 echo "Processing local observations..."
-COUNTRY_SCRIPT="$MAIN_DIR/process_local_obs/process_local_obs_${COUNTRY}.sh"
+COUNTRY_SCRIPT="$MAIN_DIR/process_local_obs_${COUNTRY}.sh"
 
 if [ -f "$COUNTRY_SCRIPT" ]; then
     echo "Found country-specific processing script: $COUNTRY_SCRIPT"

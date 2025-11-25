@@ -230,8 +230,8 @@ if [ "$DAY_OF_WEEK" = "3" ] && [ "$cycle" = "12" ]; then
     
     # Run verification for various parameters with both weekly and monthly periods
     echo "Performing verification for meteorological parameters..."
-    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${SEVEN_DAYS_AGO} --end_date ${VERIF_START} #weekly (past 7 days)
-    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${THIRTY_DAYS_AGO} --end_date ${VERIF_START} #past 30 days
+    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${SEVEN_DAYS_AGO} --end_date ${VERIF_START} --subdir weekly #weekly
+    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${THIRTY_DAYS_AGO} --end_date ${VERIF_START} --subdir past_30_days #past 30 days
 
     # Seasonal verification: run on the first Wednesday (day 1-7) at 12 UTC when a new season starts
     # New season months: March(3)->MAM, June(6)->JJA, September(9)->SON, December(12)->DJF
@@ -279,7 +279,7 @@ if [ "$DAY_OF_WEEK" = "3" ] && [ "$cycle" = "12" ]; then
         season_end="${s_end_year}${s_end_month}${last_day}23"
 
         echo "Season: ${season_name}, start: ${season_start}, end: ${season_end}"
-        Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${season_start} --end_date ${season_end} #seasonal
+        Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${season_start} --end_date ${season_end} --subdir seasonal #seasonal
     fi
 
 else

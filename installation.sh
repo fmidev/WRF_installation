@@ -89,8 +89,8 @@ else
     export COUNTRY="$country_name"
     echo "Country set to: $COUNTRY"
     # Create process_local_obs_$COUNTRY.sh template if COUNTRY is set
-    mkdir -p "$GIT_REPO/Run_scripts/process_local_obs"
-    cat > "$GIT_REPO/Run_scripts/process_local_obs/process_local_obs_${COUNTRY}.sh" << EOF
+    mkdir -p "$GIT_REPO/Run_scripts"
+    cat > "$GIT_REPO/Run_scripts/process_local_obs_${COUNTRY}.sh" << EOF
 #!/bin/bash
 # ===============================================
 # Process local observations for WRF DA and verification in $COUNTRY
@@ -111,13 +111,14 @@ DD=$3    # Day
 HH=$4    # Hour
 DA_DIR=$5
 BASE_DIR=$6
+OUTPUT_OBS_FILE="${DA_DIR}/ob/raw_obs/${YYYY}${MM}${DD}${HH}_local_obs.csv"
 
 ##CODE HERE
 
 exit 0
 EOF
-    chmod +x "$GIT_REPO/Run_scripts/process_local_obs/process_local_obs_${COUNTRY}.sh"
-    echo "Created template: Run_scripts/process_local_obs/process_local_obs_${COUNTRY}.sh"
+    chmod +x "$GIT_REPO/Run_scripts/process_local_obs_${COUNTRY}.sh"
+    echo "Created template: Run_scripts/process_local_obs_${COUNTRY}.sh"
 fi
 
 # Prompt for GitHub Personal Access Token
@@ -795,7 +796,7 @@ fi
 
 # Copy and update scripts
 echo "Copying run scripts into the scripts directory..."
-cp -r $GIT_REPO/Run_scripts/* $BASE/scripts/
+cp $GIT_REPO/Run_scripts/* $BASE/scripts/ 2>/dev/null || true
 chmod -R +x $BASE/scripts/
 
 echo "Copying verification R scripts into the Verification directory..."

@@ -197,7 +197,7 @@ echo "Real.exe completed."
 # ===============================================
 # Step 2: Data assimilation (optional, WRFDA variable true/false)
 # ===============================================
-if $WRFDA; then
+if $RUN_WRFDA; then
   cd ${MAIN_DIR}
   ./run_WRFDA.sh $year $month $day $hour $leadtime $prod_dir
 else
@@ -220,7 +220,7 @@ fi
 # ===============================================
 # Step 4: Copy files for next cycle (with DA only)
 # ===============================================
-if $WRFDA; then
+if $RUN_WRFDA; then
   echo "Copying fg and VARBC files"
   #First guess files
   fg_date=$(date -d "$s_date $INTERVAL hours" "+%Y-%m-%d %H:%M:%S")

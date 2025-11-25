@@ -19,6 +19,8 @@ parse_and_validate_args <- function() {
                 help="End date in format YYYYMMDDHH", metavar="YYYYMMDDHH"),
     make_option(c("-o", "--output_dir"), type="character", default="/wrf/WRF_Model/Verification/Results", 
                 help="Output directory for verification results [default= %default]"),
+    make_option(c("-d", "--subdir"), type="character", default=NULL,
+                help="Subdirectory name under output_dir for this verification run [default= start_date-end_date]"),
     make_option(c("-m", "--hourly_models"), type="character", default="wrf_d01,wrf_d02",
                 help="Comma-separated list of hourly models [default= %default]"),
     make_option(c("-n", "--multihourly_models"), type="character", default="gfs",
@@ -32,6 +34,21 @@ parse_and_validate_args <- function() {
   
   opt$hourly_models <- if (nchar(opt$hourly_models) > 0) strsplit(opt$hourly_models, ",")[[1]] else character(0)
   opt$multihourly_models <- if (nchar(opt$multihourly_models) > 0) strsplit(opt$multihourly_models, ",")[[1]] else character(0)
+  
+  # Create subdirectory name if not provided
+  if (is.null(opt$subdir) || nchar(opt$subdir) == 0) {
+    opt$subdir <- paste0(opt$start_date, "-", opt$end_date)
+  }
+  
+  # Create full output path with subdirectory
+  opt$output_dir <- file.path(opt$output_dir, opt$subdir)
+  
+  # Create directory if it doesn't exist
+  if (!dir.exists(opt$output_dir)) {
+    dir.create(opt$output_dir, recursive = TRUE)
+    cat("Created output directory:", opt$output_dir, "\n")
+  }
+  
   opt
 }
 
@@ -569,6 +586,7 @@ opt <- parse_and_validate_args()
 
 all_models <- c(opt$hourly_models, opt$multihourly_models)
 cat("Starting verification:", opt$start_date, "to", opt$end_date, "\n")
+cat("Output directory:", opt$output_dir, "\n")
 cat("Models:", paste(all_models, collapse = ", "), "\n")
 cat("  - Hourly:", if (length(opt$hourly_models) > 0) paste(opt$hourly_models, collapse = ", ") else "none", "\n")
 cat("  - 3-hourly (interpolated):", if (length(opt$multihourly_models) > 0) paste(opt$multihourly_models, collapse = ", ") else "none", "\n")
