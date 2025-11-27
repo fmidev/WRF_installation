@@ -205,7 +205,7 @@ else
 fi
 
 # Check for local observations file and convert to little_r format if it exists
-LOCAL_OBS_FILE="${DA_DIR}/ob/raw_obs/${YYYY}${MM}${DD}${HH}_local_obs.csv"
+LOCAL_OBS_FILE="${DA_DIR}/ob/raw_obs/local_obs_${YYYY}${MM}${DD}${HH}.csv"
 STATION_FILE="${DA_DIR}/ob/raw_obs/station_file.csv"
 
 #Run obsproc if local observations file exists

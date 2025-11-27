@@ -269,8 +269,62 @@ The harpVis web interface provides an interactive dashboard for:
 
 **Note:** The Shiny server (as well as other verification tools) is only installed if you provided a GitHub Personal Access Token during installation.
 
+### WRF_test: Pre-operational Testing Suite
+
+The installation automatically creates a parallel testing environment called **WRF_test** under `$BASE/WRF_test`. This suite allows you to test new features, configurations, or model updates before deploying them to production.
+
+#### Key Features
+
+- **Isolated Testing**: Separate directory structure for test runs under `$TEST_BASE_DIR`
+- **Reduced CPU Usage**: Configurable CPU allocation (default: 4 cores via `TEST_MAX_CPU`)
+- **Limited Schedule**: Runs only at 00 and 12 UTC (twice daily instead of main's 4x daily)
+- **Shared Resources**: Uses same executables, libraries, and GFS boundary data as main setup
+- **Comparative Verification**: Automatically compares test outputs against main runs using the same observations
+
+#### Directory Structure
+
+```
+../WRF_test/
+├── scripts/          # Test-specific scripts (auto-generated)
+│   ├── env_test.sh
+│   ├── control_run_WRF_test.sh
+│   ├── run_WPS_test.sh
+│   ├── run_WRF_test.sh
+│   ├── run_WRFDA_test.sh
+│   ├── get_obs_test.sh
+│   └── verification_test.sh
+├── DA_input/         # Test data assimilation files
+├── out/              # Test WRF output files
+└── logs/             # Test run logs
+```
+
+#### Running Test Manually
+
+```bash
+# Run test cycle for specific hour (00 or 12 UTC only)
+cd /home/wrf/WRF_test/scripts
+./control_run_WRF_test.sh 00
+
+# Run individual test components
+./run_WPS_test.sh 2024 09 10 00
+./run_WRF_test.sh 2024 09 10 00 48
+
+# Run test verification
+./verification_test.sh 2024 09 10 00
+```
+
+#### Automated Scheduling
+
+The installation configures crontab for automatic test runs:
+
+```bash
+# Test runs at 00 and 12 UTC
+30 0,12 * * * cd /home/wrf/WRF_test/scripts && ./control_run_WRF_test.sh $(printf "\%02d" $(($(date -u +\%H))))
+```
+
+
 ### Cleaning and Automation
-The `clean_wrf` script removes old GFS, WRF, and UPP files. You can set this up to run automatically once a day.
+The `clean_wrf` script removes old GFS, WRF, and UPP files from both production and test environments. You can set this up to run automatically once a day.
 
 For fully automated operation, use the `control_run_WRF.sh` script to run all steps. It's best to test each part separately first. Run it with:
 ```

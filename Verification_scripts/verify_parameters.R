@@ -24,7 +24,9 @@ parse_and_validate_args <- function() {
     make_option(c("-m", "--hourly_models"), type="character", default="wrf_d01,wrf_d02",
                 help="Comma-separated list of hourly models [default= %default]"),
     make_option(c("-n", "--multihourly_models"), type="character", default="gfs",
-                help="Comma-separated list of 3-hourly models [default= %default]")
+                help="Comma-separated list of 3-hourly models [default= %default]"),
+    make_option(c("-f", "--fcst_freq"), type="character", default="6h",
+                help="Forecast initialization frequency (e.g., 6h, 12h) [default= %default]")
   )
   opt <- parse_args(OptionParser(option_list=option_list))
   if (is.null(opt$start_date) || is.null(opt$end_date) ||
@@ -161,8 +163,9 @@ interpolate_to_hourly <- function(fcst_data, model_name = "unknown") {
 }
 
 # Read forecasts for all models
-read_forecasts <- function(start_date, end_date, hourly_models, multihourly_models, fcst_dir) {
+read_forecasts <- function(start_date, end_date, hourly_models, multihourly_models, fcst_dir, fcst_freq = "6h") {
   cat("Step 1: Reading and processing forecasts...\n")
+  cat("Using forecast frequency:", fcst_freq, "\n")
   leadtime_max <- as.numeric(Sys.getenv("LEADTIME"))
   params <- c("t2m", "psfc", "q2m", "ws10m", "pcp")
   
@@ -173,7 +176,7 @@ read_forecasts <- function(start_date, end_date, hourly_models, multihourly_mode
     for (model in hourly_models) {
       cat("  - Reading", model, "(hourly)\n")
       fcst_list[[model]] <- read_point_forecast(
-        dttm = seq_dttm(start_date, end_date, "6h"), fcst_model = model, fcst_type = "det",
+        dttm = seq_dttm(start_date, end_date, fcst_freq), fcst_model = model, fcst_type = "det",
         parameter = param, file_path = fcst_dir,
         file_template = paste0("{fcst_model}/{YYYY}/{MM}/FCTABLE_", param, "_{YYYY}{MM}_{HH}.sqlite"),
         lead_time = seq(0, leadtime_max, 1)
@@ -183,7 +186,7 @@ read_forecasts <- function(start_date, end_date, hourly_models, multihourly_mode
     for (model in multihourly_models) {
       cat("  - Reading", model, "(3-hourly)\n")
       fcst <- read_point_forecast(
-        dttm = seq_dttm(start_date, end_date, "6h"), fcst_model = model, fcst_type = "det",
+        dttm = seq_dttm(start_date, end_date, fcst_freq), fcst_model = model, fcst_type = "det",
         parameter = param, file_path = fcst_dir,
         file_template = paste0("{fcst_model}/{YYYY}/{MM}/FCTABLE_", param, "_{YYYY}{MM}_{HH}.sqlite"),
         lead_time = seq(0, leadtime_max, 3)
@@ -595,7 +598,7 @@ cat("Parameters: T2m, Pressure, Moisture (Td/RH/Q), Wind Speed, Precipitation (1
 fcst_dir <- "/wrf/WRF_Model/Verification/SQlite_tables/FCtables"
 obs_dir  <- "/wrf/WRF_Model/Verification/SQlite_tables/Obs"
 
-fcst <- read_forecasts(opt$start_date, opt$end_date, opt$hourly_models, opt$multihourly_models, fcst_dir)
+fcst <- read_forecasts(opt$start_date, opt$end_date, opt$hourly_models, opt$multihourly_models, fcst_dir, opt$fcst_freq)
 print_forecast_summary(fcst)
 obs <- read_observations(fcst, obs_dir)
 

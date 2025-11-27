@@ -2,13 +2,19 @@
 # Read_forecast and save to SQLite #
 ####################################
 
-# Parse command line arguments - expecting forecast date in format yyyymmddHH and domain (d01 or d02)
+# Parse command line arguments - expecting forecast date in format yyyymmddHH, domain (d01 or d02), and optional run_type (test or prod)
 args = commandArgs(trailingOnly=TRUE)
-if (length(args) != 2 || nchar(args[1]) != 10 || !(args[2] %in% c("d01", "d02"))){
-  stop("Usage: Rscript read_forecast_wrf.R <yyyymmddHH> <domain>\n  Where domain is either d01 or d02\n  Example: Rscript read_forecast_wrf.R 2024010100 d01")
+if (length(args) < 2 || length(args) > 3 || nchar(args[1]) != 10 || !(args[2] %in% c("d01", "d02"))){
+  stop("Usage: Rscript read_forecast_wrf.R <yyyymmddHH> <domain> [run_type]\n  Where domain is either d01 or d02\n  Where run_type is optional: test or prod (default: prod)\n  Example: Rscript read_forecast_wrf.R 2024010100 d01 test")
 }
 datetime = args[1]
 domain = args[2]
+run_type = if(length(args) == 3) args[3] else "prod"
+
+# Validate run_type
+if (!(run_type %in% c("test", "prod"))) {
+  stop("Invalid run_type. Must be either 'test' or 'prod'")
+}
 
 # Load required libraries for forecast processing and NetCDF handling
 library(harp)
@@ -37,7 +43,13 @@ station_list <- read.csv("/wrf/WRF_Model/Verification/Data/Static/stationlist.cs
 file_path <- "/wrf/WRF_Model/Verification/Data/Forecast" 
 template <- "{fcst_model}_{YYYY}{MM}{DD}{HH}"
 sql_folder <- "/wrf/WRF_Model/Verification/SQlite_tables/FCtables"
-fcst_model <- paste0("wrf_", domain)
+
+# Set model name based on run_type
+if (run_type == "test") {
+  fcst_model <- paste0("wrf_test_", domain)
+} else {
+  fcst_model <- paste0("wrf_", domain)
+}
 forecast_file <- paste0(file_path, "/", fcst_model, "_", datetime)
 
 # Define WRF variable names

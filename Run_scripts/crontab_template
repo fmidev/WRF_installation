@@ -1,5 +1,14 @@
+# ===============================================
+# Production WRF runs (4 times per day: 00, 06, 12, 18 UTC)
+# ===============================================
 #30 * * * * /home/wrf/WRF_Model/scripts/clean_wrf.sh
 #30 5 * * * /home/wrf/WRF_Model/scripts/control_run_WRF.sh 00 > /home/wrf/WRF_Model/logs/runlog_00.log 2>&1
 #30 11 * * * /home/wrf/WRF_Model/scripts/control_run_WRF.sh 06 > /home/wrf/WRF_Model/logs/runlog_06.log 2>&1
 #30 17 * * * /home/wrf/WRF_Model/scripts/control_run_WRF.sh 12 > /home/wrf/WRF_Model/logs/runlog_12.log 2>&1
 #30 23 * * * /home/wrf/WRF_Model/scripts/control_run_WRF.sh 18 > /home/wrf/WRF_Model/logs/runlog_18.log 2>&1
+
+# ===============================================
+# WRF test runs (2 times per day: 00, 12 UTC)
+# ===============================================
+#0 6 * * * /home/wrf/WRF_test/scripts/control_run_WRF_test.sh 00 > /home/wrf/WRF_test/logs/runlog_00.log 2>&1
+#0 18 * * * /home/wrf/WRF_test/scripts/control_run_WRF_test.sh 12 > /home/wrf/WRF_test/logs/runlog_12.log 2>&1

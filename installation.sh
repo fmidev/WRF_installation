@@ -89,8 +89,8 @@ else
     export COUNTRY="$country_name"
     echo "Country set to: $COUNTRY"
     # Create process_local_obs_$COUNTRY.sh template if COUNTRY is set
-    mkdir -p "$GIT_REPO/Run_scripts"
-    cat > "$GIT_REPO/Run_scripts/process_local_obs_${COUNTRY}.sh" << EOF
+    mkdir -p "$BASE/scripts"
+    cat > "$BASE/scripts/process_local_obs_${COUNTRY}.sh" << EOF
 #!/bin/bash
 # ===============================================
 # Process local observations for WRF DA and verification in $COUNTRY
@@ -111,14 +111,15 @@ DD=$3    # Day
 HH=$4    # Hour
 DA_DIR=$5
 BASE_DIR=$6
-OUTPUT_OBS_FILE="${DA_DIR}/ob/raw_obs/${YYYY}${MM}${DD}${HH}_local_obs.csv"
+OUTPUT_OBS_FILE="${DA_DIR}/ob/raw_obs/local_obs_${YYYY}${MM}${DD}${HH}.csv"
+OUTPUT_VERIF_FILE="${BASE_DIR}/Verification/Data/Obs/local_obs_${YYYY}${MM}${DD}${HH}.csv"
 
 ##CODE HERE
 
 exit 0
 EOF
-    chmod +x "$GIT_REPO/Run_scripts/process_local_obs_${COUNTRY}.sh"
-    echo "Created template: Run_scripts/process_local_obs_${COUNTRY}.sh"
+    chmod +x "$BASE/scripts/process_local_obs_${COUNTRY}.sh"
+    echo "Created template: $BASE/scripts/process_local_obs_${COUNTRY}.sh"
 fi
 
 # Prompt for GitHub Personal Access Token
@@ -147,6 +148,11 @@ fi
 echo "Creating directory structure..."
 mkdir -p $BASE/{libraries,WPS_GEOG,scripts,tmp,out,logs,install_logs,GFS,GEN_BE,CRTM_coef,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc},Verification/{scripts,Data/{Forecast,Obs,Static},Results,SQlite_tables}}
 
+# Create WRF_test directory structure
+echo "Creating WRF_test directory structure..."
+TEST_BASE=$(dirname $BASE)/WRF_test
+mkdir -p $TEST_BASE/{scripts,out,logs,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc}}
+
 # Install required system packages
 echo "Installing required packages..."
 sudo dnf config-manager --set-enabled crb
@@ -158,13 +164,13 @@ sudo dnf update -y
 # Install verification-related system packages
 sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco wgrib2 openssl-devel 
 
-# Detect number of CPU cores and save one less for parallel processes
+# Detect number of CPU cores and save four for test runs
 CPU_COUNT=$(nproc)
-MAX_CPU=$((CPU_COUNT - 1))
+MAX_CPU=$((CPU_COUNT - 4))
 if [ $MAX_CPU -lt 1 ]; then
     MAX_CPU=1
 fi
-echo "Detected $CPU_COUNT CPU cores, will use maximum of $MAX_CPU for parallel processes"
+echo "Detected $CPU_COUNT CPU cores, will use maximum of $MAX_CPU, reserving 4 for test runs"
 
 # Set compilers and important environment variables once
 export CC=gcc
@@ -787,8 +793,8 @@ if [ -z "$(ls -A $BASE/WPS_GEOG)" ]; then
     fi
 
     echo "Extracting geographical dataset..."
-    tar -zxvf geog_complete.tar.gz --strip-components=1
-    tar -zxvf geog_high_res_mandatory.tar.gz --strip-components=1
+    tar -zxf geog_complete.tar.gz --strip-components=1
+    tar -zxf geog_high_res_mandatory.tar.gz --strip-components=1
     echo "Geographical dataset downloaded and extracted successfully."
 else
     echo "Geographical dataset already exists. Skipping..."
@@ -799,8 +805,76 @@ echo "Copying run scripts into the scripts directory..."
 cp $GIT_REPO/Run_scripts/* $BASE/scripts/ 2>/dev/null || true
 chmod -R +x $BASE/scripts/
 
+echo "Creating WRF_test scripts..."
+
+# Common sed substitutions for test scripts
+COMMON_SUBS='-e "s|^# Author:.*|# Author: Mikael Hasu|" -e "s|^# Date:.*|# Date: November 2025|" -e "s|source .*/env.sh|source $TEST_BASE/scripts/env_test.sh|"'
+CPU_SUBS='-e "s|mpirun -np \$((MAX_CPU|mpirun -np \${TEST_MAX_CPU}|g" -e "s|mpirun -np \${MAX_CPU}|mpirun -np \${TEST_MAX_CPU}|g"'
+
+# Create env_test.sh
+sed -e "s|^# ===============================================|# ===============================================\n# WRF_test Environment Configuration\n# Runs: 00 and 12 UTC (twice daily)\n# Author: Mikael Hasu\n# Date: November 2025\n# ===============================================\n\n# Base directories\n#|" \
+    -e "s|^export BASE_DIR=.*|export BASE_DIR=$BASE  # Production base\nexport TEST_BASE_DIR=$TEST_BASE  # Test suite base|" \
+    -e "s|^export LIB_DIR=.*|export LIB_DIR=\$BASE_DIR/libraries  # Shared libraries with production|" \
+    -e "s|^export DA_DIR=.*|export DA_DIR=\$TEST_BASE_DIR/DA_input|" \
+    -e "s|^export MAIN_DIR=.*|export MAIN_DIR=\$TEST_BASE_DIR/scripts|" \
+    -e "s|^export PROD_DIR=.*|export PROD_DIR=\$TEST_BASE_DIR/out|" \
+    -e "s|^export VERIFICATION_DIR=.*|export VERIFICATION_DIR=\$TEST_BASE_DIR/Verification/scripts|" \
+    -e "s|^export MAX_CPU=.*|export TEST_MAX_CPU=4  # CPU allocation for test runs|" \
+    -e "s|^export RUN_UPP=.*|export RUN_UPP=false  # No post-processing needed for testing|" \
+    -e "s|^export RUN_COPY_GRIB=.*|export RUN_COPY_GRIB=false  # No SmartMet copying for test runs|" \
+    $BASE/scripts/env.sh > $TEST_BASE/scripts/env_test.sh
+
+# Create control_run_WRF_test.sh
+eval sed $COMMON_SUBS \
+    -e '"s|WRF Control Script|WRF_test Control Script|"' \
+    -e '"s|\${BASE_DIR}/logs/main|\${TEST_BASE_DIR}/logs/main|g"' \
+    -e '"s|\${BASE_DIR}/logs/historical|\${TEST_BASE_DIR}/logs/historical|g"' \
+    -e '"/^hour=\$1/a\\\n\\\n# Validate input\\\nif [[ \"\$hour\" != \"00\" \&\& \"\$hour\" != \"12\" ]]; then\\\n    echo \"Error: WRF_test runs only at 00 and 12 UTC\"\\\n    echo \"Usage: \$0 <hour>\"\\\n    echo \"Example: \$0 00\"\\\n    exit 1\\\nfi"' \
+    -e '"s|WRF Run started|WRF_test Run started|"' \
+    -e '"/WRF_test Run started/a\\\necho \"Note: This is a TEST run using \${TEST_MAX_CPU} CPUs\" >> \${TEST_BASE_DIR}/logs/main.log"' \
+    -e '"s|./run_WPS.sh|./run_WPS_test.sh|"' \
+    -e '"s|./run_WRF.sh|./run_WRF_test.sh|"' \
+    -e '"s|./run_WRFDA.sh|./run_WRFDA_test.sh|"' \
+    -e '"s|Using production observations|Using production observations from main DA_input directory|"' \
+    -e '"s|./verification.sh|./verification_test.sh|g"' \
+    $BASE/scripts/control_run_WRF.sh '>' $TEST_BASE/scripts/control_run_WRF_test.sh
+
+# Create run_WPS_test.sh
+eval sed $COMMON_SUBS $CPU_SUBS \
+    -e '"s|WRF Preprocessing|WRF_test Preprocessing|"' \
+    -e '"s|WRF_test run directory created|WRF_test run directory created (testing configuration)|"' \
+    $BASE/scripts/run_WPS.sh '>' $TEST_BASE/scripts/run_WPS_test.sh
+
+# Create run_WRF_test.sh
+eval sed $COMMON_SUBS $CPU_SUBS \
+    -e '"s|WRF Model Automation Script|WRF_test Model Script|"' \
+    -e '"s|^# ===============================================$|# Purpose: Test new features and configurations\n# ===============================================|"' \
+    -e '"s|./run_WRFDA.sh|./run_WRFDA_test.sh|"' \
+    -e '"s|Ready to set up WRF|Ready to set up WRF_test|"' \
+    -e '"s|Running model without|Running WRF_test model without|"' \
+    $BASE/scripts/run_WRF.sh '>' $TEST_BASE/scripts/run_WRF_test.sh
+
+# Create run_WRFDA_test.sh
+eval sed $COMMON_SUBS $CPU_SUBS \
+    -e '"s|WRF Data Assimilation|WRF_test Data Assimilation|"' \
+    -e '"s|^# ===============================================$|# Purpose: Test DA modifications and new observation types\n# ===============================================|"' \
+    -e '"s|Starting WRF Data|Starting WRF_test Data|"' \
+    $BASE/scripts/run_WRFDA.sh '>' $TEST_BASE/scripts/run_WRFDA_test.sh
+
+# Create get_obs_test.sh if source exists
+[ -f "$BASE/scripts/get_obs.sh" ] && eval sed $COMMON_SUBS \
+    -e '"s|Download observations for WRF DA|Download observations for WRF_test DA|"' \
+    $BASE/scripts/get_obs.sh '>' $TEST_BASE/scripts/get_obs_test.sh
+
+# Copy additional files
+[ -f "$BASE/scripts/convert_to_little_r.py" ] && cp $BASE/scripts/convert_to_little_r.py $TEST_BASE/scripts/
+[ -f "$BASE/scripts/verification_test.sh" ] && mv $BASE/scripts/verification_test.sh $TEST_BASE/scripts/
+
+chmod -R +x $TEST_BASE/scripts/
+echo "✅ WRF_test scripts created successfully"
+
 echo "Copying verification R scripts into the Verification directory..."
-cp $GIT_REPO/Verification_scripts/!(app.R) $BASE/Verification/scripts/
+rsync -av --exclude='app.R' "$GIT_REPO/Verification_scripts/" "$BASE/Verification/scripts/"
 
 # Update paths in R verification scripts
 echo "Updating paths in R verification scripts..."
@@ -820,7 +894,9 @@ sed -i "s|^export COUNTRY=.*|export COUNTRY=\"$COUNTRY\"|" "$BASE/scripts/env.sh
 
 # Update all script paths
 for script in control_run_WRF.sh run_WRF.sh execute_upp.sh run_WRFDA.sh clean_wrf.sh get_obs.sh verification.sh; do
-    sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/$script"
+    if [ -f "$BASE/scripts/$script" ]; then
+        sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/$script"
+    fi
 done
 
 # Crontab setup with improved timezone handling
@@ -868,6 +944,14 @@ sed -i "s|#30 11 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 06 > /h
 sed -i "s|#30 17 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 12 > /home/wrf/WRF_Model/logs/runlog_12.log|#0 $time_12 \* \* \* $BASE/scripts/control_run_WRF.sh 12 > $BASE/logs/runlog_12.log|" "$BASE/scripts/crontab_template"
 sed -i "s|#30 23 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 18 > /home/wrf/WRF_Model/logs/runlog_18.log|#0 $time_18 \* \* \* $BASE/scripts/control_run_WRF.sh 18 > $BASE/logs/runlog_18.log|" "$BASE/scripts/crontab_template"
 
+# Calculate WRF_test crontab times (runs at 00 and 12 UTC only)
+time_test_00=$(adjust_crontab_time 6)
+time_test_12=$(adjust_crontab_time 18) 
+sed -i "s|#0 6 \* \* \* /home/wrf/WRF_test/scripts/control_run_WRF_test.sh 00|#0 $time_test_00 \* \* \* $TEST_BASE/scripts/control_run_WRF_test.sh 00|" "$BASE/scripts/crontab_template"
+sed -i "s|#0 18 \* \* \* /home/wrf/WRF_test/scripts/control_run_WRF_test.sh 12|#0 $time_test_12 \* \* \* $TEST_BASE/scripts/control_run_WRF_test.sh 12|" "$BASE/scripts/crontab_template"
+sed -i "s|/home/wrf/WRF_test/logs/runlog_00.log|$TEST_BASE/logs/runlog_00.log|" "$BASE/scripts/crontab_template"
+sed -i "s|/home/wrf/WRF_test/logs/runlog_12.log|$TEST_BASE/logs/runlog_12.log|" "$BASE/scripts/crontab_template"
+
 crontab $BASE/scripts/crontab_template
 
 echo "Crontab for WRF set up successfully but run commands are not active by default."
@@ -884,8 +968,9 @@ echo "
 
 📋 Installation Summary:
 - WRF, WPS, WRFDA, UPP installed in: $BASE
-- Run scripts are in: $BASE/scripts
-- Log files will be stored in: $BASE/logs
+- Production run scripts: $BASE/scripts
+- Test run scripts: $TEST_BASE/scripts
+- Log files will be stored in: $BASE/logs and $TEST_BASE/logs
 - Installation logs in: $BASE/install_logs
 - Cron jobs set up for WRF runs
 - Geographical dataset in: $BASE/WPS_GEOG
@@ -896,22 +981,25 @@ echo "
 🔍 POST-INSTALLATION CHECKLIST:
 1. Define your domain in WPS:
    - Create your domain with WRF domain wizard
-   - Edit $BASE/scripts/Run_WPS.sh for your domain specifications
+   - Edit $BASE/scripts/run_WPS.sh for your domain specifications
 
 2. Configure your WRF simulation namelist:
-   - Edit $BASE/scripts/Run_WRF.sh for physics options and time steps
+   - Edit $BASE/scripts/run_WRF.sh for physics options and time steps
 
 3. Configure data assimilation (if using):
-   - Check $BASE/scripts/Run_WRFDA.sh namelist settings are matching with run_WRF.sh
+   - Check $BASE/scripts/run_WRFDA.sh namelist settings match with run_WRF.sh
 
 4. Set up the cron jobs for automation:
    - Run 'crontab -e' to edit your crontab
-   - Uncomment the relevant lines in crontab for scheduled runs
+   - Uncomment production WRF runs (4x daily: 00, 06, 12, 18 UTC)
+   - Uncomment WRF test runs (2x daily: 00, 12 UTC)
 
 5. Set up SSH keys for SmartMet server (if using):
    - Generate SSH keys: ssh-keygen
    - Copy keys to SmartMet: ssh-copy-id smartmet@$SMARTMET_IP
    - Make sure SmartMet server is sending GFS data to the WRF server (ssh key on both sides)
+
+6. WRF_test suite configuration
 
 ===============================================================================
 "
