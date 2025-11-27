@@ -89,8 +89,8 @@ else
     export COUNTRY="$country_name"
     echo "Country set to: $COUNTRY"
     # Create process_local_obs_$COUNTRY.sh template if COUNTRY is set
-    mkdir -p "$GIT_REPO/Run_scripts"
-    cat > "$GIT_REPO/Run_scripts/process_local_obs_${COUNTRY}.sh" << EOF
+    mkdir -p "$BASE/scripts"
+    cat > "$BASE/scripts/process_local_obs_${COUNTRY}.sh" << EOF
 #!/bin/bash
 # ===============================================
 # Process local observations for WRF DA and verification in $COUNTRY
@@ -118,8 +118,8 @@ OUTPUT_VERIF_FILE="${BASE_DIR}/Verification/Data/Obs/local_obs_${YYYY}${MM}${DD}
 
 exit 0
 EOF
-    chmod +x "$GIT_REPO/Run_scripts/process_local_obs_${COUNTRY}.sh"
-    echo "Created template: Run_scripts/process_local_obs_${COUNTRY}.sh"
+    chmod +x "$BASE/scripts/process_local_obs_${COUNTRY}.sh"
+    echo "Created template: $BASE/scripts/process_local_obs_${COUNTRY}.sh"
 fi
 
 # Prompt for GitHub Personal Access Token
@@ -793,8 +793,8 @@ if [ -z "$(ls -A $BASE/WPS_GEOG)" ]; then
     fi
 
     echo "Extracting geographical dataset..."
-    tar -zxvf geog_complete.tar.gz --strip-components=1
-    tar -zxvf geog_high_res_mandatory.tar.gz --strip-components=1
+    tar -zxf geog_complete.tar.gz --strip-components=1
+    tar -zxf geog_high_res_mandatory.tar.gz --strip-components=1
     echo "Geographical dataset downloaded and extracted successfully."
 else
     echo "Geographical dataset already exists. Skipping..."
@@ -874,7 +874,7 @@ chmod -R +x $TEST_BASE/scripts/
 echo "✅ WRF_test scripts created successfully"
 
 echo "Copying verification R scripts into the Verification directory..."
-cp $GIT_REPO/Verification_scripts/!(app.R) $BASE/Verification/scripts/
+rsync -av --exclude='app.R' "$GIT_REPO/Verification_scripts/" "$BASE/Verification/scripts/"
 
 # Update paths in R verification scripts
 echo "Updating paths in R verification scripts..."

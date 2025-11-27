@@ -2,7 +2,7 @@
 
 #########################################################################
 ######## Deploy Test Scripts to Production #####
-# Deploys changes from WRF_test scripts to production WRF
+# Deploys changes from WRF_test scripts to production WRF (Not working corrctly yet)
 # Author: Mikael Hasu
 # Date: November 2025
 #########################################################################
