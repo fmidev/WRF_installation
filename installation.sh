@@ -128,9 +128,32 @@ echo "Installing verification tools requires a GitHub Personal Access Token (PAT
 echo "This is needed to download R packages from GitHub repositories."
 echo "You can create a token at: https://github.com/settings/tokens"
 echo "The token needs workflow, gist, user (all) permissions."
-echo "Leave empty to skip verification tools installation."
-echo -n "Enter your GitHub Personal Access Token: "
-read github_token
+
+# Check if a GitHub token already exists
+if [ -f ~/.Renviron ] && grep -q "GITHUB_PAT=" ~/.Renviron; then
+    existing_token=$(grep "GITHUB_PAT=" ~/.Renviron | cut -d'=' -f2)
+    if [ -n "$existing_token" ]; then
+        echo " "
+        echo "Found existing GitHub Personal Access Token in ~/.Renviron"
+        echo -n "Do you want to use the existing token? (y/n) [y]: "
+        read use_existing
+        use_existing=${use_existing:-y}
+        
+        if [[ "$use_existing" =~ ^[Yy]$ ]]; then
+            github_token="$existing_token"
+            echo "Using existing GitHub token."
+        else
+            echo -n "Enter your new GitHub Personal Access Token: "
+            read github_token
+        fi
+    else
+        echo -n "Enter your GitHub Personal Access Token: "
+        read github_token
+    fi
+else
+    echo -n "Enter your GitHub Personal Access Token: "
+    read github_token
+fi
 
 if [ -z "$github_token" ]; then
     echo "No GitHub token provided. Verification tools installation will be skipped."
@@ -142,6 +165,7 @@ else
     echo "Setting up GitHub token in .Renviron file..."
     echo "GITHUB_PAT=$github_token" > ~/.Renviron
     chmod 600 ~/.Renviron
+    echo "GitHub token saved to ~/.Renviron"
 fi
 
 # Create necessary directories
@@ -151,7 +175,7 @@ mkdir -p $BASE/{libraries,WPS_GEOG,scripts,tmp,out,logs,install_logs,GFS,GEN_BE,
 # Create WRF_test directory structure
 echo "Creating WRF_test directory structure..."
 TEST_BASE=$(dirname $BASE)/WRF_test
-mkdir -p $TEST_BASE/{scripts,out,logs,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc}}
+mkdir -p $TEST_BASE/{scripts,out,logs,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc},genbe_forecasts}
 
 # Install required system packages
 echo "Installing required packages..."
@@ -811,8 +835,8 @@ echo "Creating WRF_test scripts..."
 COMMON_SUBS='-e "s|^# Author:.*|# Author: Mikael Hasu|" -e "s|^# Date:.*|# Date: November 2025|" -e "s|source .*/env.sh|source $TEST_BASE/scripts/env_test.sh|"'
 CPU_SUBS='-e "s|mpirun -np \$((MAX_CPU|mpirun -np \${TEST_MAX_CPU}|g" -e "s|mpirun -np \${MAX_CPU}|mpirun -np \${TEST_MAX_CPU}|g"'
 
-# Create env_test.sh
-sed -e "s|^# ===============================================|# ===============================================\n# WRF_test Environment Configuration\n# Runs: 00 and 12 UTC (twice daily)\n# Author: Mikael Hasu\n# Date: November 2025\n# ===============================================\n\n# Base directories\n#|" \
+# Create env_test.sh with GEN_BE configuration
+sed -e "s|^# ===============================================|# ===============================================\n# WRF_test Environment Configuration\n# Runs: 00 and 12 UTC (twice daily) - Configured for GEN_BE B matrix creation\n# Author: Mikael Hasu\n# Date: November 2025\n# ===============================================\n\n# Base directories\n#|" \
     -e "s|^export BASE_DIR=.*|export BASE_DIR=$BASE  # Production base\nexport TEST_BASE_DIR=$TEST_BASE  # Test suite base|" \
     -e "s|^export LIB_DIR=.*|export LIB_DIR=\$BASE_DIR/libraries  # Shared libraries with production|" \
     -e "s|^export DA_DIR=.*|export DA_DIR=\$TEST_BASE_DIR/DA_input|" \
@@ -822,9 +846,31 @@ sed -e "s|^# ===============================================|# =================
     -e "s|^export MAX_CPU=.*|export TEST_MAX_CPU=4  # CPU allocation for test runs|" \
     -e "s|^export RUN_UPP=.*|export RUN_UPP=false  # No post-processing needed for testing|" \
     -e "s|^export RUN_COPY_GRIB=.*|export RUN_COPY_GRIB=false  # No SmartMet copying for test runs|" \
+    -e "s|^export RUN_DA=.*|export RUN_DA=false  # Data assimilation OFF for GEN_BE|" \
+    -e "s|^export LEADTIME=.*|export LEADTIME=24  # 24-hour forecasts for GEN_BE|" \
+    -e "s|^export SAVE_GENBE_FORECASTS=.*|export SAVE_GENBE_FORECASTS=true  # Save 12h and 24h forecasts for B matrix generation|" \
     $BASE/scripts/env.sh > $TEST_BASE/scripts/env_test.sh
 
-# Create control_run_WRF_test.sh
+# Add GEN_BE specific settings to env_test.sh
+cat >> $TEST_BASE/scripts/env_test.sh << 'GENBE_EOF'
+
+# ===============================================
+# GEN_BE Configuration for B Matrix Creation
+# ===============================================
+export GENBE_DIR=\${TEST_BASE_DIR}/GEN_BE
+export GENBE_FC_DIR=\${TEST_BASE_DIR}/genbe_forecasts  # Storage for forecast differences
+export RUN_GENBE=false  # Set to true when ready to generate BE statistics
+export NL_CV_OPTIONS=5  # CV5 (default), can be changed to 7 for CV7
+export BIN_TYPE=5  # Binning type for calculating statistics
+export NUM_LEVELS=\$((vertical_levels - 1))  # Set based on your domain configuration
+
+# NMC method settings: T+24 - T+12 forecast differences
+export GENBE_FCST_RANGE1=12  # First forecast range (hours)
+export GENBE_FCST_RANGE2=24  # Second forecast range (hours)
+
+GENBE_EOF
+
+# Create control_run_WRF_test.sh with GEN_BE support
 eval sed $COMMON_SUBS \
     -e '"s|WRF Control Script|WRF_test Control Script|"' \
     -e '"s|\${BASE_DIR}/logs/main|\${TEST_BASE_DIR}/logs/main|g"' \
@@ -838,6 +884,21 @@ eval sed $COMMON_SUBS \
     -e '"s|Using production observations|Using production observations from main DA_input directory|"' \
     -e '"s|./verification.sh|./verification_test.sh|g"' \
     $BASE/scripts/control_run_WRF.sh '>' $TEST_BASE/scripts/control_run_WRF_test.sh
+
+# Add GEN_BE forecast saving after WRF run
+cat >> $TEST_BASE/scripts/control_run_WRF_test.sh << 'GENBE_APPEND'
+
+# Save forecasts for GEN_BE if enabled
+if [ "$SAVE_GENBE_FORECASTS" = "true" ]; then
+    echo "Saving forecasts for GEN_BE..." >> ${TEST_BASE_DIR}/logs/main.log
+    ./save_genbe_forecasts.sh $YYYY $MM $DD $HH >> ${TEST_BASE_DIR}/logs/main.log 2>&1
+    if [ $? -eq 0 ]; then
+        echo "GEN_BE forecasts saved successfully" >> ${TEST_BASE_DIR}/logs/main.log
+    else
+        echo "WARNING: Failed to save GEN_BE forecasts" >> ${TEST_BASE_DIR}/logs/main.log
+    fi
+fi
+GENBE_APPEND
 
 # Create run_WPS_test.sh
 eval sed $COMMON_SUBS $CPU_SUBS \
@@ -866,7 +927,9 @@ eval sed $COMMON_SUBS $CPU_SUBS \
     -e '"s|Download observations for WRF DA|Download observations for WRF_test DA|"' \
     $BASE/scripts/get_obs.sh '>' $TEST_BASE/scripts/get_obs_test.sh
 
-# Copy additional files
+# Copy additional files to WRF_test
+[ -f "$BASE/scripts/save_genbe_forecasts.sh" ] && mv $BASE/scripts/save_genbe_forecasts.sh $TEST_BASE/scripts/
+[ -f "$BASE/scripts/setup_genbe_wrapper.sh" ] && mv $BASE/scripts/setup_genbe_wrapper.sh $TEST_BASE/scripts/
 [ -f "$BASE/scripts/convert_to_little_r.py" ] && cp $BASE/scripts/convert_to_little_r.py $TEST_BASE/scripts/
 [ -f "$BASE/scripts/verification_test.sh" ] && mv $BASE/scripts/verification_test.sh $TEST_BASE/scripts/
 
@@ -999,7 +1062,11 @@ echo "
    - Copy keys to SmartMet: ssh-copy-id smartmet@$SMARTMET_IP
    - Make sure SmartMet server is sending GFS data to the WRF server (ssh key on both sides)
 
-6. WRF_test suite configuration
+6. WRF_test suite:
+   - WRF_test is pre-configured for GEN_BE (DA OFF, 24h forecasts)
+   - Runs at 00Z and 12Z, automatically saves 12h/24h forecasts
+   - After collecting ≥30 days of data, run: $TEST_BASE/scripts/setup_genbe_wrapper.sh
+   - Generated BE file replaces default be.dat for domain-specific statistics
 
 ===============================================================================
 "
