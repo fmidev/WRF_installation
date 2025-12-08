@@ -63,6 +63,8 @@ def parse_namelist_wps(namelist_path):
         params['ref_lat'] = extract_param(r'ref_lat\s*=\s*([0-9.\-]+)', content)
         params['ref_lon'] = extract_param(r'ref_lon\s*=\s*([0-9.\-]+)', content)
         params['truelat1'] = extract_param(r'truelat1\s*=\s*([0-9.\-]+)', content)
+        params['truelat2'] = extract_param(r'truelat2\s*=\s*([0-9.\-]+)', content)
+        params['stand_lon'] = extract_param(r'stand_lon\s*=\s*([0-9.\-]+)', content)
         params['pole_lat'] = extract_param(r'pole_lat\s*=\s*([0-9.\-]+)', content)
         params['pole_lon'] = extract_param(r'pole_lon\s*=\s*([0-9.\-]+)', content)
         

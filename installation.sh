@@ -111,10 +111,14 @@ DD=$3    # Day
 HH=$4    # Hour
 DA_DIR=$5
 BASE_DIR=$6
+
+# Headers: station_id,latitude,longitude,date,sea_level_pressure,pressure,height,temperature,relative_humidity,wind_speed,wind_direction
 OUTPUT_OBS_FILE="${DA_DIR}/ob/raw_obs/local_obs_${YYYY}${MM}${DD}${HH}.csv"
+
+# Headers: valid_dttm,SID,lat,lon,elev,T2m,Td2m,RH2m,Q2m,Pressure,Pcp,Wdir,WS
 OUTPUT_VERIF_FILE="${BASE_DIR}/Verification/Data/Obs/local_obs_${YYYY}${MM}${DD}${HH}.csv"
 
-##CODE HERE
+#### CODE HERE ##### 
 
 exit 0
 EOF
@@ -862,9 +866,7 @@ export GENBE_FC_DIR=\${TEST_BASE_DIR}/genbe_forecasts  # Storage for forecast di
 export RUN_GENBE=false  # Set to true when ready to generate BE statistics
 export NL_CV_OPTIONS=5  # CV5 (default), can be changed to 7 for CV7
 export BIN_TYPE=5  # Binning type for calculating statistics
-export NUM_LEVELS=\$((vertical_levels - 1))  # Set based on your domain configuration
-
-# NMC method settings: T+24 - T+12 forecast differences
+export NUM_LEVELS=44
 export GENBE_FCST_RANGE1=12  # First forecast range (hours)
 export GENBE_FCST_RANGE2=24  # Second forecast range (hours)
 
@@ -1045,27 +1047,34 @@ echo "
 - Verification tools: $([ "$INSTALL_VERIFICATION" = true ] && echo "Installed" || echo "Not installed")$([ "$INSTALL_VERIFICATION" = true ] && echo "
 - harpVis app available at: http://localhost:3838/harpvis/" || echo "")
 
-🔍 POST-INSTALLATION CHECKLIST:
+🔍 POST-INSTALLATION CHECKLIST (what needs to be done manually):
 1. Define your domain:
    - Create your domain with WRF Domain Wizard (https://wrfdomainwizard.net/)
    - Save the namelist.wps file as domain.txt in $BASE/scripts/
    - The scripts will automatically read all domain settings from this file
 
-2. Set up the cron jobs for automation:
-   - Run 'crontab -e' to edit your crontab
-   - Uncomment production WRF runs (4x daily: 00, 06, 12, 18 UTC)
-   - Uncomment WRF test runs (2x daily: 00, 12 UTC)
-
-3. Set up SSH keys for SmartMet server (if using):
+2. Set up SSH keys for SmartMet server (if using):
    - Generate SSH keys: ssh-keygen
    - Copy keys to SmartMet: ssh-copy-id smartmet@$SMARTMET_IP
    - Make sure SmartMet server is sending GFS data to the WRF server (ssh key on both sides)
 
-4. WRF_test suite:
+3. WRF_test suite:
    - WRF_test is pre-configured for GEN_BE (DA OFF, 24h forecasts)
    - Runs at 00Z and 12Z, automatically saves 12h/24h forecasts
    - After collecting ≥30 days of data, run: $TEST_BASE/scripts/setup_genbe_wrapper.sh
    - Generated BE file replaces default be.dat for domain-specific statistics
+
+4. Create station list $BASE/Verification/Data/Static/stationlist.csv
+    - List all stations to be used in verification
+    - File headers: SID,lat,lon,elev,name
+
+5. Finalize observation preprocessing script $BASE/scripts/process_local_obs_$COUNTRY.sh
+    - Fetch your input data and convert to csv format as needed.
+
+6. Set up the cron jobs for automation:
+   - Run 'crontab -e' to edit your crontab
+   - Uncomment production WRF runs (4x daily: 00, 06, 12, 18 UTC)
+   - Uncomment WRF test runs (2x daily: 00, 12 UTC)
 
 ===============================================================================
 "

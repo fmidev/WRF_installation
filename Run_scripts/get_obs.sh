@@ -15,6 +15,56 @@ MM=$2    # Month
 DD=$3    # Day
 HH=$4    # Hour
 
+# Read domain settings from domain.txt
+# ===============================================
+DOMAIN_FILE="${MAIN_DIR}/domain.txt"
+
+if [ ! -f "$DOMAIN_FILE" ]; then
+  echo "Error: domain.txt not found at $DOMAIN_FILE"
+  echo "Please save your WRF Domain Wizard namelist.wps file as domain.txt in the scripts directory"
+  exit 1
+fi
+
+echo "Reading domain configuration from $DOMAIN_FILE"
+
+# Parse the domain.txt file using Python script for all domains
+eval $(${MAIN_DIR}/parse_namelist_wps.py $DOMAIN_FILE)
+
+# Convert map projection name to obsproc numeric code and set projection-specific defaults
+case "${MAP_PROJ,,}" in
+    lambert*)
+        MAP_PROJ_CODE=1
+        # For Lambert, truelat2 is often defined; if not, use truelat1
+        TRUELAT2=${TRUELAT2:-${TRUELAT1}}
+        STAND_LON=${STAND_LON:-${REF_LON}}
+        ;;
+    polar*|ps)
+        MAP_PROJ_CODE=2
+        # For Polar Stereographic, truelat1 is typically the standard latitude
+        TRUELAT2=${TRUELAT2:-0.0}
+        STAND_LON=${STAND_LON:-${REF_LON}}
+        ;;
+    mercator*)
+        MAP_PROJ_CODE=3
+        # For Mercator, only truelat1 is meaningful (standard latitude)
+        # truelat2 is not used, set to 0.0
+        TRUELAT2=${TRUELAT2:-0.0}
+        # stand_lon is typically the same as center longitude
+        STAND_LON=${STAND_LON:-${REF_LON}}
+        ;;
+    lat-lon*|latlon*|cylindrical*)
+        MAP_PROJ_CODE=0
+        # For Lat-Lon, true latitudes are not used
+        TRUELAT2=${TRUELAT2:-0.0}
+        STAND_LON=${STAND_LON:-${REF_LON}}
+        ;;
+    *)
+        echo "ERROR: Unknown map projection '${MAP_PROJ}'"
+        echo "Supported projections: lambert, polar, mercator, lat-lon"
+        exit 1
+        ;;
+esac
+
 # Base URL
 BASE_URL="https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/gdas.${YYYY}${MM}${DD}/"
 
@@ -82,6 +132,27 @@ ob_window_max=$(date -d "$s_date $window hours" "+%Y-%m-%d %H:%M:%S")
 read minyear minmonth minday minhour minmin minsec <<< $(echo $ob_window_min | tr '-' ' ' | tr ':' ' ')
 read maxyear maxmonth maxday maxhour maxmin maxsec <<< $(echo $ob_window_max | tr '-' ' ' | tr ':' ' ')
 
+# Build record8 configuration before writing namelist
+# Determine IDD based on whether XLONC differs from STANDARD_LON
+if [ "$STAND_LON" != "$REF_LON" ]; then
+    IDD=2
+else
+    IDD=1
+fi
+
+# Extract domain 1 dimensions from E_WE and E_SN arrays
+NESTIX_STR="${E_WE[0]}, "
+NESTJX_STR="${E_SN[0]}, "
+
+# Convert DX from meters to kilometers for domain 1
+DIS_KM=$(echo "scale=2; $DX / 1000" | bc)
+DIS_STR="${DIS_KM}, "
+
+# For WRF application, NUMC(1), NESTI(1), and NESTJ(1) are always set to 1
+NUMC_STR="1, "
+NESTI_STR="1, "
+NESTJ_STR="1, "
+
 cat << EOF > namelist.obsproc
 &record1
  obs_gts_filename = 'obs.${YYYY}${MM}${DD}${HH}',
@@ -135,24 +206,24 @@ cat << EOF > namelist.obsproc
 /
 
 &record7
- IPROJ = 3,
- PHIC  = 40.00001,
- XLONC = -95.0,
- TRUELAT1= 30.0,
- TRUELAT2= 60.0,
- MOAD_CEN_LAT = 40.00001,
- STANDARD_LON = -95.00,
+ IPROJ = ${MAP_PROJ_CODE},
+ PHIC  = ${REF_LAT},
+ XLONC = ${REF_LON},
+ TRUELAT1= ${TRUELAT1},
+ TRUELAT2= ${TRUELAT2},
+ MOAD_CEN_LAT = ${REF_LAT},
+ STANDARD_LON = ${STAND_LON},
 /
 
 &record8
- IDD    =   1,
- MAXNES =   1,
- NESTIX =  60,  200,
- NESTJX =  90,  200,
- DIS    =  60,  10.,
- NUMC   =    1,    1,
- NESTI  =    1,   40,
- NESTJ  =    1,   60,
+ IDD    =  $IDD,
+ MAXNES =  1,
+ NESTIX =  $NESTIX_STR
+ NESTJX =  $NESTJX_STR
+ DIS    =  $DIS_STR
+ NUMC   =  $NUMC_STR
+ NESTI  =  $NESTI_STR
+ NESTJ  =  $NESTJ_STR
  /
 
  &record9
