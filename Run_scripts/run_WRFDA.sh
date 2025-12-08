@@ -17,6 +17,22 @@ run_dir="${PROD_DIR}/${year}${month}${day}${hour}"
 s_date="$year-$month-$day ${hour}:00:00"
 
 # ===============================================
+# Read domain settings from domain.txt
+# ===============================================
+DOMAIN_FILE="${MAIN_DIR}/domain.txt"
+
+if [ ! -f "$DOMAIN_FILE" ]; then
+  echo "Error: domain.txt not found at $DOMAIN_FILE"
+  echo "Please save your WRF Domain Wizard namelist.wps file as domain.txt in the scripts directory"
+  exit 1
+fi
+
+echo "Reading domain configuration from $DOMAIN_FILE for WRFDA"
+
+# Parse the domain.txt file using Python script for domain 1 (outer domain)
+eval $(${MAIN_DIR}/parse_namelist_wps.py $DOMAIN_FILE 0)
+
+# ===============================================
 # Step 1: Prepare input files and working directory
 # ===============================================
 
@@ -334,12 +350,12 @@ end_hour             = ${hour},
 grid_fdda                  = 0
 /
 &domains
-time_step            = 30,
-e_we                 = 103,
-e_sn                 = 195,
+time_step            = 60,
+e_we                 = ${E_WE[0]},
+e_sn                 = ${E_SN[0]},
 e_vert               = 45,
-dx                   = 7000.0000,
-dy                   = 7000.0000, 
+dx                   = ${DX},
+dy                   = ${DY}, 
 /
 &dfi_control
 /

@@ -904,6 +904,7 @@ GENBE_APPEND
 eval sed $COMMON_SUBS $CPU_SUBS \
     -e '"s|WRF Preprocessing|WRF_test Preprocessing|"' \
     -e '"s|WRF_test run directory created|WRF_test run directory created (testing configuration)|"' \
+    -e '"s|DOMAIN_FILE=\"\${MAIN_DIR}/domain.txt\"|DOMAIN_FILE=\"$BASE/scripts/domain.txt\"|"' \
     $BASE/scripts/run_WPS.sh '>' $TEST_BASE/scripts/run_WPS_test.sh
 
 # Create run_WRF_test.sh
@@ -913,6 +914,7 @@ eval sed $COMMON_SUBS $CPU_SUBS \
     -e '"s|./run_WRFDA.sh|./run_WRFDA_test.sh|"' \
     -e '"s|Ready to set up WRF|Ready to set up WRF_test|"' \
     -e '"s|Running model without|Running WRF_test model without|"' \
+    -e '"s|DOMAIN_FILE=\"\${MAIN_DIR}/domain.txt\"|DOMAIN_FILE=\"$BASE/scripts/domain.txt\"|"' \
     $BASE/scripts/run_WRF.sh '>' $TEST_BASE/scripts/run_WRF_test.sh
 
 # Create run_WRFDA_test.sh
@@ -920,6 +922,7 @@ eval sed $COMMON_SUBS $CPU_SUBS \
     -e '"s|WRF Data Assimilation|WRF_test Data Assimilation|"' \
     -e '"s|^# ===============================================$|# Purpose: Test DA modifications and new observation types\n# ===============================================|"' \
     -e '"s|Starting WRF Data|Starting WRF_test Data|"' \
+    -e '"s|DOMAIN_FILE=\"\${MAIN_DIR}/domain.txt\"|DOMAIN_FILE=\"$BASE/scripts/domain.txt\"|"' \
     $BASE/scripts/run_WRFDA.sh '>' $TEST_BASE/scripts/run_WRFDA_test.sh
 
 # Create get_obs_test.sh if source exists
@@ -932,6 +935,7 @@ eval sed $COMMON_SUBS $CPU_SUBS \
 [ -f "$BASE/scripts/setup_genbe_wrapper.sh" ] && mv $BASE/scripts/setup_genbe_wrapper.sh $TEST_BASE/scripts/
 [ -f "$BASE/scripts/convert_to_little_r.py" ] && cp $BASE/scripts/convert_to_little_r.py $TEST_BASE/scripts/
 [ -f "$BASE/scripts/verification_test.sh" ] && mv $BASE/scripts/verification_test.sh $TEST_BASE/scripts/
+[ -f "$BASE/scripts/parse_namelist_wps.py" ] && cp $BASE/scripts/parse_namelist_wps.py $TEST_BASE/scripts/
 
 chmod -R +x $TEST_BASE/scripts/
 echo "✅ WRF_test scripts created successfully"
@@ -1042,27 +1046,22 @@ echo "
 - harpVis app available at: http://localhost:3838/harpvis/" || echo "")
 
 🔍 POST-INSTALLATION CHECKLIST:
-1. Define your domain in WPS:
-   - Create your domain with WRF domain wizard
-   - Edit $BASE/scripts/run_WPS.sh for your domain specifications
+1. Define your domain:
+   - Create your domain with WRF Domain Wizard (https://wrfdomainwizard.net/)
+   - Save the namelist.wps file as domain.txt in $BASE/scripts/
+   - The scripts will automatically read all domain settings from this file
 
-2. Configure your WRF simulation namelist:
-   - Edit $BASE/scripts/run_WRF.sh for physics options and time steps
-
-3. Configure data assimilation (if using):
-   - Check $BASE/scripts/run_WRFDA.sh namelist settings match with run_WRF.sh
-
-4. Set up the cron jobs for automation:
+2. Set up the cron jobs for automation:
    - Run 'crontab -e' to edit your crontab
    - Uncomment production WRF runs (4x daily: 00, 06, 12, 18 UTC)
    - Uncomment WRF test runs (2x daily: 00, 12 UTC)
 
-5. Set up SSH keys for SmartMet server (if using):
+3. Set up SSH keys for SmartMet server (if using):
    - Generate SSH keys: ssh-keygen
    - Copy keys to SmartMet: ssh-copy-id smartmet@$SMARTMET_IP
    - Make sure SmartMet server is sending GFS data to the WRF server (ssh key on both sides)
 
-6. WRF_test suite:
+4. WRF_test suite:
    - WRF_test is pre-configured for GEN_BE (DA OFF, 24h forecasts)
    - Runs at 00Z and 12Z, automatically saves 12h/24h forecasts
    - After collecting ≥30 days of data, run: $TEST_BASE/scripts/setup_genbe_wrapper.sh

@@ -22,6 +22,36 @@ emonth=$(date -d "$s_date $leadtime hours" "+%m")
 eday=$(date -d "$s_date $leadtime hours" "+%d")
 ehour=$(date -d "$s_date $leadtime hours" -u "+%H")
 
+# ===============================================
+# Read domain settings from domain.txt
+# ===============================================
+DOMAIN_FILE="${MAIN_DIR}/domain.txt"
+
+if [ ! -f "$DOMAIN_FILE" ]; then
+  echo "Error: domain.txt not found at $DOMAIN_FILE"
+  echo "Please save your WRF Domain Wizard namelist.wps file as domain.txt in the scripts directory"
+  exit 1
+fi
+
+echo "Reading domain configuration from $DOMAIN_FILE"
+
+# Parse the domain.txt file using Python script
+eval $(${MAIN_DIR}/parse_namelist_wps.py $DOMAIN_FILE)
+
+# Calculate dx/dy for inner domains based on parent_grid_ratio
+DX_VALUES=()
+DY_VALUES=()
+
+# d01 (outer domain)
+DX_VALUES+=($DX)
+DY_VALUES+=($DY)
+
+ratio=${PARENT_GRID_RATIO[1]}
+inner_dx=$(echo "$DX / $ratio" | bc -l | xargs printf "%.4f")
+inner_dy=$(echo "$DY / $ratio" | bc -l | xargs printf "%.4f")
+DX_VALUES+=($inner_dx)
+DY_VALUES+=($inner_dy)
+
 
 # Check initial and boundary conditions
 cd ${run_dir}
@@ -78,20 +108,20 @@ cat << EOF > namelist.input
  time_step_dfi              = 15
  max_dom                    = 2
  s_we                       = 1, 1
- e_we                       = 324,376,
- e_sn                       = 214,271,
+ e_we                       = ${E_WE[@]}
+ e_sn                       = ${E_SN[@]}
  s_vert                     = 1, 1
  e_vert                     = 45, 45
  num_metgrid_levels         = 34,
  num_metgrid_soil_levels    = 4,
- dx                         = 10000.0000, 2000.0000
- dy                         = 10000.0000, 2000.0000
+ dx                         = $(IFS=,; echo "${DX_VALUES[*]}")
+ dy                         = $(IFS=,; echo "${DY_VALUES[*]}")
  grid_id                    = 1, 2
- parent_id                  = 1, 1
- i_parent_start             = 1, 124,
- j_parent_start             = 1, 87,
- parent_grid_ratio          = 1, 5,
- parent_time_step_ratio     = 1, 3,
+ parent_id                  = ${PARENT_ID[@]}
+ i_parent_start             = ${I_PARENT_START[@]}
+ j_parent_start             = ${J_PARENT_START[@]}
+ parent_grid_ratio          = ${PARENT_GRID_RATIO[@]}
+ parent_time_step_ratio     = 1, 3
  feedback                   = 1
  smooth_option              = 0
  smooth_cg_topo             = .true.

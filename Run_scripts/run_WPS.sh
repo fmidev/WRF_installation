@@ -30,6 +30,22 @@ mkdir -p $run_dir
 cd $run_dir
 echo "Run directory created: $run_dir"
 
+# ===============================================
+# Read domain settings from domain.txt
+# ===============================================
+DOMAIN_FILE="${MAIN_DIR}/domain.txt"
+
+if [ ! -f "$DOMAIN_FILE" ]; then
+  echo "Error: domain.txt not found at $DOMAIN_FILE"
+  echo "Please save your WRF Domain Wizard namelist.wps file as domain.txt in the scripts directory"
+  exit 1
+fi
+
+echo "Reading domain configuration from $DOMAIN_FILE"
+
+# Parse the domain.txt file using Python script
+eval $(${MAIN_DIR}/parse_namelist_wps.py $DOMAIN_FILE)
+
 # Generate the `namelist.wps` configuration file
 cat << EOF > namelist.wps
 &share
@@ -42,23 +58,23 @@ cat << EOF > namelist.wps
  io_form_geogrid            = 2
 /
 &geogrid
- parent_id         = 1,1,
- parent_grid_ratio = 1,5,
- i_parent_start    = 1,124,
- j_parent_start    = 1,87,
- e_we              = 324,376,
- e_sn              = 214,271,
- geog_data_res     = 'modis_lakes+modis_30s+5m','modis_lakes+modis_30s+30s',
- dx                = 10000,
- dy                = 10000,
- map_proj          = 'mercator',
- ref_lat           = 38.115,
- ref_lon           = 71.160,
- truelat1          = 38.331,
- pole_lat          = 90,
- pole_lon          = 0,
- geog_data_path    = '${BASE_DIR}/WPS_GEOG/',
- opt_geogrid_tbl_path = '${WPS_DIR}/geogrid/',
+ parent_id         = ${PARENT_ID[@]}
+ parent_grid_ratio = ${PARENT_GRID_RATIO[@]}
+ i_parent_start    = ${I_PARENT_START[@]}
+ j_parent_start    = ${J_PARENT_START[@]}
+ e_we              = ${E_WE[@]}
+ e_sn              = ${E_SN[@]}
+ geog_data_res     = 'modis_lakes+modis_30s+5m','modis_lakes+modis_30s+30s'
+ dx                = $DX
+ dy                = $DY
+ map_proj          = '${MAP_PROJ}'
+ ref_lat           = ${REF_LAT}
+ ref_lon           = ${REF_LON}
+ truelat1          = ${TRUELAT1}
+ pole_lat          = ${POLE_LAT}
+ pole_lon          = ${POLE_LON}
+ geog_data_path    = '${BASE_DIR}/WPS_GEOG/'
+ opt_geogrid_tbl_path = '${WPS_DIR}/geogrid/'
 /
 &ungrib
  out_format                 = 'WPS'
