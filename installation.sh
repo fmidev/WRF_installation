@@ -696,6 +696,8 @@ install.packages("DT")
 install.packages("plotly")
 install.packages("zoo")
 install.packages("lubridate")
+install.packages("viridis")
+install.packages("bslib")
 EOF
 
     echo "Installing R packages for verification..."
@@ -723,10 +725,23 @@ EOF
     sudo setfacl -m u:shiny:rx /home/$USER
     sudo setfacl -R -m u:shiny:rx /home/$USER/R
     
-    echo "Restarting Shiny server..."
+    # Deploy WRF Visualization App
+    echo "Deploying WRF Visualization app..."
+    WRF_VIZ_APP_DIR="/srv/shiny-server/wrf-viz"
+    sudo mkdir -p "$WRF_VIZ_APP_DIR"
+    sudo cp "$GIT_REPO/WRF_Visualization/wrf_viz_app.R" "$WRF_VIZ_APP_DIR/app.R"
+    
+    # Update the default WRF output directory path in the app
+    sudo sed -i "s|/wrf/WRF_Model/out|$BASE/out|g" "$WRF_VIZ_APP_DIR/app.R"
+    
+    # Set proper permissions
+    sudo chown -R shiny:shiny "$WRF_VIZ_APP_DIR"
+    sudo chmod -R 755 "$WRF_VIZ_APP_DIR"
+    
+    # Final Shiny server restart to load both apps
+    echo "Restarting Shiny server with both applications..."
     sudo systemctl restart shiny-server
     sudo systemctl enable shiny-server
-
 fi
 
 # Setup git repository to track configuration and script files
@@ -1045,13 +1060,15 @@ echo "
 - Geographical dataset in: $BASE/WPS_GEOG
 - SmartMet server IP: $SMARTMET_IP
 - Verification tools: $([ "$INSTALL_VERIFICATION" = true ] && echo "Installed" || echo "Not installed")$([ "$INSTALL_VERIFICATION" = true ] && echo "
-- harpVis app available at: http://localhost:3838/harpvis/" || echo "")
+- harpVis app available at: http://localhost:3838/harpvis/
+- WRF Visualization app available at: http://localhost:3838/wrf-viz/" || echo "")
 
 🔍 POST-INSTALLATION CHECKLIST (what needs to be done manually):
 1. Define your domain:
    - Create your domain with WRF Domain Wizard (https://wrfdomainwizard.net/)
    - Save the namelist.wps file as domain.txt in $BASE/scripts/
    - The scripts will automatically read all domain settings from this file
+   - Create new git commit to track domain.txt changes 
 
 2. Set up SSH keys for SmartMet server (if using):
    - Generate SSH keys: ssh-keygen
