@@ -861,7 +861,6 @@ sed -e "s|^# ===============================================|# =================
     -e "s|^export DA_DIR=.*|export DA_DIR=\$TEST_BASE_DIR/DA_input|" \
     -e "s|^export MAIN_DIR=.*|export MAIN_DIR=\$TEST_BASE_DIR/scripts|" \
     -e "s|^export PROD_DIR=.*|export PROD_DIR=\$TEST_BASE_DIR/out|" \
-    -e "s|^export VERIFICATION_DIR=.*|export VERIFICATION_DIR=\$TEST_BASE_DIR/Verification/scripts|" \
     -e "s|^export MAX_CPU=.*|export TEST_MAX_CPU=4  # CPU allocation for test runs|" \
     -e "s|^export RUN_UPP=.*|export RUN_UPP=false  # No post-processing needed for testing|" \
     -e "s|^export RUN_COPY_GRIB=.*|export RUN_COPY_GRIB=false  # No SmartMet copying for test runs|" \

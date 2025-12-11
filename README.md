@@ -16,7 +16,7 @@ This repository provides a complete automated workflow for installing, configuri
 
 Before starting, please check:
 
-- **CPU**: WRF cab run on one core but works best with multiple cores
+- **CPU**: WRF can run on one core but works best with multiple cores
 - **Disk Space**:
   - 100 GB for geographical data
   - 100-200 GB for model files (varies with domain size)
@@ -170,8 +170,7 @@ The `get_obs.sh` script downloads global observations and satellite data from [N
 To use local observations (weather stations, etc.), you need to convert them to Little-R format. The repository provides:
 
 - `convert_to_little_r.py`: Python script to convert CSV observations to Little-R format
-- Country-specific processing scripts in `Run_scripts/process_local_obs/`
-- Some example scripts
+- Example country-specific processing scripts in `Run_scripts/process_local_obs/`
 
 Your CSV should include columns like:
 - `station_id`, `latitude`, `longitude`, `date`
@@ -317,13 +316,13 @@ The `control_run_WRF.sh` script orchestrates the entire workflow:
 
 This runs everything:
 1. Checks for boundary files
-2. Downloads observations (if enabled)
+2. Downloads observations
 3. Runs WPS
-4. Runs WRFDA (if enabled)
+4. Runs WRFDA
 5. Runs WRF
-6. Runs UPP (if enabled)
-7. Copies GRIB files (if enabled)
-8. Runs verification (if enabled)
+6. Runs UPP
+7. Copies GRIB files
+8. Runs verification
 
 **Automated Scheduling**
 
