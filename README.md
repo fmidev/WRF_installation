@@ -243,7 +243,7 @@ The system automatically runs weekly and monthly verification on Wednesday at 12
 
 **Viewing Results - Shiny Server Web Applications**
 
-The installation sets up a Shiny server with two interactive web applications for visualization and analysis.
+The installation sets up a Shiny server with two interactive web applications for visualization and verification.
 
 **Accessing the Applications**
 
