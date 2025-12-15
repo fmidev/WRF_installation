@@ -9,6 +9,7 @@ This repository provides a complete automated workflow for installing, configuri
 - **Data Assimilation**: WRFDA with support for satellite and conventional observations
 - **Testing Environment**: Parallel WRF_test setup for pre-operational testing
 - **Verification Tools**: Harp-based verification with harpVis visualizations
+- **Visualization**: Interactive Shiny app for exploring WRF NetCDF output with animated maps and time series
 - **Post-Processing**: UPP for NetCDF to GRIB conversion
 - **Local Observations**: Template for pre-processing country-specific observation data
 
@@ -240,25 +241,32 @@ The `verification.sh` script:
 
 The system automatically runs weekly and monthly verification on Wednesday at 12 UTC.
 
-**Viewing Results - harpVis Web Interface**
+**Viewing Results - Shiny Server Web Applications**
 
-The installation sets up a Shiny server with harpVis for interactive visualization.
+The installation sets up a Shiny server with two interactive web applications for visualization and analysis.
+
+**Accessing the Applications**
 
 **Local Access** (if you have a desktop on the WRF server):
-```
-http://localhost:3838/harpvis/
-```
+- harpVis: `http://localhost:3838/harpvis/`
+- WRF Visualization: `http://localhost:3838/wrf-viz/`
 
 **Remote Access** (SSH tunnel from your computer):
 ```bash
 ssh -L 8080:localhost:3838 wrf@your-wrf-server-ip
 ```
-Then open: `http://localhost:8080/harpvis/`
+Then open:
+- harpVis: `http://localhost:8080/harpvis/`
+- WRF Visualization: `http://localhost:8080/wrf-viz/`
 
-The web interface lets you:
+**harpVis** - Verification analysis and statistics:
 - Generate verification plots (bias, RMSE, scatter, etc.)
 - Compare multiple forecasts
 - Export statistics and figures
+
+**WRF Visualization** - Interactive forecast exploration:
+- Animated maps of WRF output variables (temperature, precipitation, wind, etc.)
+- Point time series extraction
 
 **Note**: The Shiny server is only installed if you provide a GitHub Personal Access Token during installation (needed for harp packages).
 
