@@ -68,6 +68,72 @@ def parse_namelist_wps(namelist_path):
         params['pole_lat'] = extract_param(r'pole_lat\s*=\s*([0-9.\-]+)', content)
         params['pole_lon'] = extract_param(r'pole_lon\s*=\s*([0-9.\-]+)', content)
         
+        # Validate projection-specific required parameters
+        map_proj = params.get('map_proj', '').lower()
+        
+        if not map_proj:
+            print("Error: map_proj not found in domain file", file=sys.stderr)
+            sys.exit(1)
+        
+        missing_params = []
+        
+        if 'lambert' in map_proj:
+            # Lambert Conformal: requires truelat1, truelat2, stand_lon, pole_lat, pole_lon
+            if params['truelat1'] is None:
+                missing_params.append('truelat1')
+            if params['truelat2'] is None:
+                missing_params.append('truelat2')
+            if params['stand_lon'] is None:
+                missing_params.append('stand_lon')
+            if params['pole_lat'] is None:
+                missing_params.append('pole_lat')
+            if params['pole_lon'] is None:
+                missing_params.append('pole_lon')
+                
+        elif 'mercator' in map_proj:
+            # Mercator: requires truelat1, pole_lat, pole_lon
+            if params['truelat1'] is None:
+                missing_params.append('truelat1')
+            if params['pole_lat'] is None:
+                missing_params.append('pole_lat')
+            if params['pole_lon'] is None:
+                missing_params.append('pole_lon')
+            # Mercator doesn't use truelat2 or stand_lon - set to None explicitly
+            params['truelat2'] = None
+            params['stand_lon'] = None
+            
+        elif 'lat-lon' in map_proj or 'latlon' in map_proj or 'cylindrical' in map_proj:
+            # Lat-Lon (Cylindrical Equidistant): requires pole_lat, pole_lon, stand_lon
+            if params['pole_lat'] is None:
+                missing_params.append('pole_lat')
+            if params['pole_lon'] is None:
+                missing_params.append('pole_lon')
+            if params['stand_lon'] is None:
+                missing_params.append('stand_lon')
+            # Lat-lon doesn't use truelat1 or truelat2 - set to None explicitly
+            params['truelat1'] = None
+            params['truelat2'] = None
+        else:
+            print(f"Error: Unsupported map projection '{params['map_proj']}'", file=sys.stderr)
+            print("Supported projections: lambert, mercator, lat-lon", file=sys.stderr)
+            sys.exit(1)
+        
+        # Check for missing required parameters
+        if missing_params:
+            print(f"Error: Missing required parameters for {params['map_proj']} projection:", file=sys.stderr)
+            for param in missing_params:
+                print(f"  - {param}", file=sys.stderr)
+            sys.exit(1)
+        
+        # Validate common required parameters
+        common_required = ['dx', 'dy', 'ref_lat', 'ref_lon']
+        missing_common = [p for p in common_required if params.get(p) is None]
+        if missing_common:
+            print("Error: Missing required common parameters:", file=sys.stderr)
+            for param in missing_common:
+                print(f"  - {param}", file=sys.stderr)
+            sys.exit(1)
+        
         return params
         
     except FileNotFoundError:
@@ -92,7 +158,7 @@ def format_for_bash(params, domain_index=None):
     output = []
     
     for key, value in params.items():
-        # Skip None values
+        # Skip None values - don't export at all
         if value is None:
             continue
             

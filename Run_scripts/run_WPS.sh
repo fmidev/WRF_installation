@@ -47,17 +47,8 @@ echo "Reading domain configuration from $DOMAIN_FILE"
 eval $(${MAIN_DIR}/parse_namelist_wps.py $DOMAIN_FILE)
 
 # Generate the `namelist.wps` configuration file
-cat << EOF > namelist.wps
-&share
- wrf_core                   = 'ARW'
- max_dom                    = 2
- start_date                 = '${year}-${month}-${day}_${hour}:00:00','${year}-${month}-${day}_${hour}:00:00'
- end_date                   = '${eyear}-${emonth}-${eday}_${ehour}:00:00','${eyear}-${emonth}-${eday}_${ehour}:00:00'
- active_grid                = .true., .true.
- interval_seconds           = 10800
- io_form_geogrid            = 2
-/
-&geogrid
+# Build geogrid section dynamically based on projection type
+GEOGRID_SECTION="&geogrid
  parent_id         = ${PARENT_ID[@]}
  parent_grid_ratio = ${PARENT_GRID_RATIO[@]}
  i_parent_start    = ${I_PARENT_START[@]}
@@ -69,13 +60,55 @@ cat << EOF > namelist.wps
  dy                = $DY
  map_proj          = '${MAP_PROJ}'
  ref_lat           = ${REF_LAT}
- ref_lon           = ${REF_LON}
+ ref_lon           = ${REF_LON}"
+
+# Add projection-specific parameters
+case "${MAP_PROJ,,}" in
+    *lambert*)
+        GEOGRID_SECTION="${GEOGRID_SECTION}
  truelat1          = ${TRUELAT1}
+ truelat2          = ${TRUELAT2}
+ stand_lon         = ${STAND_LON}"
+        ;;
+    *mercator*)
+        GEOGRID_SECTION="${GEOGRID_SECTION}
+ truelat1          = ${TRUELAT1}"
+        ;;
+    *lat-lon*|*latlon*|*cylindrical*)
+        GEOGRID_SECTION="${GEOGRID_SECTION}
+ stand_lon         = ${STAND_LON}"
+        ;;
+    *)
+        echo "Warning: Unknown map projection '${MAP_PROJ}', using generic settings"
+        # Include all available parameters
+        [ -n "$TRUELAT1" ] && GEOGRID_SECTION="${GEOGRID_SECTION}
+ truelat1          = ${TRUELAT1}"
+        [ -n "$TRUELAT2" ] && GEOGRID_SECTION="${GEOGRID_SECTION}
+ truelat2          = ${TRUELAT2}"
+        [ -n "$STAND_LON" ] && GEOGRID_SECTION="${GEOGRID_SECTION}
+ stand_lon         = ${STAND_LON}"
+        ;;
+esac
+
+# Add pole_lat and pole_lon (used by all projections)
+GEOGRID_SECTION="${GEOGRID_SECTION}
  pole_lat          = ${POLE_LAT}
  pole_lon          = ${POLE_LON}
  geog_data_path    = '${BASE_DIR}/WPS_GEOG/'
  opt_geogrid_tbl_path = '${WPS_DIR}/geogrid/'
+/"
+
+cat << EOF > namelist.wps
+&share
+ wrf_core                   = 'ARW'
+ max_dom                    = 2
+ start_date                 = '${year}-${month}-${day}_${hour}:00:00','${year}-${month}-${day}_${hour}:00:00'
+ end_date                   = '${eyear}-${emonth}-${eday}_${ehour}:00:00','${eyear}-${emonth}-${eday}_${ehour}:00:00'
+ active_grid                = .true., .true.
+ interval_seconds           = 10800
+ io_form_geogrid            = 2
 /
+${GEOGRID_SECTION}
 &ungrib
  out_format                 = 'WPS'
  prefix                     = 'GFS'

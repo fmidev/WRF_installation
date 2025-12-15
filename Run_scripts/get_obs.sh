@@ -30,37 +30,35 @@ echo "Reading domain configuration from $DOMAIN_FILE"
 # Parse the domain.txt file using Python script for all domains
 eval $(${MAIN_DIR}/parse_namelist_wps.py $DOMAIN_FILE)
 
-# Convert map projection name to obsproc numeric code and set projection-specific defaults
+# Convert map projection name to obsproc numeric code and set projection-specific parameters
 case "${MAP_PROJ,,}" in
-    lambert*)
+    *lambert*)
         MAP_PROJ_CODE=1
-        # For Lambert, truelat2 is often defined; if not, use truelat1
-        TRUELAT2=${TRUELAT2:-${TRUELAT1}}
-        STAND_LON=${STAND_LON:-${REF_LON}}
+        # Lambert: All parameters should be provided by parser
         ;;
-    polar*|ps)
-        MAP_PROJ_CODE=2
-        # For Polar Stereographic, truelat1 is typically the standard latitude
-        TRUELAT2=${TRUELAT2:-0.0}
-        STAND_LON=${STAND_LON:-${REF_LON}}
-        ;;
-    mercator*)
+    *mercator*)
         MAP_PROJ_CODE=3
-        # For Mercator, only truelat1 is meaningful (standard latitude)
-        # truelat2 is not used, set to 0.0
-        TRUELAT2=${TRUELAT2:-0.0}
-        # stand_lon is typically the same as center longitude
-        STAND_LON=${STAND_LON:-${REF_LON}}
+        # Mercator projection requires truelat1 = 0 for obsproc to work correctly
+        if [ "$(echo "$TRUELAT1 != 0" | bc -l)" -eq 1 ]; then
+            echo "ERROR: Mercator projection with obsproc requires truelat1 = 0"
+            echo "Current truelat1 value: ${TRUELAT1}"
+            echo "Please update your domain"
+            exit 1
+        fi
+        # Mercator: Only truelat1 is used
+        TRUELAT2=0.0
+        # stand_lon not used for mercator in obsproc
+        STAND_LON=${REF_LON}
         ;;
-    lat-lon*|latlon*|cylindrical*)
+    *lat-lon*|*latlon*|*cylindrical*)
         MAP_PROJ_CODE=0
-        # For Lat-Lon, true latitudes are not used
-        TRUELAT2=${TRUELAT2:-0.0}
-        STAND_LON=${STAND_LON:-${REF_LON}}
+        # For Lat-Lon, true latitudes are not used in obsproc
+        TRUELAT1=0.0
+        TRUELAT2=0.0
         ;;
     *)
-        echo "ERROR: Unknown map projection '${MAP_PROJ}'"
-        echo "Supported projections: lambert, polar, mercator, lat-lon"
+        echo "ERROR: Unsupported map projection '${MAP_PROJ}'"
+        echo "Supported projections: lambert, mercator, lat-lon"
         exit 1
         ;;
 esac
