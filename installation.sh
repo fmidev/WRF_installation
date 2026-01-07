@@ -709,27 +709,26 @@ EOF
     echo "Your GitHub token has been saved to ~/.Renviron"
 
     # --- CONTINUE WITH SHINY APP DEPLOYMENT AND CONFIGURATION ---
-    sudo mkdir -p /srv/shiny-server/harpvis
-    sudo chown -R shiny:shiny /srv/shiny-server/harpvis
-
-    echo "Deploying harpVis Shiny app..."
-    sudo cp $GIT_REPO/Verification_scripts/app.R /srv/shiny-server/harpvis/
-
-    sudo chown shiny:shiny /srv/shiny-server/harpvis/app.R
-    sudo chmod 644 /srv/shiny-server/harpvis/app.R
-
-    echo "harpVis Shiny app deployed successfully."
     echo "Setting up Shiny user environment and permissions..."
     sudo echo "R_LIBS_USER=/home/$USER/R/library/" | sudo tee -a /home/shiny/.Renviron
     sudo chown shiny:shiny /home/shiny/.Renviron
     sudo setfacl -m u:shiny:rx /home/$USER
     sudo setfacl -R -m u:shiny:rx /home/$USER/R
     
+    # Deploy harpVis Shiny app
+    echo "Deploying harpVis Shiny app..."
+    HARPVIS_APP_DIR="/srv/shiny-server/harpvis"
+    sudo mkdir -p "$HARPVIS_APP_DIR"
+    sudo cp "$GIT_REPO/Shiny/harpvis.R" "$HARPVIS_APP_DIR/app.R"
+    sudo chown -R shiny:shiny "$HARPVIS_APP_DIR"
+    sudo chmod -R 755 "$HARPVIS_APP_DIR"
+    echo "harpVis Shiny app deployed successfully."
+    
     # Deploy WRF Visualization App
     echo "Deploying WRF Visualization app..."
     WRF_VIZ_APP_DIR="/srv/shiny-server/wrf-viz"
     sudo mkdir -p "$WRF_VIZ_APP_DIR"
-    sudo cp "$GIT_REPO/WRF_Visualization/wrf_viz_app.R" "$WRF_VIZ_APP_DIR/app.R"
+    sudo cp "$GIT_REPO/Shiny/wrf_viz.R" "$WRF_VIZ_APP_DIR/app.R"
     
     # Update the default WRF output directory path in the app
     sudo sed -i "s|/wrf/WRF_Model/out|$BASE/out|g" "$WRF_VIZ_APP_DIR/app.R"
@@ -737,9 +736,18 @@ EOF
     # Set proper permissions
     sudo chown -R shiny:shiny "$WRF_VIZ_APP_DIR"
     sudo chmod -R 755 "$WRF_VIZ_APP_DIR"
+    echo "WRF Visualization app deployed successfully."
     
-    # Final Shiny server restart to load both apps
-    echo "Restarting Shiny server with both applications..."
+    # Deploy Landing Page App
+    echo "Deploying WRF Portal landing page..."
+    LANDING_APP_DIR="/srv/shiny-server"
+    sudo cp "$GIT_REPO/Shiny/landing_app.R" "$LANDING_APP_DIR/index.R"
+    sudo chown shiny:shiny "$LANDING_APP_DIR/index.R"
+    sudo chmod -R 755 "$LANDING_APP_DIR"
+    echo "Landing page deployed successfully."
+
+    # Final Shiny server restart to load all apps
+    echo "Restarting Shiny server with all applications..."
     sudo systemctl restart shiny-server
     sudo systemctl enable shiny-server
 fi
@@ -1059,8 +1067,8 @@ echo "
 - Geographical dataset in: $BASE/WPS_GEOG
 - SmartMet server IP: $SMARTMET_IP
 - Verification tools: $([ "$INSTALL_VERIFICATION" = true ] && echo "Installed" || echo "Not installed")$([ "$INSTALL_VERIFICATION" = true ] && echo "
-- harpVis app available at: http://localhost:3838/harpvis/
-- WRF Visualization app available at: http://localhost:3838/wrf-viz/" || echo "")
+- WRF verification and visualization app portal : http://localhost:3838/
+
 
 🔍 POST-INSTALLATION CHECKLIST (what needs to be done manually):
 1. Define your domain:
