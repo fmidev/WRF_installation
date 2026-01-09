@@ -26,10 +26,9 @@ source ${SCRIPT_DIR}/env_test.sh
 CURRENT_DATE="${year}${month}${day}${cycle}"
 
 # Use production directories for verification infrastructure and observations
-PROD_BASE_DIR=${BASE_DIR}/WRF_Model
-VERIFICATION_SCRIPTS="${PROD_BASE_DIR}/Verification/scripts"
-DATA_DIR="${PROD_BASE_DIR}/Verification/Data"
-SQLITE_DIR="${PROD_BASE_DIR}/Verification/SQlite_tables"
+VERIFICATION_SCRIPTS="${BASE_DIR}/Verification/scripts"
+DATA_DIR="${BASE_DIR}/Verification/Data"
+SQLITE_DIR="${BASE_DIR}/Verification/SQlite_tables"
 OBS_DIR="${DATA_DIR}/Obs"
 FORECAST_DIR="${DATA_DIR}/Forecast"
 TEMP_DIR="${DATA_DIR}/temp"

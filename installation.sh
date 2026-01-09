@@ -90,38 +90,43 @@ else
     echo "Country set to: $COUNTRY"
     # Create process_local_obs_$COUNTRY.sh template if COUNTRY is set
     mkdir -p "$BASE/scripts"
-    cat > "$BASE/scripts/process_local_obs_${COUNTRY}.sh" << EOF
+    cat > "$BASE/scripts/process_local_obs_${COUNTRY}.sh" << 'EOF'
 #!/bin/bash
 # ===============================================
-# Process local observations for WRF DA and verification in $COUNTRY
+# Process local observations for WRF DA and verification in COUNTRY_PLACEHOLDER
 # Author: 
 # Date: 
 # ===============================================
 
 # Check for required arguments
-if [ "$#" -lt 5 ]; then
-    echo "Usage: $0 YYYY MM DD HH DA_DIR BASE_DIR"
+if [ "$#" -lt 4 ]; then
+    echo "Usage: $0 YYYY MM DD HH"
     exit 1
 fi
+
+source BASE_PLACEHOLDER/scripts/env.sh
 
 # Input variables
 YYYY=$1  # Year
 MM=$2    # Month
 DD=$3    # Day
 HH=$4    # Hour
-DA_DIR=$5
-BASE_DIR=$6
 
 # Headers: station_id,latitude,longitude,date,sea_level_pressure,pressure,height,temperature,relative_humidity,wind_speed,wind_direction
+# Timeformat: YYYY-MM-DD_HH:MM:SS
 OUTPUT_OBS_FILE="${DA_DIR}/ob/raw_obs/local_obs_${YYYY}${MM}${DD}${HH}.csv"
 
 # Headers: valid_dttm,SID,lat,lon,elev,T2m,Td2m,RH2m,Q2m,Pressure,Pcp,Wdir,WS
-OUTPUT_VERIF_FILE="${BASE_DIR}/Verification/Data/Obs/local_obs_${YYYY}${MM}${DD}${HH}.csv"
+# Timeformat: YYYY-MM-DD HH:MM:SS
+OUTPUT_VERIF_FILE="${BASE_DIR}/Verification/Data/Obs/local_obs${YYYY}${MM}${DD}${HH}00_verif.csv"
 
 #### CODE HERE ##### 
 
 exit 0
 EOF
+    # Replace placeholders with actual values
+    sed -i "s|COUNTRY_PLACEHOLDER|$COUNTRY|g" "$BASE/scripts/process_local_obs_${COUNTRY}.sh"
+    sed -i "s|BASE_PLACEHOLDER|$BASE|g" "$BASE/scripts/process_local_obs_${COUNTRY}.sh"
     chmod +x "$BASE/scripts/process_local_obs_${COUNTRY}.sh"
     echo "Created template: $BASE/scripts/process_local_obs_${COUNTRY}.sh"
 fi
@@ -186,15 +191,15 @@ echo "Installing required packages..."
 sudo dnf config-manager --set-enabled crb
 sudo dnf makecache -y -q
 sudo dnf install -y epel-release gcc gfortran g++ emacs wget tar perl libxml2-devel \
-    m4 chrony libcurl-devel csh ksh rsync cmake time
+    m4 chrony libcurl-devel csh ksh rsync cmake time bc
 sudo dnf update -y
 
 # Install verification-related system packages
 sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco wgrib2 openssl-devel 
 
-# Detect number of CPU cores and save four for test runs
+# Detect number of CPU cores and save four for test runs and one extra
 CPU_COUNT=$(nproc)
-MAX_CPU=$((CPU_COUNT - 4))
+MAX_CPU=$((CPU_COUNT - 5))
 if [ $MAX_CPU -lt 1 ]; then
     MAX_CPU=1
 fi
@@ -644,7 +649,7 @@ if [ -d "$BASE/UPP" ]; then
     sed -i "s|export lastfhr=.*|export lastfhr=72|" "$UNIPOST"
     sed -i "s|export incrementhr=.*|export incrementhr=01|" "$UNIPOST"
     sed -i "s|export domain_list=.*|export domain_list=\"d01 d02\"|" "$UNIPOST"
-    sed -i "s|export RUN_COMMAND=.*|export RUN_COMMAND=\"mpirun -np \\\$((MAX_CPU < 20 ? MAX_CPU : 20)) \${POSTEXEC}/unipost.exe \"|" "$UNIPOST"
+    sed -i "s|export RUN_COMMAND=.*|export RUN_COMMAND=\"mpirun --bind-to none -np \\\$((MAX_CPU < 20 ? MAX_CPU : 20)) \${POSTEXEC}/unipost.exe \"|" "$UNIPOST"
     sed -i "s|ln -fs \${DOMAINPATH}/parm/post_avblflds_comm.xml post_avblflds.xml|ln -fs \${UNIPOST_HOME}/parm/post_avblflds.xml post_avblflds.xml|" "$UNIPOST"
     sed -i "s|ln -fs \${DOMAINPATH}/parm/params_grib2_tbl_new params_grib2_tbl_new|ln -fs \${UNIPOST_HOME}/parm/params_grib2_tbl_new params_grib2_tbl_new|" "$UNIPOST"
 
@@ -856,10 +861,36 @@ echo "Copying run scripts into the scripts directory..."
 cp $GIT_REPO/Run_scripts/* $BASE/scripts/ 2>/dev/null || true
 chmod -R +x $BASE/scripts/
 
+# Update SmartMet IP address in production scripts
+echo "Updating configuration in production scripts..."
+sed -i "s|smartmet@ip-address|smartmet@$SMARTMET_IP|g" $BASE/scripts/control_run_WRF.sh
+
+# Configure env.sh with CPU cores, BASE_DIR, and other settings
+echo "Configuring env.sh..."
+sed -i "s|^export BASE_DIR=.*|export BASE_DIR=$BASE|" "$BASE/scripts/env.sh"
+sed -i "s|^export MAX_CPU=.*|export MAX_CPU=$MAX_CPU|" "$BASE/scripts/env.sh"
+sed -i "s|^export COUNTRY=.*|export COUNTRY=\"$COUNTRY\"|" "$BASE/scripts/env.sh"
+
+# Update all production script paths to source the configured env.sh
+echo "Updating script paths in production scripts..."
+for script in control_run_WRF.sh run_WRF.sh execute_upp.sh run_WRFDA.sh clean_wrf.sh get_obs.sh verification.sh; do
+    if [ -f "$BASE/scripts/$script" ]; then
+        sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/$script"
+    fi
+done
+
+echo "✅ Production scripts configured successfully"
+
 echo "Creating WRF_test scripts..."
+
+# Calculate TEST CPU range (starts after production CPUs)
+TEST_CPU_START=$MAX_CPU
+TEST_CPU_END=$((CPU_COUNT - 1))
+TEST_MAX_CPU=$((TEST_CPU_END - TEST_CPU_START + 1))
 
 # Common sed substitutions for test scripts
 COMMON_SUBS='-e "s|^# Author:.*|# Author: Mikael Hasu|" -e "s|^# Date:.*|# Date: November 2025|" -e "s|source .*/env.sh|source $TEST_BASE/scripts/env_test.sh|"'
+# Update CPU_SUBS to replace MAX_CPU references
 CPU_SUBS='-e "s|mpirun -np \$((MAX_CPU|mpirun -np \${TEST_MAX_CPU}|g" -e "s|mpirun -np \${MAX_CPU}|mpirun -np \${TEST_MAX_CPU}|g"'
 
 # Create env_test.sh with GEN_BE configuration
@@ -869,10 +900,10 @@ sed -e "s|^# ===============================================|# =================
     -e "s|^export DA_DIR=.*|export DA_DIR=\$TEST_BASE_DIR/DA_input|" \
     -e "s|^export MAIN_DIR=.*|export MAIN_DIR=\$TEST_BASE_DIR/scripts|" \
     -e "s|^export PROD_DIR=.*|export PROD_DIR=\$TEST_BASE_DIR/out|" \
-    -e "s|^export MAX_CPU=.*|export TEST_MAX_CPU=4  # CPU allocation for test runs|" \
+    -e "s|^export MAX_CPU=.*|export TEST_MAX_CPU=$TEST_MAX_CPU  # CPU allocation for test runs|" \
     -e "s|^export RUN_UPP=.*|export RUN_UPP=false  # No post-processing needed for testing|" \
     -e "s|^export RUN_COPY_GRIB=.*|export RUN_COPY_GRIB=false  # No SmartMet copying for test runs|" \
-    -e "s|^export RUN_DA=.*|export RUN_DA=false  # Data assimilation OFF for GEN_BE|" \
+    -e "s|^export RUN_WRFDA=.*|export RUN_WRFDA=false  # Data assimilation OFF for GEN_BE|" \
     -e "s|^export LEADTIME=.*|export LEADTIME=24  # 24-hour forecasts for GEN_BE|" \
     -e "s|^export SAVE_GENBE_FORECASTS=.*|export SAVE_GENBE_FORECASTS=true  # Save 12h and 24h forecasts for B matrix generation|" \
     $BASE/scripts/env.sh > $TEST_BASE/scripts/env_test.sh
@@ -974,21 +1005,7 @@ for r_script in $BASE/Verification/scripts/*.R; do
     sed -i "s|/wrf/WRF_Model|$BASE|g" "$r_script"
 done
 
-# Update SmartMet IP address
-echo "Updating configuration in run scripts..."
-sed -i "s|smartmet@ip-address|smartmet@$SMARTMET_IP|g" $BASE/scripts/control_run_WRF.sh
-
-# Add CPU cores and BASE_DIR into env.sh
-sed -i "s|^export BASE_DIR=.*|export BASE_DIR=$BASE|" "$BASE/scripts/env.sh"
-sed -i "s|^export MAX_CPU=.*|export MAX_CPU=$MAX_CPU|" "$BASE/scripts/env.sh"
-sed -i "s|^export COUNTRY=.*|export COUNTRY=\"$COUNTRY\"|" "$BASE/scripts/env.sh"
-
-# Update all script paths
-for script in control_run_WRF.sh run_WRF.sh execute_upp.sh run_WRFDA.sh clean_wrf.sh get_obs.sh verification.sh; do
-    if [ -f "$BASE/scripts/$script" ]; then
-        sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/$script"
-    fi
-done
+echo "✅ Verification scripts configured successfully"
 
 # Crontab setup with improved timezone handling
 echo "Setting up crontab for WRF..."
@@ -1067,8 +1084,7 @@ echo "
 - Geographical dataset in: $BASE/WPS_GEOG
 - SmartMet server IP: $SMARTMET_IP
 - Verification tools: $([ "$INSTALL_VERIFICATION" = true ] && echo "Installed" || echo "Not installed")$([ "$INSTALL_VERIFICATION" = true ] && echo "
-- WRF verification and visualization app portal : http://localhost:3838/
-
+- WRF verification and visualization app portal : http://localhost:3838/")
 
 🔍 POST-INSTALLATION CHECKLIST (what needs to be done manually):
 1. Define your domain:

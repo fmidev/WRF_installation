@@ -151,10 +151,15 @@ NUMC_STR="1, "
 NESTI_STR="1, "
 NESTJ_STR="1, "
 
+# Check if first guess file exists
+FIRST_GUESS="${DA_DIR}/rc/wrfout_d01_${YYYY}-${MM}-${DD}_${HH}:00:00"
+
 cat << EOF > namelist.obsproc
 &record1
  obs_gts_filename = 'obs.${YYYY}${MM}${DD}${HH}',
  obs_err_filename = 'obserr.txt',
+ fg_format = 'WRF',
+ first_guess_file = '${FIRST_GUESS}',
  gts_from_mmm_archive = .true.,
 /
 
@@ -275,18 +280,22 @@ fi
 
 # Check for local observations file and convert to little_r format if it exists
 LOCAL_OBS_FILE="${DA_DIR}/ob/raw_obs/local_obs_${YYYY}${MM}${DD}${HH}.csv"
-STATION_FILE="${DA_DIR}/ob/raw_obs/station_file.csv"
-
+STATION_FILE="${BASE_DIR}/Verification/Data/Static/stationlist.csv"
+OBSPROC_DIR="${DA_DIR}/ob/obsproc"
 #Run obsproc if local observations file exists
-if [ -f "$LOCAL_OBS_FILE" ]; then
+if [ -f "$LOCAL_OBS_FILE" ] && [ -f "$FIRST_GUESS" ]; then
     echo "Local observations file found: ${LOCAL_OBS_FILE}"
     python3 $MAIN_DIR/convert_to_little_r.py "$LOCAL_OBS_FILE" "$STATION_FILE" "${OBSPROC_DIR}/obs.${YYYY}${MM}${DD}${HH}"
     echo "Conversion to little_r format complete: ${OBSPROC_DIR}/obs.${YYYY}${MM}${DD}${HH}"
     cd $OBSPROC_DIR
-    time mpirun -np 1 $WRFDA_DIR/var/obsproc/obsproc.exe
+    time mpirun --bind-to none -np 1 $WRFDA_DIR/var/obsproc/obsproc.exe
     mv obs_gts_${YYYY}-${MM}-${DD}_${HH}:00:00.3DVAR $DA_DIR/ob/ob.ascii
     export OB_FORMAT=2
+    echo "2" > $DA_DIR/ob/ob_format.txt
 else
-    echo "No local observations file found. Using only NCEP observations."
+    echo "No local observations file or first guess file found. Using only NCEP observations."
+    echo "Local observations file: $LOCAL_OBS_FILE"
+    echo "First guess file: $FIRST_GUESS"
     export OB_FORMAT=1
+    echo "1" > $DA_DIR/ob/ob_format.txt
 fi

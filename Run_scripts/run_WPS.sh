@@ -131,7 +131,7 @@ echo "link Vtable finish"
 cat << EOF > run_geogrid.bash
 #!/bin/bash
 cd ${run_dir}
-time mpirun -np $((MAX_CPU < 10 ? MAX_CPU : 10)) ${WPS_DIR}/geogrid.exe
+time mpirun --bind-to none -np $((MAX_CPU < 10 ? MAX_CPU : 10)) ${WPS_DIR}/geogrid.exe
 EOF
 
 chmod +x run_geogrid.bash
@@ -157,7 +157,7 @@ echo "Grib files linked."
 cat << EOF > run_ungrib.bash
 #!/bin/bash
 cd ${run_dir}
-time mpirun -np 1 ${WPS_DIR}/ungrib.exe
+time mpirun --bind-to none -np 1 ${WPS_DIR}/ungrib.exe
 EOF
 
 chmod +x run_ungrib.bash
@@ -179,7 +179,7 @@ fi
 cat << EOF > run_metgrid.bash
 #!/bin/bash
 cd ${run_dir}
-time mpirun -np $((MAX_CPU < 20 ? MAX_CPU : 20)) ${WPS_DIR}/metgrid.exe
+time mpirun --bind-to none -np $((MAX_CPU < 20 ? MAX_CPU : 20)) ${WPS_DIR}/metgrid.exe
 EOF
 
 chmod +x run_metgrid.bash

@@ -142,12 +142,12 @@ cat << EOF > namelist.input
  isftcflx                   = 0,
  ra_lw_physics              = 4,     4,
  ra_sw_physics              = 4,     4,
- radt                       = 10,    2,
+ radt                       = 10,    10,
  sf_sfclay_physics          = 1,     1,
  sf_surface_physics         = 2,     2,
  bl_pbl_physics             = 1,     1,
  bldt                       = 0,     0,
- cu_physics                 = 1,     1,
+ cu_physics                 = 1,     0,
  cudt                       = 5,     5,
  ifsnow                     = 1,
  icloud                     = 1,
@@ -156,7 +156,7 @@ cat << EOF > namelist.input
  num_land_cat               = 21,
  sf_urban_physics           = 0,
  sst_update                 = 1,
- tmn_update                 = 1,
+ tmn_update                 = 0,
  sst_skin                   = 1,
  kfeta_trigger              = 1,
  mfshconv                   = 0,
@@ -221,7 +221,7 @@ EOF
 # ===============================================
 
 echo "Running real.exe..."
-time mpirun -np $((MAX_CPU < 10 ? MAX_CPU : 10)) ${run_dir}/real.exe
+time mpirun --bind-to none -np $((MAX_CPU < 10 ? MAX_CPU : 10)) ${run_dir}/real.exe
 echo "Real.exe completed."
 
 # ===============================================
@@ -240,7 +240,7 @@ fi
 
 echo "Ready to run WRF.exe"
 cd $run_dir
-time mpirun -np ${MAX_CPU} ./wrf.exe
+time mpirun --bind-to none -np ${MAX_CPU} ./wrf.exe
 if [ ! -f "${run_dir}/wrfout_d02_${eyear}-${emonth}-${eday}_${ehour}:00:00" ]; then
   echo "Error: WRF failed, last output file is missing."
 else

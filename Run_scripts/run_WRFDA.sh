@@ -94,7 +94,7 @@ for domain_id in 1 2; do
   var4d_lbc          = .false.
 /
 EOF
-  time mpirun -np 1 ./da_update_bc.exe
+  time mpirun --bind-to none -np 1 ./da_update_bc.exe
 done
 
 # Link updated input files to run directory
@@ -221,9 +221,9 @@ fi
 # Check SEVIRI
 if [ -f "$DA_DIR/ob/seviri.bufr" ] && [ -s "$DA_DIR/ob/seviri.bufr" ]; then
     use_seviri=".true."
-    # Meteosat-8 SEVIRI
+    # Meteosat-9,SEVIRI
     sensor_platforms+=(12)
-    sensor_satids+=(1)
+    sensor_satids+=(2)
     sensor_ids+=(21)
     echo "  ✓ SEVIRI data available"
 else
@@ -238,6 +238,15 @@ echo "Total sensors configured: $num_sensors"
 platform_list=$(IFS=,; echo "${sensor_platforms[*]}")
 satid_list=$(IFS=,; echo "${sensor_satids[*]}")
 sensor_list=$(IFS=,; echo "${sensor_ids[*]}")
+
+# Read OB_FORMAT from file (set by get_obs.sh)
+if [ -f "$DA_DIR/ob/ob_format.txt" ]; then
+    OB_FORMAT=$(cat $DA_DIR/ob/ob_format.txt)
+    echo "Using OB_FORMAT=${OB_FORMAT} from previous get_obs.sh run"
+else
+    echo "Warning: ob_format.txt not found, defaulting to OB_FORMAT=1 (PREPBUFR)"
+    OB_FORMAT=1
+fi
 
 # Set observation window
 window=1
@@ -389,7 +398,7 @@ num_soil_layers            = 4,
 num_land_cat               = 21,
 sf_urban_physics           = 0,
 sst_update                 = 1,
-tmn_update                 = 1,
+tmn_update                 = 0,
 sst_skin                   = 1,
 kfeta_trigger              = 1,
 mfshconv                   = 0,
@@ -429,7 +438,7 @@ EOF
 # ===============================================
 
 echo "Running da_wrfvar.exe..."
-time mpirun -np $((MAX_CPU < 20 ? MAX_CPU : 20)) ${WORK_DIR_DA}/da_wrfvar.exe
+time mpirun --bind-to none -np $((MAX_CPU < 20 ? MAX_CPU : 20)) ${WORK_DIR_DA}/da_wrfvar.exe
 echo "DA completed."
 
 # ===============================================
@@ -454,7 +463,7 @@ iswater   	       = 17
 var4d_lbc 	       = .false.
 /
 EOF
-time mpirun -np 1 ./da_update_bc.exe
+time mpirun --bind-to none -np 1 ./da_update_bc.exe
 echo "Lateral boundary conditions updated."
 
 # ===============================================
