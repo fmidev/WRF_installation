@@ -29,6 +29,7 @@ export LEADTIME=72 # Forecast lead time in hours (if changing this, also change 
 export INTERVAL=6 # Interval between the cycles in hours (needed for WRFDA)
 export MAX_CPU=20  # Number of CPU cores to use
 export COUNTRY="" # Country for country-specific observation processing scripts
+ulimit -s unlimited
 
 # Paths to run directories
 export DA_DIR=$BASE_DIR/DA_input

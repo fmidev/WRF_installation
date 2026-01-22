@@ -131,36 +131,31 @@ read minyear minmonth minday minhour minmin minsec <<< $(echo $ob_window_min | t
 read maxyear maxmonth maxday maxhour maxmin maxsec <<< $(echo $ob_window_max | tr '-' ' ' | tr ':' ' ')
 
 # Build record8 configuration before writing namelist
-# Determine IDD based on whether XLONC differs from STANDARD_LON
-if [ "$STAND_LON" != "$REF_LON" ]; then
-    IDD=2
+# For record7: XLONC should be the domain center, STANDARD_LON is the projection standard meridian
+# Determine IDD based on projection type and whether domain center differs from projection center
+if [ "$MAP_PROJ_CODE" -eq 1 ]; then
+    # Lambert Conformal: Check if domain center differs from projection center
+    if [ "$(echo "$REF_LON != $STAND_LON" | bc -l)" -eq 1 ]; then
+        IDD=2
+    else
+        IDD=1
+    fi
 else
     IDD=1
 fi
 
-# Extract domain 1 dimensions from E_WE and E_SN arrays
-NESTIX_STR="${E_WE[0]}, "
-NESTJX_STR="${E_SN[0]}, "
-
-# Convert DX from meters to kilometers for domain 1
-DIS_KM=$(echo "scale=2; $DX / 1000" | bc)
-DIS_STR="${DIS_KM}, "
-
-# For WRF application, NUMC(1), NESTI(1), and NESTJ(1) are always set to 1
-NUMC_STR="1, "
-NESTI_STR="1, "
-NESTJ_STR="1, "
-
-# Check if first guess file exists
-FIRST_GUESS="${DA_DIR}/rc/wrfout_d01_${YYYY}-${MM}-${DD}_${HH}:00:00"
+NESTIX=$(( E_WE[0] - 1 ))
+NESTJX=$(( E_SN[0] - 1 ))
+CENTER_I=$(( (NESTIX + 1) / 2 )) 
+CENTER_J=$(( (NESTJX + 1) / 2 ))  
+DIS_KM=$(printf "%.3f" "$(bc <<< "$DX/1000")")
 
 cat << EOF > namelist.obsproc
 &record1
- obs_gts_filename = 'obs.${YYYY}${MM}${DD}${HH}',
- obs_err_filename = 'obserr.txt',
- fg_format = 'WRF',
- first_guess_file = '${FIRST_GUESS}',
- gts_from_mmm_archive = .true.,
+ obs_gts_filename       = 'obs.${YYYY}${MM}${DD}${HH}',
+ obs_err_filename       = 'obserr.txt',
+ fg_format              = 'WRF',
+ gts_from_mmm_archive   = .false.
 /
 
 &record2
@@ -219,14 +214,14 @@ cat << EOF > namelist.obsproc
 /
 
 &record8
- IDD    =  $IDD,
- MAXNES =  1,
- NESTIX =  $NESTIX_STR
- NESTJX =  $NESTJX_STR
- DIS    =  $DIS_STR
- NUMC   =  $NUMC_STR
- NESTI  =  $NESTI_STR
- NESTJ  =  $NESTJ_STR
+ IDD    = ${IDD},
+ MAXNES = 1,
+ NESTIX = ${NESTIX},
+ NESTJX = ${NESTJX},
+ DIS    = ${DIS_KM},
+ NUMC   = 1,
+ NESTI  = ${CENTER_I},
+ NESTJ  = ${CENTER_J},
  /
 
  &record9
@@ -283,19 +278,28 @@ LOCAL_OBS_FILE="${DA_DIR}/ob/raw_obs/local_obs_${YYYY}${MM}${DD}${HH}.csv"
 STATION_FILE="${BASE_DIR}/Verification/Data/Static/stationlist.csv"
 OBSPROC_DIR="${DA_DIR}/ob/obsproc"
 #Run obsproc if local observations file exists
-if [ -f "$LOCAL_OBS_FILE" ] && [ -f "$FIRST_GUESS" ]; then
+if [ -f "$LOCAL_OBS_FILE" ]; then
     echo "Local observations file found: ${LOCAL_OBS_FILE}"
     python3 $MAIN_DIR/convert_to_little_r.py "$LOCAL_OBS_FILE" "$STATION_FILE" "${OBSPROC_DIR}/obs.${YYYY}${MM}${DD}${HH}"
     echo "Conversion to little_r format complete: ${OBSPROC_DIR}/obs.${YYYY}${MM}${DD}${HH}"
     cd $OBSPROC_DIR
     time mpirun --bind-to none -np 1 $WRFDA_DIR/var/obsproc/obsproc.exe
-    mv obs_gts_${YYYY}-${MM}-${DD}_${HH}:00:00.3DVAR $DA_DIR/ob/ob.ascii
-    export OB_FORMAT=2
-    echo "2" > $DA_DIR/ob/ob_format.txt
+    
+    # Check if obsproc output file was created successfully
+    if [ -f "obs_gts_${YYYY}-${MM}-${DD}_${HH}:00:00.3DVAR" ]; then
+        mv obs_gts_${YYYY}-${MM}-${DD}_${HH}:00:00.3DVAR $DA_DIR/ob/ob.ascii
+        export OB_FORMAT=2
+        echo "2" > $DA_DIR/ob/ob_format.txt
+        echo "Successfully processed local observations with obsproc"
+    else
+        echo "WARNING: obsproc did not generate expected output file"
+        echo "Expected file: obs_gts_${YYYY}-${MM}-${DD}_${HH}:00:00.3DVAR"
+        export OB_FORMAT=1
+        echo "1" > $DA_DIR/ob/ob_format.txt
+    fi
 else
-    echo "No local observations file or first guess file found. Using only NCEP observations."
+    echo "No local observations file found. Using only NCEP observations."
     echo "Local observations file: $LOCAL_OBS_FILE"
-    echo "First guess file: $FIRST_GUESS"
     export OB_FORMAT=1
     echo "1" > $DA_DIR/ob/ob_format.txt
 fi

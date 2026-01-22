@@ -19,7 +19,7 @@ DD=$3
 HH=$4
 
 INIT_TIME="${YYYY}${MM}${DD}${HH}"
-WRF_RUN_DIR="${PROD_DIR}/${YYYY}${MM}${DD}_${HH}"
+WRF_RUN_DIR="${PROD_DIR}/${YYYY}${MM}${DD}${HH}"
 
 # Check if WRF run directory exists
 if [ ! -d "$WRF_RUN_DIR" ]; then
@@ -36,8 +36,8 @@ fi
 echo "Saving GEN_BE forecasts for initialization time: $INIT_TIME"
 
 # Calculate valid times for 12h and 24h forecasts
-VALID_12H=$(date -u -d "${YYYY}-${MM}-${DD} ${HH}:00:00 +12 hours" +"%Y-%m-%d_%H:%M:%S")
-VALID_24H=$(date -u -d "${YYYY}-${MM}-${DD} ${HH}:00:00 +24 hours" +"%Y-%m-%d_%H:%M:%S")
+VALID_12H=$(date -u -d "${YYYY}-${MM}-${DD} ${HH}:00:00 12 hours" +"%Y-%m-%d_%H:%M:%S")
+VALID_24H=$(date -u -d "${YYYY}-${MM}-${DD} ${HH}:00:00 24 hours" +"%Y-%m-%d_%H:%M:%S")
 
 # Create directory structure: YYYYMMDDHH/wrfout_d01_YYYY-MM-DD_HH:MM:SS
 GENBE_INIT_DIR="${GENBE_FC_DIR}/${INIT_TIME}"

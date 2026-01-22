@@ -914,8 +914,9 @@ cat >> $TEST_BASE/scripts/env_test.sh << 'GENBE_EOF'
 # ===============================================
 # GEN_BE Configuration for B Matrix Creation
 # ===============================================
-export GENBE_DIR=\${TEST_BASE_DIR}/GEN_BE
-export GENBE_FC_DIR=\${TEST_BASE_DIR}/genbe_forecasts  # Storage for forecast differences
+export GENBE_DIR="${TEST_BASE_DIR}/GEN_BE"
+export GENBE_FC_DIR="${TEST_BASE_DIR}/genbe_forecasts"  # Storage for forecast differences
+export SAVE_GENBE_FORECASTS=true  # Enable saving forecasts for GEN_BE
 export RUN_GENBE=false  # Set to true when ready to generate BE statistics
 export NL_CV_OPTIONS=5  # CV5 (default), can be changed to 7 for CV7
 export BIN_TYPE=5  # Binning type for calculating statistics

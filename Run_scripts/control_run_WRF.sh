@@ -9,10 +9,14 @@
 # Load environment
 source /home/wrf/WRF_Model/scripts/env.sh
 
-hour=$1
-
 # Set the date based on the UTC hour for daily runs
-DATE=$(date -u +%Y%m%d${hour})
+hour=$1
+DATE=$(date -u -d "today ${hour}:00" +%Y%m%d)
+
+if [ "$(date -u +%s)" -lt "$(date -u -d "today ${hour}:00" +%s)" ]; then
+  DATE=$(date -u -d "yesterday ${hour}:00" +%Y%m%d)
+fi
+
 year=${DATE:0:4}
 month=${DATE:4:2}
 day=${DATE:6:2}
