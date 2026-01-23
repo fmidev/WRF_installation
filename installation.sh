@@ -962,7 +962,7 @@ cat >> $TEST_BASE/scripts/control_run_WRF_test.sh << 'GENBE_APPEND'
 # Save forecasts for GEN_BE if enabled
 if [ "$SAVE_GENBE_FORECASTS" = "true" ]; then
     echo "Saving forecasts for GEN_BE..." >> ${TEST_BASE_DIR}/logs/main.log
-    ./save_genbe_forecasts.sh $YYYY $MM $DD $HH >> ${TEST_BASE_DIR}/logs/main.log 2>&1
+    ./save_genbe_forecasts.sh $year $month $day $hour >> ${TEST_BASE_DIR}/logs/main.log 2>&1
     if [ $? -eq 0 ]; then
         echo "GEN_BE forecasts saved successfully" >> ${TEST_BASE_DIR}/logs/main.log
     else
