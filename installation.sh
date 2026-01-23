@@ -459,6 +459,21 @@ if [ ! -d "$BASE/WRFDA" ]; then
     export HDF5=$BASE/libraries/hdf5/install
     export WRFIO_NCD_LARGE_FILE_SUPPORT=1
     
+    # Patch SEVIRI observation reader to support Meteosat-12 (MSG-5)
+    echo "🔧 Patching SEVIRI reader for Meteosat-12"
+    SEVIRI_FILE="var/da/da_radiance/da_read_obs_bufrseviri.inc"
+    if [ -f "$SEVIRI_FILE" ]; then
+        # Add comment for SAID 71 (Meteosat-12/MSG-5)
+        sed -i '/SAID 70 is meteosat-11 or msg-4/a\	! SAID 71 is meteosat-12 or msg-5' "$SEVIRI_FILE"
+        # Update kidsat range check from 70 to 71
+        sed -i 's/if ( ( kidsat > 70) .or. ( kidsat < 55) ) then/if ( ( kidsat > 71) .or. ( kidsat < 55) ) then/' "$SEVIRI_FILE"
+        # Add satellite_id mapping for kidsat 71
+        sed -i '/else if ( kidsat == 70 ) then/,/satellite_id = 4/a\	else if ( kidsat == 71 ) then\n            satellite_id = 5' "$SEVIRI_FILE"
+        echo "✅ SEVIRI reader patched successfully"
+    else
+        echo "⚠️  WARNING: SEVIRI file not found at $SEVIRI_FILE"
+    fi
+    
     echo "🔧 Configuring WRFDA..."
     echo 34 | ./configure wrfda # Automatically select dmpar with GNU compilers
     echo "🏗️ Compiling WRFDA... (full output written to ${BASE}/WRFDA/compile.log)"

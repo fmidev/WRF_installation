@@ -53,6 +53,99 @@ DX_VALUES+=($inner_dx)
 DY_VALUES+=($inner_dy)
 
 
+# ===============================================
+# Dynamic CPU decomposition calculation
+# ===============================================
+# Goal: Find optimal nproc_x and nproc_y such that:
+# 1. nproc_x * nproc_y <= MAX_CPU
+# 2. Each tile has at least 25 grid points per direction
+
+calculate_nproc() {
+    local grid_x_d01=$1
+    local grid_y_d01=$2
+    local grid_x_d02=$3
+    local grid_y_d02=$4
+    local max_cpu=$5
+    local min_points_per_tile=25 
+    
+    # Calculate maximum possible processors based on both domains
+    local max_nx_d01=$((grid_x_d01 / min_points_per_tile))
+    local max_ny_d01=$((grid_y_d01 / min_points_per_tile))
+    local max_nx_d02=$((grid_x_d02 / min_points_per_tile))
+    local max_ny_d02=$((grid_y_d02 / min_points_per_tile))
+    
+    # Use the more restrictive constraint (usually parent domain)
+    local max_nx=$((max_nx_d01 < max_nx_d02 ? max_nx_d01 : max_nx_d02))
+    local max_ny=$((max_ny_d01 < max_ny_d02 ? max_ny_d01 : max_ny_d02))
+    
+    # Ensure at least 1 processor per direction
+    [ $max_nx -lt 1 ] && max_nx=1
+    [ $max_ny -lt 1 ] && max_ny=1
+    
+    # Find best decomposition that fits within MAX_CPU
+    local best_nx=1
+    local best_ny=1
+    local best_total=1
+    local best_score=999999
+    
+    # Try all combinations of nx and ny (not just square decompositions)
+    for nx in $(seq 1 $max_nx); do
+        for ny in $(seq 1 $max_ny); do
+            local total=$((nx * ny))
+            if [ $total -le $max_cpu ]; then
+                # Calculate tile dimensions for nested domain
+                local tile_x=$(echo "scale=2; $grid_x_d02 / $nx" | bc)
+                local tile_y=$(echo "scale=2; $grid_y_d02 / $ny" | bc)
+                
+                # Calculate aspect ratios
+                local tile_ratio=$(echo "scale=4; $tile_x / $tile_y" | bc)
+                local domain_ratio=$(echo "scale=4; $grid_x_d02 / $grid_y_d02" | bc)
+                
+                # Aspect ratio difference (lower is better)
+                local ratio_diff=$(echo "scale=4; sqrt(($tile_ratio - $domain_ratio)^2)" | bc)
+                
+                # CPU efficiency: prefer using more CPUs (lower penalty)
+                local cpu_efficiency=$(echo "scale=4; $total / $max_cpu" | bc)
+                local cpu_penalty=$(echo "scale=4; (1 - $cpu_efficiency) * 0.3" | bc)
+                
+                # Combined score (lower is better)
+                local score=$(echo "scale=4; $ratio_diff + $cpu_penalty" | bc)
+                
+                # Use bc for comparison
+                if [ $(echo "$score < $best_score" | bc) -eq 1 ]; then
+                    best_score=$score
+                    best_nx=$nx
+                    best_ny=$ny
+                    best_total=$total
+                fi
+            fi
+        done
+    done
+    
+    echo "$best_nx $best_ny"
+}
+
+# Get domain dimensions
+GRID_X_D01=${E_WE[0]}
+GRID_Y_D01=${E_SN[0]}
+GRID_X_D02=${E_WE[1]}
+GRID_Y_D02=${E_SN[1]}
+
+# Calculate optimal decomposition considering both domains
+read NPROC_X NPROC_Y <<< $(calculate_nproc $GRID_X_D01 $GRID_Y_D01 $GRID_X_D02 $GRID_Y_D02 $MAX_CPU)
+
+# Calculate optimal CPUs to use
+OPTIMAL_CPUS=$((NPROC_X * NPROC_Y))
+
+echo "Domain Configuration:"
+echo "  Domain 1: ${E_WE[0]} x ${E_SN[0]} grid points"
+echo "  Domain 2: ${E_WE[1]} x ${E_SN[1]} grid points"
+echo "MPI Decomposition:"
+echo "  nproc_x = $NPROC_X, nproc_y = $NPROC_Y"
+echo "  Total CPUs = $OPTIMAL_CPUS (max available: $MAX_CPU)"
+echo "  D01 tile size: ~$((GRID_X_D01 / NPROC_X)) x $((GRID_Y_D01 / NPROC_Y)) points"
+echo "  D02 tile size: ~$((GRID_X_D02 / NPROC_X)) x $((GRID_Y_D02 / NPROC_Y)) points"
+
 # Check initial and boundary conditions
 cd ${run_dir}
 if [ -f ${run_dir}/met_em.d02.${eyear}-${emonth}-${eday}_${ehour}:00:00.nc ];then
@@ -66,6 +159,14 @@ fi
 ln -sf ${WRF_DIR}/main/*.exe .
 ln -sf $WRF_DIR/run/{gribmap.txt,RRTM*,*TBL,*tbl,ozone*,CAMtr*} .
 echo "Linked necessary files"
+
+# Helper function to format bash arrays as comma-separated lists for namelist
+format_array() {
+    local arr=("$@")
+    local result
+    printf -v result "%s, " "${arr[@]}"
+    echo "${result%, }"
+}
 
 # Configure `namelist.input` for WRF run
 run_days=$((leadtime/24))
@@ -85,7 +186,7 @@ cat << EOF > namelist.input
  end_day                    = $eday, $eday,
  end_hour                   = $ehour, $ehour,
  interval_seconds           = 10800
- input_from_file            = .true.,.true.,.true.,
+ input_from_file            = .true., .true.,
  history_interval           = 60, 60,
  frames_per_outfile         = 1, 1,
  restart                    = .false.,
@@ -102,28 +203,29 @@ cat << EOF > namelist.input
  /
 
 &domains
- time_step                  = 60
+ time_step                  = 45
  time_step_fract_num        = 0
  time_step_fract_den        = 1
- time_step_dfi              = 15
  max_dom                    = 2
  s_we                       = 1, 1
- e_we                       = ${E_WE[@]}
- e_sn                       = ${E_SN[@]}
+ e_we                       = $(format_array "${E_WE[@]}")
+ e_sn                       = $(format_array "${E_SN[@]}")
  s_vert                     = 1, 1
  e_vert                     = 45, 45
  num_metgrid_levels         = 34,
  num_metgrid_soil_levels    = 4,
- dx                         = $(IFS=,; echo "${DX_VALUES[*]}")
- dy                         = $(IFS=,; echo "${DY_VALUES[*]}")
+ dx                         = $(format_array "${DX_VALUES[@]}")
+ dy                         = $(format_array "${DY_VALUES[@]}")
  grid_id                    = 1, 2
- parent_id                  = ${PARENT_ID[@]}
- i_parent_start             = ${I_PARENT_START[@]}
- j_parent_start             = ${J_PARENT_START[@]}
- parent_grid_ratio          = ${PARENT_GRID_RATIO[@]}
+ parent_id                  = $(format_array "${PARENT_ID[@]}")
+ i_parent_start             = $(format_array "${I_PARENT_START[@]}")
+ j_parent_start             = $(format_array "${J_PARENT_START[@]}")
+ parent_grid_ratio          = $(format_array "${PARENT_GRID_RATIO[@]}")
  parent_time_step_ratio     = 1, 3
  feedback                   = 1
  smooth_option              = 0
+ nproc_x                    = $NPROC_X
+ nproc_y                    = $NPROC_Y
  smooth_cg_topo             = .true.
  /
 
@@ -155,15 +257,15 @@ cat << EOF > namelist.input
  num_soil_layers            = 4,
  num_land_cat               = 21,
  sf_urban_physics           = 0,
- sst_update                 = 0,
- tmn_update                 = 0,
+ sst_update                 = 1,
+ tmn_update                 = 1,
  sst_skin                   = 0,
  kfeta_trigger              = 1,
  mfshconv                   = 0,
  prec_acc_dt                = 0,
  sf_lake_physics            = 1,
  use_lakedepth              = 0,
- /
+/
 
 &noah_mp
 /
@@ -200,7 +302,7 @@ cat << EOF > namelist.input
  spec_exp                   = 0.33,
  specified                  = T, F
  nested                     = F, T
-/ob_window_min
+/
 
 &grib2
 /
@@ -229,7 +331,7 @@ echo "Real.exe completed."
 # ===============================================
 if $RUN_WRFDA; then
   cd ${MAIN_DIR}
-  ./run_WRFDA.sh $year $month $day $hour $leadtime $prod_dir
+  ./run_WRFDA.sh $year $month $day $hour
 else
   echo "Running model without data assimilation"
 fi
@@ -255,12 +357,12 @@ if $RUN_WRFDA; then
   #First guess files
   fg_date=$(date -d "$s_date $INTERVAL hours" "+%Y-%m-%d %H:%M:%S")
   read fgyear fgmonth fgday fghour fgmin fgsec <<< $(echo $fg_date | tr '-' ' ' | tr ':' ' ')
-  cp $run_dir/wrfout_d01_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00 $DA_DIR/rc/ || :
-  cp $run_dir/wrfout_d02_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00 $DA_DIR/rc/ || :
+  cp "$run_dir/wrfout_d01_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00" "$DA_DIR/rc/" || true
+  cp "$run_dir/wrfout_d02_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00" "$DA_DIR/rc/" || true
   #VARBC file
-  cp $run_dir/da_wrk/VARBC.out $DA_DIR/varbc/ || :
+  cp "$run_dir/da_wrk/VARBC.out" "$DA_DIR/varbc/" || true
 fi
 
-echo "Cycle" ${year}${month}${day}${hour}" WRF run finished"
+echo "Cycle ${year}${month}${day}${hour} WRF run finished"
 
 
