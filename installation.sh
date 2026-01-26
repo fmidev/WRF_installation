@@ -191,7 +191,7 @@ echo "Installing required packages..."
 sudo dnf config-manager --set-enabled crb
 sudo dnf makecache -y -q
 sudo dnf install -y epel-release gcc gfortran g++ emacs wget tar perl libxml2-devel \
-    m4 chrony libcurl-devel csh ksh rsync cmake time bc
+    m4 chrony libcurl-devel csh ksh rsync cmake time bc awscli
 sudo dnf update -y
 
 # Install verification-related system packages
@@ -1107,27 +1107,32 @@ echo "
    - Create your domain with WRF Domain Wizard (https://wrfdomainwizard.net/)
    - Save the namelist.wps file as domain.txt in $BASE/scripts/
    - The scripts will automatically read all domain settings from this file
-   - Create new git commit to track domain.txt changes 
+   - Create new git commit to track domain.txt changes
 
-2. Set up SSH keys for SmartMet server (if using):
+2. Fetch boundary conditions data:
+   - Scripts in $GIT_REPO/Download/ can be used to download GFS and ECMWF data
+   - Set up data download automation as cron jobs or manual runs
+   - Note that ECMWF data requires preprocessing that is handled by the get_ecmwf.sh script
+
+3. Set up SSH keys for SmartMet server (if using):
    - Generate SSH keys: ssh-keygen
    - Copy keys to SmartMet: ssh-copy-id smartmet@$SMARTMET_IP
    - Make sure SmartMet server is sending GFS data to the WRF server (ssh key on both sides)
 
-3. WRF_test suite:
+4. WRF_test suite:
    - WRF_test is pre-configured for GEN_BE (DA OFF, 24h forecasts)
    - Runs at 00Z and 12Z, automatically saves 12h/24h forecasts
    - After collecting ≥30 days of data, run: $TEST_BASE/scripts/setup_genbe_wrapper.sh
    - Generated BE file replaces default be.dat for domain-specific statistics
 
-4. Create station list $BASE/Verification/Data/Static/stationlist.csv
+5. Create station list $BASE/Verification/Data/Static/stationlist.csv
     - List all stations to be used in verification
     - File headers: SID,lat,lon,elev,name
 
-5. Finalize observation preprocessing script $BASE/scripts/process_local_obs_$COUNTRY.sh
+6. Finalize observation preprocessing script $BASE/scripts/process_local_obs_$COUNTRY.sh
     - Fetch your input data and convert to csv format as needed.
 
-6. Set up the cron jobs for automation:
+7. Set up the cron jobs for automation:
    - Run 'crontab -e' to edit your crontab
    - Uncomment production WRF runs (4x daily: 00, 06, 12, 18 UTC)
    - Uncomment WRF test runs (2x daily: 00, 12 UTC)

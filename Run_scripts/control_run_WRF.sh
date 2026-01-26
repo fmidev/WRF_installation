@@ -40,20 +40,46 @@ files_found=false
 if [ "$RUN_CHECK_BOUNDARY_FILES" = true ]; then
   echo "1) Checking for boundary files before running ems_prep:" >> ${BASE_DIR}/logs/main.log
   echo "   $(date +"%H:%M %Y%m%d")" >> ${BASE_DIR}/logs/main.log
+  echo "   Boundary source: ${BOUNDARY_SOURCE:-GFS}" >> ${BASE_DIR}/logs/main.log
 
-  for ((i=1; i<=15; i++)); do
-    # Count the number of GRIB files in the directory
-    file_count=$(find "$DATA_DIR/$year$month$day$hour" -maxdepth 1 -type f -name "gfs.t${hour}z.pgrb2.0p25.f*" | wc -l)
-    echo $file_count
-    
-    if [ "$file_count" -ge "$GRIBNUM" ]; then
-      # Files are sufficient, proceed
-      echo "Sufficient GRIB files found. Continuing execution." >> ${BASE_DIR}/logs/main.log
-      files_found=true
-      break
+  for ((i=1; i<=20; i++)); do
+    # Check boundary files based on source
+    if [ "${BOUNDARY_SOURCE}" = "ECMWF" ]; then
+      # Check ECMWF files
+      file_count=$(find "${DATA_DIR_ECMWF}/$year$month$day$hour" -maxdepth 1 -type f -name "*.grib2" 2>/dev/null | wc -l)
+      
+      # Check if conversion is complete for ECMWF files
+      if [ -f "${DATA_DIR_ECMWF}/$year$month$day$hour/.converted" ]; then
+        conversion_done=true
+      else
+        conversion_done=false
+      fi
+      
+      if [ "$file_count" -ge "$GRIBNUM" ] && [ "$conversion_done" = true ]; then
+        echo "Sufficient ECMWF GRIB files found ($file_count) and conversion complete. Continuing execution." >> ${BASE_DIR}/logs/main.log
+        files_found=true
+        break
+      elif [ "$file_count" -ge "$GRIBNUM" ] && [ "$conversion_done" = false ]; then
+        echo "ECMWF files found but conversion not complete. Waiting..." >> ${BASE_DIR}/logs/main.log
+        sleep 300
+      else
+        echo "Waiting for ECMWF files... (found $file_count, need $GRIBNUM)" >> ${BASE_DIR}/logs/main.log
+        sleep 300
+      fi
     else
-      # Wait for 5 minutes before retrying
-      sleep 300
+      # Check GFS files (default)
+      file_count=$(find "${DATA_DIR_GFS:-$DATA_DIR}/$year$month$day$hour" -maxdepth 1 -type f -name "gfs.t${hour}z.pgrb2.0p25.f*" 2>/dev/null | wc -l)
+      
+      if [ "$file_count" -ge "$GRIBNUM" ]; then
+        # Files are sufficient, proceed
+        echo "Sufficient GFS GRIB files found ($file_count). Continuing execution." >> ${BASE_DIR}/logs/main.log
+        files_found=true
+        break
+      else
+        echo "Waiting for GFS files... (found $file_count, need $GRIBNUM)" >> ${BASE_DIR}/logs/main.log
+        # Wait for 5 minutes before retrying
+        sleep 300
+      fi
     fi
   done
 

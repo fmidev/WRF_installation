@@ -16,6 +16,37 @@ day=$3
 hour=$4
 leadtime=$5
 
+# Set boundary source (can be overridden by command line argument)
+BOUNDARY_SOURCE=${6:-${BOUNDARY_SOURCE:-GFS}}
+
+echo "============================================="
+echo "WPS Configuration"
+echo "============================================="
+echo "Boundary Source: $BOUNDARY_SOURCE"
+echo "Start Date: ${year}-${month}-${day} ${hour}:00:00"
+echo "Lead Time: ${leadtime} hours"
+echo "============================================="
+
+# Set data directory and prefix based on boundary source
+case "${BOUNDARY_SOURCE^^}" in
+    GFS)
+        DATA_DIR=$DATA_DIR_GFS
+        UNGRIB_PREFIX="GFS"
+        VTABLE="Vtable.GFS"
+        GRIB_PATTERN="gfs*"
+        ;;
+    ECMWF)
+        DATA_DIR=$DATA_DIR_ECMWF
+        UNGRIB_PREFIX="ECMWF"
+        VTABLE="Vtable.ECMWF"
+        GRIB_PATTERN="*.grib2"
+        ;;
+    *)
+        echo "Error: Unknown BOUNDARY_SOURCE '$BOUNDARY_SOURCE'. Must be GFS or ECMWF."
+        exit 1
+        ;;
+esac
+
 run_dir="${PROD_DIR}/${year}${month}${day}${hour}"  # Run directory
 
 # Calculate start and end dates for the simulation
@@ -111,22 +142,22 @@ cat << EOF > namelist.wps
 ${GEOGRID_SECTION}
 &ungrib
  out_format                 = 'WPS'
- prefix                     = 'GFS'
+ prefix                     = '${UNGRIB_PREFIX}'
 /
 &metgrid
- fg_name                    = 'GFS'
+ fg_name                    = '${UNGRIB_PREFIX}'
  io_form_metgrid            = 2
  opt_metgrid_tbl_path       = '${WPS_DIR}/metgrid/'
 /
 EOF
-echo "Generated namelist.wps"
+echo "Generated namelist.wps with boundary source: $BOUNDARY_SOURCE"
 
 # ===============================================
 # Step 1: Run Geogrid
 # ===============================================
 Vtable_dir="${WPS_DIR}/ungrib/Variable_Tables"
-ln -sf ${Vtable_dir}/Vtable.GFS Vtable
-echo "link Vtable finish"
+ln -sf ${Vtable_dir}/${VTABLE} Vtable
+echo "Linked Vtable: ${VTABLE}"
 
 cat << EOF > run_geogrid.bash
 #!/bin/bash
@@ -148,8 +179,9 @@ fi
 # ===============================================
 # Step 2: Link Grib Files
 # ===============================================
-${WPS_DIR}/link_grib.csh ${DATA_DIR}/${year}${month}${day}${hour}/gfs*
-echo "Grib files linked."
+echo "Linking GRIB files from ${DATA_DIR}/${year}${month}${day}${hour}/${GRIB_PATTERN}"
+${WPS_DIR}/link_grib.csh ${DATA_DIR}/${year}${month}${day}${hour}/${GRIB_PATTERN}
+echo "GRIB files linked."
 
 # ===============================================
 # Step 3: Run Ungrib
@@ -164,7 +196,7 @@ chmod +x run_ungrib.bash
 ./run_ungrib.bash
 
 # Check for the final ungrib file
-if [ -f $run_dir/"GFS:${eyear}-${emonth}-${eday}_${ehour}" ]; then
+if [ -f $run_dir/"${UNGRIB_PREFIX}:${eyear}-${emonth}-${eday}_${ehour}" ]; then
   echo "Ungrib execution completed."
 else
   echo "Error: Ungrib execution failed. Check logs."

@@ -58,67 +58,34 @@ DY_VALUES+=($inner_dy)
 # ===============================================
 # Goal: Find optimal nproc_x and nproc_y such that:
 # 1. nproc_x * nproc_y <= MAX_CPU
-# 2. Each tile has at least 25 grid points per direction
+# 2. Each tile has at least 10 grid points per direction (WRF minimum patch size)
 
 calculate_nproc() {
-    local grid_x_d01=$1
-    local grid_y_d01=$2
-    local grid_x_d02=$3
-    local grid_y_d02=$4
-    local max_cpu=$5
-    local min_points_per_tile=25 
+    local grid_x_d01=$1 grid_y_d01=$2 grid_x_d02=$3 grid_y_d02=$4 max_cpu=$5
+    local min_tile=10
     
-    # Calculate maximum possible processors based on both domains
-    local max_nx_d01=$((grid_x_d01 / min_points_per_tile))
-    local max_ny_d01=$((grid_y_d01 / min_points_per_tile))
-    local max_nx_d02=$((grid_x_d02 / min_points_per_tile))
-    local max_ny_d02=$((grid_y_d02 / min_points_per_tile))
+    # Calculate maximum processors (most restrictive domain constraint)
+    local max_nx=$(( (grid_x_d01/min_tile < grid_x_d02/min_tile ? grid_x_d01/min_tile : grid_x_d02/min_tile) ))
+    local max_ny=$(( (grid_y_d01/min_tile < grid_y_d02/min_tile ? grid_y_d01/min_tile : grid_y_d02/min_tile) ))
+    [[ $max_nx -lt 1 ]] && max_nx=1
+    [[ $max_ny -lt 1 ]] && max_ny=1
     
-    # Use the more restrictive constraint (usually parent domain)
-    local max_nx=$((max_nx_d01 < max_nx_d02 ? max_nx_d01 : max_nx_d02))
-    local max_ny=$((max_ny_d01 < max_ny_d02 ? max_ny_d01 : max_ny_d02))
+    local best_nx=1 best_ny=1 best_score=999999
     
-    # Ensure at least 1 processor per direction
-    [ $max_nx -lt 1 ] && max_nx=1
-    [ $max_ny -lt 1 ] && max_ny=1
-    
-    # Find best decomposition that fits within MAX_CPU
-    local best_nx=1
-    local best_ny=1
-    local best_total=1
-    local best_score=999999
-    
-    # Try all combinations of nx and ny (not just square decompositions)
+    # Find best decomposition maximizing CPU usage while maintaining aspect ratio
     for nx in $(seq 1 $max_nx); do
         for ny in $(seq 1 $max_ny); do
             local total=$((nx * ny))
-            if [ $total -le $max_cpu ]; then
-                # Calculate tile dimensions for nested domain
-                local tile_x=$(echo "scale=2; $grid_x_d02 / $nx" | bc)
-                local tile_y=$(echo "scale=2; $grid_y_d02 / $ny" | bc)
-                
-                # Calculate aspect ratios
-                local tile_ratio=$(echo "scale=4; $tile_x / $tile_y" | bc)
-                local domain_ratio=$(echo "scale=4; $grid_x_d02 / $grid_y_d02" | bc)
-                
-                # Aspect ratio difference (lower is better)
-                local ratio_diff=$(echo "scale=4; sqrt(($tile_ratio - $domain_ratio)^2)" | bc)
-                
-                # CPU efficiency: prefer using more CPUs (lower penalty)
-                local cpu_efficiency=$(echo "scale=4; $total / $max_cpu" | bc)
-                local cpu_penalty=$(echo "scale=4; (1 - $cpu_efficiency) * 0.3" | bc)
-                
-                # Combined score (lower is better)
-                local score=$(echo "scale=4; $ratio_diff + $cpu_penalty" | bc)
-                
-                # Use bc for comparison
-                if [ $(echo "$score < $best_score" | bc) -eq 1 ]; then
-                    best_score=$score
-                    best_nx=$nx
-                    best_ny=$ny
-                    best_total=$total
-                fi
-            fi
+            [[ $total -gt $max_cpu ]] && continue
+            
+            # Verify both domains meet minimum tile size
+            [[ $((grid_x_d01/nx)) -lt $min_tile || $((grid_y_d01/ny)) -lt $min_tile || \
+               $((grid_x_d02/nx)) -lt $min_tile || $((grid_y_d02/ny)) -lt $min_tile ]] && continue
+            
+            # Score: aspect ratio diff + CPU underutilization penalty
+            local score=$(echo "scale=4; sqrt((($grid_x_d02/$nx)/($grid_y_d02/$ny) - $grid_x_d02/$grid_y_d02)^2) + (1 - $total/$max_cpu)" | bc)
+            
+            [[ $(echo "$score < $best_score" | bc) -eq 1 ]] && { best_score=$score; best_nx=$nx; best_ny=$ny; }
         done
     done
     

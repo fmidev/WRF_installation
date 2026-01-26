@@ -24,11 +24,15 @@ export WRFDA_DIR=$BASE_DIR/WRFDA
 # Variables
 export NETCDF4=1
 export WRFIO_NCD_LARGE_FILE_SUPPORT=1
-export GRIBNUM=25 # Number of GFS GRIB files needed to be found
 export LEADTIME=72 # Forecast lead time in hours (if changing this, also change the lastfhr in the UPP_wrk/postprd/run_unipost)
 export INTERVAL=6 # Interval between the cycles in hours (needed for WRFDA)
 export MAX_CPU=20  # Number of CPU cores to use
 export COUNTRY="" # Country for country-specific observation processing scripts
+
+# Boundary conditions source: GFS or ECMWF
+export BOUNDARY_SOURCE="GFS"  # Options: GFS, ECMWF
+export GRIBNUM=25 # Number of GRIB files needed (GFS: 25 for 72h at 3h intervals, ECMWF: 25 for 72h at 3h intervals)
+
 ulimit -s unlimited
 
 # Paths to run directories
@@ -36,7 +40,8 @@ export DA_DIR=$BASE_DIR/DA_input
 export CRTM_COEFFS_PATH=$BASE_DIR/CRTM_coef/crtm_coeffs_2.3.0
 export MAIN_DIR=$BASE_DIR/scripts
 export PROD_DIR=$BASE_DIR/out
-export DATA_DIR=$BASE_DIR/GFS
+export DATA_DIR_GFS=$BASE_DIR/GFS
+export DATA_DIR_ECMWF=$BASE_DIR/ECMWF
 export VERIFICATION_DIR=$BASE_DIR/Verification/scripts
 
 # Switches for WRF model run steps

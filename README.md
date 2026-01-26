@@ -113,18 +113,16 @@ These switches let you customize what runs in each cycle. Just set anything to `
 
 ### Downloading Boundary Data
 
-WRF needs boundary conditions from a global model. We use GFS data in GRIB format:
+WRF needs boundary conditions from a global model. We use GFS or ECMWF data in GRIB format:
 
 ```bash
-Download_GFS/get_gfs.sh
+Download/get_gfs.sh
+Download/get_ecmwf.sh
 ```
 
-Configure the download in `gfs.cnf`:
-- Geographic area to download
-- Horizontal resolution
-- Forecast hours needed
+Configure the download in `.cnf`
 
-The script downloads the latest available GFS run and saves it to `$BASE/GFS/`. The operational workflow is not downloading GFS boundaries as default. This is because the system is designed to work with SmartMet which already does the downloading. The user have to setup `get_gfs.sh` by themselves.
+The script downloads the latest available GFS or ECMWF run and saves it to `$BASE/MODEL/`. The operational workflow is not downloading boundaries as default. The user have to setup it by themselves.
 
 ### Running WPS (Preprocessing)
 

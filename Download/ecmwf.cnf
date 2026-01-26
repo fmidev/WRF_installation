@@ -1,0 +1,20 @@
+# ECMWF Download Configuration
+
+# Model producer (default: ifs)
+MODEL_PRODUCER="ifs"
+
+# Model version/resolution (0p25 or 0p4)
+MODEL_VERSION="0p25"
+
+# Maximum forecast hour to download (default: 72)
+# Open ECMWF IFS provides forecasts up to 144 hours
+MAX_FORECAST_HOUR=72
+
+# Valid forecast hours to download
+# Default: all cycles
+VALID_HOURS="00|06|12|18"
+# Only 00/12 UTC cycles:
+#VALID_HOURS="00|12"
+
+# Destination for WRF processing (optional)
+WRF_COPY_DEST=/home/wrf/WRF_Model/ECMWF/

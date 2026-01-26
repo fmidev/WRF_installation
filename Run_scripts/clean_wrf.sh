@@ -12,6 +12,8 @@ source /home/wrf/WRF_Model/scripts/env.sh
 # Clean main run directories
 find $BASE_DIR/GFS -type f -ctime +0 | xargs -r rm
 find $BASE_DIR/GFS -mindepth 1 -type d -empty -delete
+find $BASE_DIR/ECMWF -type f -ctime +0 | xargs -r rm
+find $BASE_DIR/ECMWF -mindepth 1 -type d -empty -delete
 find $BASE_DIR/DA_input/rc -type f -ctime +1 -name "*wrfout*" | xargs -r rm
 find $BASE_DIR/DA_input/ob/raw_obs -type f -ctime +1 | xargs -r rm
 find $BASE_DIR/out -type f -ctime +2 -o -type l -ctime +2 | xargs -r rm
