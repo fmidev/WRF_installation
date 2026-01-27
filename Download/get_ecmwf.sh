@@ -136,33 +136,69 @@ if [ -z "$DRYRUN" ]; then
     mkdir -p "$INCOMING_TMP"
 else
     log "DRY RUN: Would create directory $INCOMING_TMP"
-    log "DRY RUN: Would download from s3://ecmwf-forecasts/${RT_DATE}/${RT_HOUR}z/${MODEL_PRODUCER}/${MODEL_VERSION}/${MODEL_TYPE}/"
+    log "DRY RUN: Would download from https://data.ecmwf.int/forecasts/${RT_DATE}/${RT_HOUR}z/${MODEL_PRODUCER}/${MODEL_VERSION}/${MODEL_TYPE}/"
     exit 0
 fi
 
-# Check if aws CLI is available
-if ! command -v aws &> /dev/null; then
-    log "ERROR: AWS CLI not found. Please install it first."
+# Check if curl or wget is available
+DOWNLOADER=""
+if command -v curl &> /dev/null; then
+    DOWNLOADER="curl"
+elif command -v wget &> /dev/null; then
+    DOWNLOADER="wget"
+else
+    log "ERROR: Neither curl nor wget found. Please install one of them."
     exit 1
 fi
 
-# Download data from S3 bucket
-log "Starting download from ECMWF S3 bucket..."
-S3_PATH="s3://ecmwf-forecasts/${RT_DATE}/${RT_HOUR}z/${MODEL_PRODUCER}/${MODEL_VERSION}/${MODEL_TYPE}/"
+# Download data from ECMWF HTTPS endpoint
+log "Starting download from ECMWF HTTPS endpoint..."
+BASE_URL="https://data.ecmwf.int/forecasts/${RT_DATE}/${RT_HOUR}z/${MODEL_PRODUCER}/${MODEL_VERSION}/${MODEL_TYPE}/"
 
-# Build include patterns for forecast hours 0 to MAX_FORECAST_HOUR
-# ECMWF files are named: YYYYMMDDHH0000-Xh-TYPE-fc.grib2
-INCLUDE_PATTERNS=""
-for hour in $(seq 0 $MAX_FORECAST_HOUR); do
-    # Match pattern: YYYYMMDDHH0000-Xh-TYPE-fc.grib2
-    INCLUDE_PATTERNS="$INCLUDE_PATTERNS --include *-${hour}h-*.grib2"
+log "Base URL: $BASE_URL"
+
+# Download forecast files for hours 0 to MAX_FORECAST_HOUR
+DOWNLOAD_SUCCESS=0
+DOWNLOAD_FAILED=0
+
+for hour in $(seq 0 3 $MAX_FORECAST_HOUR); do
+    # Build filename: YYYYMMDDHH0000-Xh-TYPE-fc.grib2
+    FILENAME="${RT_DATE}${RT_HOUR}0000-${hour}h-${MODEL_TYPE}-fc.grib2"
+    FILE_URL="${BASE_URL}${FILENAME}"
+    OUTPUT_FILE="${INCOMING_TMP}/${FILENAME}"
+    
+    log "Downloading forecast hour $hour: $FILENAME"
+    
+    if [ "$DOWNLOADER" = "curl" ]; then
+        if curl -f -s -S --retry 3 --retry-delay 5 -o "$OUTPUT_FILE" "$FILE_URL"; then
+            DOWNLOAD_SUCCESS=$((DOWNLOAD_SUCCESS + 1))
+            FILE_SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
+            log "  ✓ Downloaded $FILENAME ($FILE_SIZE)"
+        else
+            DOWNLOAD_FAILED=$((DOWNLOAD_FAILED + 1))
+            log "  ✗ Failed to download $FILENAME"
+            rm -f "$OUTPUT_FILE"
+        fi
+    else
+        if wget -q --tries=3 --waitretry=5 -O "$OUTPUT_FILE" "$FILE_URL"; then
+            DOWNLOAD_SUCCESS=$((DOWNLOAD_SUCCESS + 1))
+            FILE_SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
+            log "  ✓ Downloaded $FILENAME ($FILE_SIZE)"
+        else
+            DOWNLOAD_FAILED=$((DOWNLOAD_FAILED + 1))
+            log "  ✗ Failed to download $FILENAME"
+            rm -f "$OUTPUT_FILE"
+        fi
+    fi
 done
 
-if aws s3 sync --exclude "*" $INCLUDE_PATTERNS --no-sign-request "$S3_PATH" "$INCOMING_TMP/"; then
+log "Download summary: $DOWNLOAD_SUCCESS succeeded, $DOWNLOAD_FAILED failed"
+
+if [ $DOWNLOAD_SUCCESS -gt 0 ]; then
     log "Download complete."
     
     # Get download statistics
-    FILE_COUNT=$(ls -1 "$INCOMING_TMP" 2>/dev/null | wc -l)
+    FILE_COUNT=$(ls -1 "$INCOMING_TMP"/*.grib2 2>/dev/null | wc -l)
     if [ "$FILE_COUNT" -gt 0 ]; then
         TOTAL_SIZE=$(du -hs "$INCOMING_TMP" | cut -f1)
         log "Downloaded $FILE_COUNT files, total size: $TOTAL_SIZE"
@@ -231,10 +267,12 @@ if aws s3 sync --exclude "*" $INCLUDE_PATTERNS --no-sign-request "$S3_PATH" "$IN
         fi
     else
         log "WARNING: No files downloaded. Check if data is available."
+        log "Base URL attempted: $BASE_URL"
         exit 1
     fi
 else
-    log "ERROR: Download failed."
+    log "ERROR: All downloads failed."
+    log "Base URL attempted: $BASE_URL"
     exit 1
 fi
 
