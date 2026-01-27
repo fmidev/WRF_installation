@@ -156,7 +156,7 @@ server <- function(input, output, session) {
     
     forecast_files <- rv$available_files[
       rv$available_files$date == input$forecast_date &
-      rv$available_files$hour >= as.integer(input$forecast_hour) &
+      rv$available_files$hour == as.integer(input$forecast_hour) &
       rv$available_files$domain == input$forecast_domain, ]
     forecast_files <- forecast_files[order(forecast_files$hour), ]
     
@@ -447,11 +447,16 @@ server <- function(input, output, session) {
     
     p <- p %>%
       add_trace(
-        x = rv$lons[,1], y = rv$lats[1,], z = t(z_data), type = "heatmap",
+        lon = rv$lons, lat = rv$lats, z = z_data, type = "contour",
         zmin = zmin, zmax = zmax, zauto = FALSE,
         colorscale = colorscale_list,
         colorbar = list(title = units),
-        hovertemplate = paste0("Lon: %{x:.2f}<br>Lat: %{y:.2f}<br>", long_name, ": %{z:.2f}<br><extra></extra>"),
+        contours = list(
+          coloring = "heatmap",
+          showlabels = FALSE,
+          showlines = FALSE
+        ),
+        hovertemplate = paste0("Lon: %{lon:.2f}<br>Lat: %{lat:.2f}<br>", long_name, ": %{z:.2f}<br><extra></extra>"),
         showlegend = FALSE, name = "data"
       )
     

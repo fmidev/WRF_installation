@@ -397,6 +397,54 @@ if [ ! -d "$BASE/WPS" ]; then
     mv WPS-${WPS_VERSION}/ WPS
     cd WPS
 
+    # Patch rd_grib2.F to support ECMWF soil layers (level type 151)
+    echo "🔧 Patching rd_grib2.F for ECMWF soil layers..."
+    RD_GRIB2_FILE="ungrib/src/rd_grib2.F"
+    if [ -f "$RD_GRIB2_FILE" ]; then
+        # First patch: Add level type 151 handling
+        sed -i '/!MGD         if (debug_level .gt. 50) write(6,\*) .my_field is now .,my_field/a\
+\n\
+! Level type 151 - depth below land surface (ECMWF soil layers)\n\
+              if ( gfld%ipdtmpl(10) .eq. 151 ) then\n\
+                glevel1 = gfld%ipdtmpl(12)*\n\
+     \&                    (10.**(-1.*gfld%ipdtmpl(11)))\n\
+                glevel2 = gfld%ipdtmpl(15)*\n\
+     \&                    (10.**(-1.*gfld%ipdtmpl(14)))\n\
+                TMP9LOOP: do j = 1, maxvar\n\
+                  if ((g2code(4,j) .eq. 151) .and.\n\
+     \&               (gfld%ipdtmpl(2) .eq. g2code(3,j)) .and.\n\
+     \&               (glevel1 .eq. level1(j)) .and.\n\
+     \&               ((glevel2 .eq. level2(j)) .or.\n\
+     \&                                   (level2(j) .le. -88))) then\n\
+                    my_field = namvar(j)\n\
+                    exit TMP9LOOP\n\
+                  endif\n\
+                enddo TMP9LOOP\n\
+                if (j .gt. maxvar ) then\n\
+                  write(6,'\''(a,i6,a,i6,a)'\'') '\''Soil level '\'',\n\
+     \&               gfld%ipdtmpl(12), '\''-'\'', gfld%ipdtmpl(15),\n\
+     \&           '\'' in the GRIB2 file, was not found in the Vtable'\''\n\
+                  cycle MATCH_LOOP\n\
+                endif\n\
+              endif' "$RD_GRIB2_FILE"
+        # Second patch: Adjust level value for METGRID.TBL
+        sed -i '/Misc near ground\/surface levels/{N;/level=200100\./a\
+              elseif(gfld%ipdtmpl(10).eq.151) then\n\
+                 ! Depth below land surface (ECMWF soil layers)\n\
+                 ! Use scaled depth values for layer matching\n\
+                 glevel1 = gfld%ipdtmpl(12) * \n\
+     \&                    (10.**(-1.*gfld%ipdtmpl(11)))\n\
+                 glevel2 = gfld%ipdtmpl(15) * \n\
+     \&                    (10.**(-1.*gfld%ipdtmpl(14)))\n\
+                 ! Use standard surface level (200100) for METGRID.TBL compatibility\n\
+                 level = 200100.
+}' "$RD_GRIB2_FILE"
+        
+        echo "✅ rd_grib2.F patched successfully for ECMWF soil layers"
+    else
+        echo "⚠️  WARNING: rd_grib2.F not found at $RD_GRIB2_FILE"
+    fi
+
     export jasper=$BASE/libraries/jasper/install
     export JASPERLIB=$BASE/libraries/jasper/install/lib
     export JASPERINC=$BASE/libraries/jasper/install/include
@@ -432,6 +480,35 @@ else
         echo "Consider removing the WPS directory and rerunning the installation script."
         exit 1
     fi
+fi
+
+# Update ECMWF Vtable
+if [ -d "$BASE/WPS" ]; then
+    echo "Updating ECMWF Vtable..."
+    VTABLE_FILE="$BASE/WPS/ungrib/Variable_Tables/Vtable.ECMWF"
+    
+    # Fix SKINTEMP description and GRIB2 parameters
+    sed -i 's/^\( 235 |  1   |   0  |      | SKINTEMP | K        |\) Sea-Surface Temperature\(.*\)|  0  |  3  |     | 101 |/\1 Skin Temperature                         |  0  |  0  | 17  |  1  |/' "$VTABLE_FILE"
+    
+    # Check if level 151 entries already exist
+    if ! grep -q "| 151  |   0  |   1  | ST000007" "$VTABLE_FILE"; then
+        # Add new soil layer entries (level type 151) before the final separator line
+        sed -i '/^-----+------+------+------+----------+----------+------------------------------------------+-----+-----+-----+-----+$/i\
+ 139 | 151  |   0  |   1  | ST000007 | K        | Soil temp layer 0 (ECMWF 0-7cm)           |   2 |   3 |  18 | 151 |\n\
+ 170 | 151  |   1  |   2  | ST007028 | K        | Soil temp layer 1 (ECMWF 7-28cm)          |   2 |   3 |  18 | 151 |\n\
+ 183 | 151  |   2  |   3  | ST028100 | K        | Soil temp layer 2 (ECMWF 28-100cm)        |   2 |   3 |  18 | 151 |\n\
+ 236 | 151  |   3  |   4  | ST100289 | K        | Soil temp layer 3 (ECMWF 100-289cm)       |   2 |   3 |  18 | 151 |\n\
+  39 | 151  |   0  |   1  | SM000007 | m3 m-3   | Soil moisture layer 0 (ECMWF 0-7cm)       |   2 |   0 |  25 | 151 |\n\
+  40 | 151  |   1  |   2  | SM007028 | m3 m-3   | Soil moisture layer 1 (ECMWF 7-28cm)      |   2 |   0 |  25 | 151 |\n\
+  41 | 151  |   2  |   3  | SM028100 | m3 m-3   | Soil moisture layer 2 (ECMWF 28-100cm)    |   2 |   0 |  25 | 151 |\n\
+  42 | 151  |   3  |   4  | SM100289 | m3 m-3   | Soil moisture layer 3 (ECMWF 100-289cm)   |   2 |   0 |  25 | 151 |' \
+            "$VTABLE_FILE"
+        echo "✅ ECMWF Vtable updated successfully (added level 151 soil layers and fixed SKINTEMP)."
+    else
+        echo "✅ ECMWF Vtable already contains level 151 entries. Only SKINTEMP line updated."
+    fi
+else
+    echo "⚠️  WARNING: WPS directory not found. Skipping Vtable update."
 fi
 
 # Install WRFDA

@@ -15,6 +15,17 @@ year=$1;month=$2;day=$3;hour=$4;leadtime=$5
 # Directories and paths
 run_dir="${PROD_DIR}/${year}${month}${day}${hour}"
 
+# Auto-detect vertical/soil levels from met_em files
+MET_EM_FILE=$(ls ${run_dir}/met_em.d01.*.nc 2>/dev/null | head -1)
+[ -z "$MET_EM_FILE" ] && { echo "ERROR: No met_em files in $run_dir"; exit 1; }
+
+echo "Detecting levels from: $(basename $MET_EM_FILE)"
+NUM_METGRID_LEVELS=$(ncdump -h "$MET_EM_FILE" | awk '/BOTTOM-TOP_GRID_DIMENSION/{print $3}' | tr -d ';')
+NUM_METGRID_SOIL_LEVELS=$(ncdump -h "$MET_EM_FILE" | awk '/NUM_METGRID_SOIL_LEVELS/{print $3}' | tr -d ';')
+
+export NUM_METGRID_LEVELS NUM_METGRID_SOIL_LEVELS
+echo "  num_metgrid_levels = $NUM_METGRID_LEVELS, num_metgrid_soil_levels = $NUM_METGRID_SOIL_LEVELS"
+
 # Calculate end date and time
 s_date="$year-$month-$day ${hour}:00:00"
 eyear=$(date -d "$s_date $leadtime hours" "+%Y")
@@ -179,8 +190,8 @@ cat << EOF > namelist.input
  e_sn                       = $(format_array "${E_SN[@]}")
  s_vert                     = 1, 1
  e_vert                     = 45, 45
- num_metgrid_levels         = 34,
- num_metgrid_soil_levels    = 4,
+ num_metgrid_levels         = ${NUM_METGRID_LEVELS:-34},
+ num_metgrid_soil_levels    = ${NUM_METGRID_SOIL_LEVELS:-4},
  dx                         = $(format_array "${DX_VALUES[@]}")
  dy                         = $(format_array "${DY_VALUES[@]}")
  grid_id                    = 1, 2
@@ -193,7 +204,7 @@ cat << EOF > namelist.input
  smooth_option              = 0
  nproc_x                    = $NPROC_X
  nproc_y                    = $NPROC_Y
- smooth_cg_topo             = .true.
+ smooth_cg_topo             = $([ "$BOUNDARY_SOURCE" = "GFS" ] && echo ".true." || echo ".false.")
  /
 
 

@@ -16,9 +16,6 @@ day=$3
 hour=$4
 leadtime=$5
 
-# Set boundary source (can be overridden by command line argument)
-BOUNDARY_SOURCE=${6:-${BOUNDARY_SOURCE:-GFS}}
-
 echo "============================================="
 echo "WPS Configuration"
 echo "============================================="

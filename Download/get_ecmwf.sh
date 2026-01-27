@@ -116,6 +116,21 @@ if [[ ! $RT_HOUR =~ $VALID_HOURS ]]; then
     exit 0
 fi
 
+# Check if data already exists and has been converted
+if [ -f "$INCOMING_TMP/.converted" ]; then
+    log "Data already exists and has been converted for $RT_DATE_HH"
+    log "Marker file: $INCOMING_TMP/.converted"
+    FILE_COUNT=$(ls -1 "$INCOMING_TMP"/*.grib2 2>/dev/null | wc -l)
+    if [ "$FILE_COUNT" -gt 0 ]; then
+        log "Found $FILE_COUNT GRIB2 files already processed"
+        log "Skipping download and conversion"
+        exit 0
+    else
+        log "WARNING: Marker file exists but no GRIB2 files found, will re-download"
+        rm -f "$INCOMING_TMP/.converted"
+    fi
+fi
+
 # Create download directory if not in dry run
 if [ -z "$DRYRUN" ]; then
     mkdir -p "$INCOMING_TMP"
