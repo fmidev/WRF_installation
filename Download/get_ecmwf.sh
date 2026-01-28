@@ -32,45 +32,73 @@ done
 
 # Constants and Variables
 BASE="/home/wrf/WRF_Model"
-LOGFILE="$BASE/logs/ecmwf_$(date -u +%H).log"
+CURRENT_DATE=$(date -u +%Y%m%d)
+CURRENT_HOUR=$(date -u +%H)
+LOGFILE="$BASE/logs/ecmwf_${CURRENT_HOUR}.log"
+
+# Clean up old log files from previous days
+if [ -d "$BASE/logs" ]; then
+    for old_log in "$BASE/logs"/ecmwf_*.log; do
+        [ ! -f "$old_log" ] && continue
+        # Get the file's modification date (YYYYMMDD)
+        FILE_DATE=$(date -r "$old_log" +%Y%m%d 2>/dev/null)
+        # Remove if from a previous day
+        if [ -n "$FILE_DATE" ] && [ "$FILE_DATE" != "$CURRENT_DATE" ]; then
+            rm -f "$old_log"
+        fi
+    done
+fi
+
+# Logging Function
+log() {
+    echo "$(date -u '+%Y-%m-%d %H:%M:%S') $1"
+}
 
 # Function to determine the most recent available ECMWF forecast
-# Ready times (UTC): 00z at 07:55, 06z at 13:15, 12z at 19:55, 18z at 01:15
 get_latest_forecast_time() {
-    local current_time=$(date -u +%s)
-    local current_hour=$(date -u +%H)
-    local current_minute=$(date -u +%M)
     local current_date=$(date -u +%Y%m%d)
+    local yesterday=$(date -u -d 'yesterday' +%Y%m%d)
     
-    # Convert current time to minutes since midnight
-    local current_minutes=$((10#$current_hour * 60 + 10#$current_minute))
+    # List of possible cycles to check (newest first)
+    local cycles=("18" "12" "06" "00")
+    local dates=("$current_date" "$yesterday")
     
-    # Define ready times in minutes since midnight and their corresponding cycle hours
-    # 00z ready at 07:55 (475 minutes)
-    # 06z ready at 13:15 (795 minutes)
-    # 12z ready at 19:55 (1195 minutes)
-    # 18z ready at 01:15 next day (75 minutes)
+    log "Checking for latest available ECMWF forecast..."
     
-    if [ $current_minutes -ge 475 ] && [ $current_minutes -lt 795 ]; then
-        # Between 07:55 and 13:15 - use 00z from today
-        RT_HOUR="00"
-        RT_DATE="$current_date"
-    elif [ $current_minutes -ge 795 ] && [ $current_minutes -lt 1195 ]; then
-        # Between 13:15 and 19:55 - use 06z from today
-        RT_HOUR="06"
-        RT_DATE="$current_date"
-    elif [ $current_minutes -ge 1195 ]; then
-        # After 19:55 - use 12z from today
-        RT_HOUR="12"
-        RT_DATE="$current_date"
-    else
-        # Before 07:55 - use 18z from previous day
-        RT_HOUR="18"
-        RT_DATE=$(date -u -d 'yesterday' +%Y%m%d)
-    fi
-    
-    # Calculate RT timestamp
-    RT=$(date -u +%s -d "${RT_DATE:0:4}-${RT_DATE:4:2}-${RT_DATE:6:2} ${RT_HOUR}:00:00")
+    # Try each date and cycle combination
+    for check_date in "${dates[@]}"; do
+        for check_hour in "${cycles[@]}"; do
+            # Determine MODEL_TYPE based on cycle time
+            local check_type="oper"
+            if [ "$check_hour" = "06" ] || [ "$check_hour" = "18" ]; then
+                check_type="scda"
+            fi
+            
+            # Build test URL for 0-hour file
+            local test_url="https://data.ecmwf.int/forecasts/${check_date}/${check_hour}z/${MODEL_PRODUCER}/${MODEL_VERSION}/${check_type}/${check_date}${check_hour}0000-0h-${check_type}-fc.grib2"
+            
+            # Check if file exists using HTTP HEAD request
+            if command -v curl &> /dev/null; then
+                if curl -f -s -I --max-time 10 "$test_url" >/dev/null 2>&1; then
+                    RT_DATE="$check_date"
+                    RT_HOUR="$check_hour"
+                    MODEL_TYPE="$check_type"
+                    RT=$(date -u +%s -d "${RT_DATE:0:4}-${RT_DATE:4:2}-${RT_DATE:6:2} ${RT_HOUR}:00:00")
+                    log "Found available forecast: ${RT_DATE} ${RT_HOUR}z (${MODEL_TYPE})"
+                    return 0
+                fi
+            elif command -v wget &> /dev/null; then
+                if wget -q --spider --timeout=10 "$test_url" 2>/dev/null; then
+                    RT_DATE="$check_date"
+                    RT_HOUR="$check_hour"
+                    MODEL_TYPE="$check_type"
+                    RT=$(date -u +%s -d "${RT_DATE:0:4}-${RT_DATE:4:2}-${RT_DATE:6:2} ${RT_HOUR}:00:00")
+                    log "Found available forecast: ${RT_DATE} ${RT_HOUR}z (${MODEL_TYPE})"
+                    return 0
+                fi
+            fi
+        done
+    done
 }
 
 # Get the latest available forecast time
@@ -79,19 +107,19 @@ get_latest_forecast_time
 RT_DATE_HH="${RT_DATE}${RT_HOUR}"
 RT_ISO=$(date -u -d@$RT +%Y-%m-%dT%H:%M:%SZ)
 
-# Determine MODEL_TYPE based on cycle time
-# 06/18z use scda (short cut-off), 00/12z use oper (operational)
-if [ "$RT_HOUR" -eq 06 ] || [ "$RT_HOUR" -eq 18 ]; then
-    MODEL_TYPE=scda
-else
-    MODEL_TYPE=oper
-fi
 
 # Set download directory
 INCOMING_TMP="$BASE/ECMWF/$RT_DATE$RT_HOUR"
 
 # Redirect output to log file if not running interactively
-[ "$TERM" = "dumb" ] && exec &> "$LOGFILE"
+if [ "$TERM" = "dumb" ]; then
+    mkdir -p "$BASE/logs"
+    exec &>> "$LOGFILE"
+    echo "" # Add blank line between runs
+    echo "=========================================="
+    echo "New run started: $(date -u '+%Y-%m-%d %H:%M:%S')"
+    echo "=========================================="
+fi
 
 echo "============================================="
 echo "ECMWF Data Download"
@@ -104,11 +132,6 @@ echo "Model Type: $MODEL_TYPE"
 echo "Max Forecast Hour: $MAX_FORECAST_HOUR"
 echo "Download Directory: $INCOMING_TMP"
 echo "============================================="
-
-# Logging Function
-log() {
-    echo "$(date -u +%H:%M:%S) $1"
-}
 
 # Check if download should proceed based on valid hours
 if [[ ! $RT_HOUR =~ $VALID_HOURS ]]; then
