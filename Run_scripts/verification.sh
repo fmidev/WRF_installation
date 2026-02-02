@@ -176,8 +176,169 @@ echo "Created combined GFS file: ${COMBINED_FILE}"
 echo "GFS processing completed."
 
 ##########################################################################
+# Step 1c: Process and concatenate ECMWF files
+##########################################################################
+
+# Function: Convert dewpoint to specific humidity
+convert_dewpoint_to_spfh() {
+    local dpt_file="$1"
+    local pres_file="$2"
+    local output_file="$3"
+    
+    if [ -f "$dpt_file" ] && [ -f "$pres_file" ]; then
+        wgrib2 "$dpt_file" -rpn "sto_1" \
+            -rpn "273.15:-:sto_2" \
+            -rpn "rcl_2:17.67:*:rcl_2:243.5:+:/:exp:6.112:*:100:*:sto_3" \
+            -import_grib "$pres_file" \
+            -rpn "rcl_3:0.622:*:swap:rcl_3:0.378:*:-:/:sto_4" \
+            -rpn "rcl_4" \
+            -set_var "SPFH" -set_lev "2 m above ground" \
+            -grib_out "$output_file"
+    fi
+}
+
+# Function: Process ECMWF 0-hour analysis file (uses WMO names)
+process_ecmwf_analysis() {
+    local ecmwf_file="$1"
+    local grib_temp="$2"
+    local grib_orog="$3"
+    local grib_2d="$4"
+    local grib_sp="$5"
+    local grib_q2m="$6"
+    local grib_tp="$7"
+    
+    echo "Processing 0-hour analysis file with WMO standard names..."
+    # Extract base variables: T2m, U10, V10, surface pressure
+    wgrib2 "$ecmwf_file" -match ':TMP:2 m above ground:anl' -grib "$grib_temp"
+    wgrib2 "$ecmwf_file" -match ':UGRD:10 m above ground:anl' -append -grib "$grib_temp"
+    wgrib2 "$ecmwf_file" -match ':VGRD:10 m above ground:anl' -append -grib "$grib_temp"
+    wgrib2 "$ecmwf_file" -match ':PRES:surface:anl' -append -grib "$grib_temp"
+    
+    # Extract geopotential (GP) at surface and convert to orography
+    wgrib2 "$ecmwf_file" -match ':GP:surface:anl' -rpn "9.80665:/" \
+        -set_var "HGT" -set_lev "surface" \
+        -grib_out "$grib_orog"
+    
+    # Extract dewpoint and pressure for humidity conversion
+    wgrib2 "$ecmwf_file" -match ':DPT:2 m above ground:anl' -grib "$grib_2d"
+    wgrib2 "$ecmwf_file" -match ':PRES:surface:anl' -grib "$grib_sp"
+    
+    # Convert dewpoint to specific humidity
+    convert_dewpoint_to_spfh "$grib_2d" "$grib_sp" "$grib_q2m"
+    
+    # Extract precipitation (tp) - ECMWF local parameter: discipline=0 parmcat=1 parm=193
+    # Note: 0-hour analysis typically has zero precipitation
+    wgrib2 "$ecmwf_file" -match "discipline=0.*parmcat=1 parm=193.*acc" \
+        -grib_out "$grib_tp" 2>/dev/null || true
+}
+
+# Function: Process ECMWF forecast file
+process_ecmwf_forecast() {
+    local ecmwf_file="$1"
+    local grib_temp="$2"
+    local grib_orog="$3"  # Not used
+    local grib_2d="$4"
+    local grib_sp="$5"
+    local grib_q2m="$6"
+    local grib_tp="$7"
+    
+    # Extract base variables: T2m, U10, V10, surface pressure (using instantaneous forecast values)
+    wgrib2 "$ecmwf_file" -match ':TMP:2 m above ground:.*fcst:' -not_if 'max\|min' -grib "$grib_temp"
+    wgrib2 "$ecmwf_file" -match ':UGRD:10 m above ground:.*fcst:' -not_if 'max\|min' -append -grib "$grib_temp"
+    wgrib2 "$ecmwf_file" -match ':VGRD:10 m above ground:.*fcst:' -not_if 'max\|min' -append -grib "$grib_temp"
+    wgrib2 "$ecmwf_file" -match ':PRES:surface:.*fcst:' -not_if 'max\|min' -append -grib "$grib_temp"
+    
+    # Note: Orography is not in forecast files, will be added from 0-hour analysis
+    
+    # Extract dewpoint and pressure for humidity conversion
+    wgrib2 "$ecmwf_file" -match ':DPT:2 m above ground:.*fcst:' -not_if 'max\|min' -grib "$grib_2d"
+    wgrib2 "$ecmwf_file" -match ':PRES:surface:.*fcst:' -not_if 'max\|min' -grib "$grib_sp"
+    
+    # Convert dewpoint to specific humidity
+    convert_dewpoint_to_spfh "$grib_2d" "$grib_sp" "$grib_q2m"
+    
+    # Extract precipitation (tp) and convert to APCP with proper metadata
+    # ECMWF local parameter: discipline=0 parmcat=1 parm=193 (accumulated precipitation)
+    wgrib2 "$ecmwf_file" -match "discipline=0.*parmcat=1 parm=193.*acc" \
+        -grib_out "$grib_tp" 2>/dev/null || true
+}
+
+echo "Processing ECMWF grib2 files..."
+
+ECMWF_DIR="${BASE_DIR}/ECMWF/${CURRENT_DATE}"
+
+# Check if ECMWF data exists
+if [ ! -d "${ECMWF_DIR}" ]; then
+    echo "ECMWF data not found for ${CURRENT_DATE}, skipping ECMWF processing..."
+else
+    echo "Extracting ECMWF variables..."
+    
+    # Static orography file (extracted once from 0-hour analysis)
+    ECMWF_STATIC_OROG="${TEMP_DIR}/ecmwf_static_orog.grb2"
+    
+    for ecmwf_file in ${ECMWF_DIR}/*.grib2; do
+        [ ! -f "$ecmwf_file" ] && continue
+        
+        # Extract forecast hour from filename
+        f_hour=$(basename "$ecmwf_file" | sed -n 's/.*-\([0-9]*\)h-.*/\1/p')
+        f_hour_num=$((10#${f_hour}))
+        
+        [ "${f_hour_num}" -gt "${LEADTIME}" ] && continue  
+        echo "Processing file: $ecmwf_file (forecast hour ${f_hour})..."
+        
+        # Define temporary files
+        grib_output="${TEMP_DIR}/ecmwf_${f_hour}.grb2"
+        grib_temp="${TEMP_DIR}/ecmwf_${f_hour}_temp.grb2"
+        grib_orog="${TEMP_DIR}/ecmwf_${f_hour}_orog.grb2"
+        grib_q2m="${TEMP_DIR}/ecmwf_${f_hour}_q2m.grb2"
+        grib_2d="${TEMP_DIR}/ecmwf_${f_hour}_2d.grb2"
+        grib_sp="${TEMP_DIR}/ecmwf_${f_hour}_sp.grb2"
+        grib_tp="${TEMP_DIR}/ecmwf_${f_hour}_tp.grb2"
+        
+        # Process based on file type (analysis vs forecast)
+        if [ "${f_hour_num}" -eq 0 ]; then
+            process_ecmwf_analysis "$ecmwf_file" "$grib_temp" "$grib_orog" "$grib_2d" "$grib_sp" "$grib_q2m" "$grib_tp"
+            # Save orography from analysis for use in all forecast hours
+            [ -f "$grib_orog" ] && cp "$grib_orog" "$ECMWF_STATIC_OROG"
+        else
+            process_ecmwf_forecast "$ecmwf_file" "$grib_temp" "$grib_orog" "$grib_2d" "$grib_sp" "$grib_q2m" "$grib_tp"
+        fi
+        
+        # Combine all processed variables
+        cat "$grib_temp" > "$grib_output"
+        # Use static orography from analysis (or from current file if it exists)
+        if [ -f "$ECMWF_STATIC_OROG" ]; then
+            cat "$ECMWF_STATIC_OROG" >> "$grib_output"
+        elif [ -f "$grib_orog" ]; then
+            cat "$grib_orog" >> "$grib_output"
+        fi
+        [ -f "$grib_q2m" ] && cat "$grib_q2m" >> "$grib_output"
+        [ -f "$grib_tp" ] && cat "$grib_tp" >> "$grib_output"
+        rm -f "$grib_temp" "$grib_orog" "$grib_q2m" "$grib_2d" "$grib_sp" "$grib_tp"
+        echo "  Processed ECMWF forecast hour ${f_hour}: $grib_output"
+    done
+    
+    echo "Combining ECMWF single-step files into one multi-step GRIB..."
+    ECMWF_GRB_LIST=()
+    for f_hour in $(seq 0 3 ${LEADTIME}); do
+        [ -f "${TEMP_DIR}/ecmwf_${f_hour}.grb2" ] && ECMWF_GRB_LIST+=("${TEMP_DIR}/ecmwf_${f_hour}.grb2")
+    done
+    
+    ECMWF_COMBINED_FILE="${FORECAST_DIR}/ecmwf_${INIT_DATETIME}"
+    
+    if [ ${#ECMWF_GRB_LIST[@]} -gt 0 ]; then
+        grib_copy "${ECMWF_GRB_LIST[@]}" "${ECMWF_COMBINED_FILE}"
+        echo "Created combined ECMWF file: ${ECMWF_COMBINED_FILE}"
+        echo "ECMWF processing completed."
+    else
+        echo "No ECMWF files to combine."
+    fi
+fi
+
+##########################################################################
 # Step 2: Process observations directly to SQLite
 ##########################################################################
+
 echo "Converting observations to SQLite format..."
 
 # Convert CSV observations to SQLite directly using R script
@@ -201,6 +362,14 @@ Rscript ${VERIFICATION_SCRIPTS}/read_forecast_wrf.R ${CURRENT_DATE} d02
 # Process GFS forecasts
 echo "Processing GFS forecasts..."
 Rscript ${VERIFICATION_SCRIPTS}/read_forecast_gfs.R ${CURRENT_DATE}
+
+# Process ECMWF forecasts if available
+if [ -f "${FORECAST_DIR}/ecmwf_${INIT_DATETIME}" ]; then
+    echo "Processing ECMWF forecasts..."
+    Rscript ${VERIFICATION_SCRIPTS}/read_forecast_ecmwf.R ${CURRENT_DATE}
+else
+    echo "ECMWF forecast file not found, skipping ECMWF processing..."
+fi
 
 ##########################################################################
 # Step 4: Perform verification on Wednesday at 12 UTC
@@ -230,8 +399,8 @@ if [ "$DAY_OF_WEEK" = "3" ] && [ "$cycle" = "12" ]; then
     
     # Run verification for various parameters with both weekly and monthly periods
     echo "Performing verification for meteorological parameters..."
-    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${SEVEN_DAYS_AGO} --end_date ${VERIF_START} --subdir weekly #weekly
-    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${THIRTY_DAYS_AGO} --end_date ${VERIF_START} --subdir past_30_days #past 30 days
+    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${SEVEN_DAYS_AGO} --end_date ${VERIF_START} -n "gfs,ecmwf" --subdir weekly #weekly
+    Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${THIRTY_DAYS_AGO} --end_date ${VERIF_START} -n "gfs,ecmwf" --subdir past_30_days #past 30 days
 
     # Seasonal verification: run on the first Wednesday (day 1-7) at 12 UTC when a new season starts
     # New season months: March(3)->MAM, June(6)->JJA, September(9)->SON, December(12)->DJF
@@ -279,7 +448,7 @@ if [ "$DAY_OF_WEEK" = "3" ] && [ "$cycle" = "12" ]; then
         season_end="${s_end_year}${s_end_month}${last_day}23"
 
         echo "Season: ${season_name}, start: ${season_start}, end: ${season_end}"
-        Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${season_start} --end_date ${season_end} --subdir seasonal #seasonal
+        Rscript ${VERIFICATION_SCRIPTS}/verify_parameters.R --start_date ${season_start} --end_date ${season_end} -n "gfs,ecmwf" --subdir seasonal #seasonal
     fi
 
 else
@@ -293,6 +462,7 @@ echo "Cleaning up files..."
 
 rm -rf ${TEMP_DIR}/*
 rm -f ${FORECAST_DIR}/gfs*
+rm -f ${FORECAST_DIR}/ecmwf*
 
 echo "Verification process completed successfully!"
 

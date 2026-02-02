@@ -47,8 +47,7 @@ ln -sf $WRFDA_DIR/var/run/radiance_info ./radiance_info
 ln -sf $WRFDA_DIR/var/run/leapsec.dat .
 ln -sf $CRTM_COEFFS_PATH ./crtm_coeffs
 ln -sf $CRTM_COEFFS_PATH $WRFDA_DIR/var/run/
-ln -sf $DA_DIR/ob/{ob,airs,amsua,atms,gpsro,hirs3,hirs4,iasi,mhs,seviri,ssmis}.bufr $DA_DIR/be/be.dat $WRFDA_DIR/var/da/da_wrfvar.exe .
-
+ln -sf $DA_DIR/ob/wrf_obs/${year}${month}${day}${hour}/{ob,airs,amsua,atms,gpsro,hirs3,hirs4,iasi,mhs,seviri,ssmis}.bufr $DA_DIR/be/be.dat $WRFDA_DIR/var/da/da_wrfvar.exe .
 # ===============================================
 # Step 2: Link VARBC and first guess files
 # ===============================================
@@ -145,7 +144,7 @@ sensor_satids=()
 sensor_ids=()
 
 # Check AMSU-A
-if check_valid_bufr "$DA_DIR/ob/amsua.bufr"; then
+if check_valid_bufr "$DA_DIR/ob/wrf_obs/${year}${month}${day}${hour}/amsua.bufr"; then
     use_amsua=".true."
     # NOAA-15, 16, 18, 19 and METOP-A, B, C AMSU-A
     # Platform 1 = NOAA, Platform 10 = METOP
@@ -158,7 +157,7 @@ else
 fi
 
 # Check MHS
-if check_valid_bufr "$DA_DIR/ob/mhs.bufr"; then
+if check_valid_bufr "$DA_DIR/ob/wrf_obs/${year}${month}${day}${hour}/mhs.bufr"; then
     use_mhs=".true."
     # NOAA-18, 19 and METOP-A, B, C MHS
     # Platform 1 = NOAA, Platform 10 = METOP
@@ -171,7 +170,7 @@ else
 fi
 
 # Check ATMS
-if check_valid_bufr "$DA_DIR/ob/atms.bufr"; then
+if check_valid_bufr "$DA_DIR/ob/wrf_obs/${year}${month}${day}${hour}/atms.bufr"; then
     use_atms=".true."
     # Suomi-NPP (JPSS-0)
     # Platform 17 = NPP/JPSS, satid 0 = JPSS-0/NPP
@@ -184,7 +183,7 @@ else
 fi
 
 # Check IASI
-if check_valid_bufr "$DA_DIR/ob/iasi.bufr"; then
+if check_valid_bufr "$DA_DIR/ob/wrf_obs/${year}${month}${day}${hour}/iasi.bufr"; then
     use_iasi=".true."
     # METOP-B and METOP-A
     # Platform 10 = METOP series
@@ -197,7 +196,7 @@ else
 fi
 
 # Check SSMIS
-if check_valid_bufr "$DA_DIR/ob/ssmis.bufr"; then
+if check_valid_bufr "$DA_DIR/ob/wrf_obs/${year}${month}${day}${hour}/ssmis.bufr"; then
     use_ssmis=".true."
     # DMSP-16
     # Platform 2 = DMSP series
@@ -210,7 +209,7 @@ else
 fi
 
 # Check AIRS
-if check_valid_bufr "$DA_DIR/ob/airs.bufr"; then
+if check_valid_bufr "$DA_DIR/ob/wrf_obs/${year}${month}${day}${hour}/airs.bufr"; then
     use_airs=".true."
     # EOS-Aqua AIRS
     sensor_platforms+=(9)
@@ -222,7 +221,7 @@ else
 fi
 
 # Check HIRS-3
-if check_valid_bufr "$DA_DIR/ob/hirs3.bufr"; then
+if check_valid_bufr "$DA_DIR/ob/wrf_obs/${year}${month}${day}${hour}/hirs3.bufr"; then
     use_hirs3=".true."
     # NOAA-15, 16, 17 HIRS-3
     sensor_platforms+=(1 1 1)
@@ -234,7 +233,7 @@ else
 fi
 
 # Check HIRS-4
-if check_valid_bufr "$DA_DIR/ob/hirs4.bufr"; then
+if check_valid_bufr "$DA_DIR/ob/wrf_obs/${year}${month}${day}${hour}/hirs4.bufr"; then
     use_hirs4=".true."
     # NOAA-18, 19 and METOP-A, B
     # Platform 1 = NOAA, Platform 10 = METOP
@@ -247,7 +246,7 @@ else
 fi
 
 # Check SEVIRI
-if check_valid_bufr "$DA_DIR/ob/seviri.bufr"; then
+if check_valid_bufr "$DA_DIR/ob/wrf_obs/${year}${month}${day}${hour}/seviri.bufr"; then
     use_seviri=".true."
     # MSG-2, MSG-3
     # Platform 12 = MSG (Meteosat Second Generation)
@@ -269,8 +268,8 @@ satid_list=$(IFS=,; echo "${sensor_satids[*]}")
 sensor_list=$(IFS=,; echo "${sensor_ids[*]}")
 
 # Read OB_FORMAT from file (set by get_obs.sh)
-if [ -f "$DA_DIR/ob/ob_format.txt" ]; then
-    OB_FORMAT=$(cat $DA_DIR/ob/ob_format.txt)
+if [ -f "$DA_DIR/ob/wrf_obs/${year}${month}${day}${hour}/ob_format.txt" ]; then
+    OB_FORMAT=$(cat $DA_DIR/ob/wrf_obs/${year}${month}${day}${hour}/ob_format.txt)
     echo "Using OB_FORMAT=${OB_FORMAT}"
 else
     echo "Warning: ob_format.txt not found, defaulting to OB_FORMAT=1 (PREPBUFR)"

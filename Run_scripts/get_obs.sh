@@ -82,7 +82,7 @@ FILES=(
 )
 # Create necessary directories with full path checking
 echo "Creating necessary directories..."
-for dir in "$DA_DIR/ob" "$DA_DIR/ob/raw_obs" "$DA_DIR/ob/obsproc"; do
+for dir in "$DA_DIR/ob" "$DA_DIR/ob/raw_obs" "$DA_DIR/ob/obsproc" "$DA_DIR/ob/wrf_obs" "$DA_DIR/ob/wrf_obs/${YYYY}${MM}${DD}${HH}"; do
     if [ ! -d "$dir" ]; then
         echo "Creating directory: $dir"
         mkdir -p "$dir" || { echo "ERROR: Failed to create directory $dir"; exit 1; }
@@ -93,7 +93,7 @@ done
 mkdir -p "${BASE_DIR}/Verification/Data/Obs" || { echo "ERROR: Failed to create directory ${BASE_DIR}/Verification/Data/Obs"; exit 1; }
 
 # Download the files
-cd "$DA_DIR/ob" || { echo "ERROR: Failed to change to directory $DA_DIR/ob"; exit 1; }
+cd "$DA_DIR/ob/wrf_obs/${YYYY}${MM}${DD}${HH}" || { echo "ERROR: Failed to change to directory $DA_DIR/ob/wrf_obs/${YYYY}${MM}${DD}${HH}"; exit 1; }
 for FILE in "${FILES[@]}"; do
     URL="${BASE_URL}${FILE}"
     echo "Downloading ${FILE}..."
@@ -287,19 +287,19 @@ if [ -f "$LOCAL_OBS_FILE" ]; then
     
     # Check if obsproc output file was created successfully
     if [ -f "obs_gts_${YYYY}-${MM}-${DD}_${HH}:00:00.3DVAR" ]; then
-        mv obs_gts_${YYYY}-${MM}-${DD}_${HH}:00:00.3DVAR $DA_DIR/ob/ob.ascii
+        mv obs_gts_${YYYY}-${MM}-${DD}_${HH}:00:00.3DVAR $DA_DIR/ob/wrf_obs/${YYYY}${MM}${DD}${HH}/ob.ascii
         export OB_FORMAT=2
-        echo "2" > $DA_DIR/ob/ob_format.txt
+        echo "2" > $DA_DIR/ob/wrf_obs/${YYYY}${MM}${DD}${HH}/ob_format.txt
         echo "Successfully processed local observations with obsproc"
     else
         echo "WARNING: obsproc did not generate expected output file"
         echo "Expected file: obs_gts_${YYYY}-${MM}-${DD}_${HH}:00:00.3DVAR"
         export OB_FORMAT=1
-        echo "1" > $DA_DIR/ob/ob_format.txt
+        echo "1" > $DA_DIR/ob/wrf_obs/${YYYY}${MM}${DD}${HH}/ob_format.txt
     fi
 else
     echo "No local observations file found. Using only NCEP observations."
     echo "Local observations file: $LOCAL_OBS_FILE"
     export OB_FORMAT=1
-    echo "1" > $DA_DIR/ob/ob_format.txt
+    echo "1" > $DA_DIR/ob/wrf_obs/${YYYY}${MM}${DD}${HH}/ob_format.txt
 fi

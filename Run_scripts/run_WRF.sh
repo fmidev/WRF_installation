@@ -319,7 +319,7 @@ fi
 # ===============================================
 
 echo "Ready to run WRF.exe"
-cd $run_dir
+cd ${run_dir}
 time mpirun --bind-to none -np ${MAX_CPU} ./wrf.exe
 if [ ! -f "${run_dir}/wrfout_d02_${eyear}-${emonth}-${eday}_${ehour}:00:00" ]; then
   echo "Error: WRF failed, last output file is missing."
