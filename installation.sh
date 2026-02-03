@@ -403,40 +403,40 @@ if [ ! -d "$BASE/WPS" ]; then
     if [ -f "$RD_GRIB2_FILE" ]; then
         # First patch: Add level type 151 handling
         sed -i '/!MGD         if (debug_level .gt. 50) write(6,\*) .my_field is now .,my_field/a\
-\n\
-! Level type 151 - depth below land surface (ECMWF soil layers)\n\
-              if ( gfld%ipdtmpl(10) .eq. 151 ) then\n\
-                glevel1 = gfld%ipdtmpl(12)*\n\
-     \&                    (10.**(-1.*gfld%ipdtmpl(11)))\n\
-                glevel2 = gfld%ipdtmpl(15)*\n\
-     \&                    (10.**(-1.*gfld%ipdtmpl(14)))\n\
-                TMP9LOOP: do j = 1, maxvar\n\
-                  if ((g2code(4,j) .eq. 151) .and.\n\
-     \&               (gfld%ipdtmpl(2) .eq. g2code(3,j)) .and.\n\
-     \&               (glevel1 .eq. level1(j)) .and.\n\
-     \&               ((glevel2 .eq. level2(j)) .or.\n\
-     \&                                   (level2(j) .le. -88))) then\n\
-                    my_field = namvar(j)\n\
-                    exit TMP9LOOP\n\
-                  endif\n\
-                enddo TMP9LOOP\n\
-                if (j .gt. maxvar ) then\n\
-                  write(6,'\''(a,i6,a,i6,a)'\'') '\''Soil level '\'',\n\
-     \&               gfld%ipdtmpl(12), '\''-'\'', gfld%ipdtmpl(15),\n\
-     \&           '\'' in the GRIB2 file, was not found in the Vtable'\''\n\
-                  cycle MATCH_LOOP\n\
-                endif\n\
+\
+! Level type 151 - depth below land surface (ECMWF soil layers)\
+              if ( gfld%ipdtmpl(10) .eq. 151 ) then\
+                glevel1 = gfld%ipdtmpl(12)*\
+     \&                    (10.**(-1.*gfld%ipdtmpl(11)))\
+                glevel2 = gfld%ipdtmpl(15)*\
+     \&                    (10.**(-1.*gfld%ipdtmpl(14)))\
+                TMP9LOOP: do j = 1, maxvar\
+                  if ((g2code(4,j) .eq. 151) .and.\
+     \&               (gfld%ipdtmpl(2) .eq. g2code(3,j)) .and.\
+     \&               (glevel1 .eq. level1(j)) .and.\
+     \&               ((glevel2 .eq. level2(j)) .or.\
+     \&                                   (level2(j) .le. -88))) then\
+                    my_field = namvar(j)\
+                    exit TMP9LOOP\
+                  endif\
+                enddo TMP9LOOP\
+                if (j .gt. maxvar ) then\
+                  write(6,'\''(a,i6,a,i6,a)'\'') '\''Soil level '\'',\
+     \&               gfld%ipdtmpl(12), '\''-'\'', gfld%ipdtmpl(15),\
+     \&           '\'' in the GRIB2 file, was not found in the Vtable'\''\
+                  cycle MATCH_LOOP\
+                endif\
               endif' "$RD_GRIB2_FILE"
         # Second patch: Adjust level value for METGRID.TBL
         sed -i '/Misc near ground\/surface levels/{N;/level=200100\./a\
-              elseif(gfld%ipdtmpl(10).eq.151) then\n\
-                 ! Depth below land surface (ECMWF soil layers)\n\
-                 ! Use scaled depth values for layer matching\n\
-                 glevel1 = gfld%ipdtmpl(12) * \n\
-     \&                    (10.**(-1.*gfld%ipdtmpl(11)))\n\
-                 glevel2 = gfld%ipdtmpl(15) * \n\
-     \&                    (10.**(-1.*gfld%ipdtmpl(14)))\n\
-                 ! Use standard surface level (200100) for METGRID.TBL compatibility\n\
+              elseif(gfld%ipdtmpl(10).eq.151) then\
+                 ! Depth below land surface (ECMWF soil layers)\
+                 ! Use scaled depth values for layer matching\
+                 glevel1 = gfld%ipdtmpl(12) * \
+     \&                    (10.**(-1.*gfld%ipdtmpl(11)))\
+                 glevel2 = gfld%ipdtmpl(15) * \
+     \&                    (10.**(-1.*gfld%ipdtmpl(14)))\
+                 ! Use standard surface level (200100) for METGRID.TBL compatibility\
                  level = 200100.
 }' "$RD_GRIB2_FILE"
         
@@ -494,13 +494,13 @@ if [ -d "$BASE/WPS" ]; then
     if ! grep -q "| 151  |   0  |   1  | ST000007" "$VTABLE_FILE"; then
         # Add new soil layer entries (level type 151) before the final separator line
         sed -i '/^-----+------+------+------+----------+----------+------------------------------------------+-----+-----+-----+-----+$/i\
- 139 | 151  |   0  |   1  | ST000007 | K        | Soil temp layer 0 (ECMWF 0-7cm)           |   2 |   3 |  18 | 151 |\n\
- 170 | 151  |   1  |   2  | ST007028 | K        | Soil temp layer 1 (ECMWF 7-28cm)          |   2 |   3 |  18 | 151 |\n\
- 183 | 151  |   2  |   3  | ST028100 | K        | Soil temp layer 2 (ECMWF 28-100cm)        |   2 |   3 |  18 | 151 |\n\
- 236 | 151  |   3  |   4  | ST100289 | K        | Soil temp layer 3 (ECMWF 100-289cm)       |   2 |   3 |  18 | 151 |\n\
-  39 | 151  |   0  |   1  | SM000007 | m3 m-3   | Soil moisture layer 0 (ECMWF 0-7cm)       |   2 |   0 |  25 | 151 |\n\
-  40 | 151  |   1  |   2  | SM007028 | m3 m-3   | Soil moisture layer 1 (ECMWF 7-28cm)      |   2 |   0 |  25 | 151 |\n\
-  41 | 151  |   2  |   3  | SM028100 | m3 m-3   | Soil moisture layer 2 (ECMWF 28-100cm)    |   2 |   0 |  25 | 151 |\n\
+ 139 | 151  |   0  |   1  | ST000007 | K        | Soil temp layer 0 (ECMWF 0-7cm)           |   2 |   3 |  18 | 151 |\
+ 170 | 151  |   1  |   2  | ST007028 | K        | Soil temp layer 1 (ECMWF 7-28cm)          |   2 |   3 |  18 | 151 |\
+ 183 | 151  |   2  |   3  | ST028100 | K        | Soil temp layer 2 (ECMWF 28-100cm)        |   2 |   3 |  18 | 151 |\
+ 236 | 151  |   3  |   4  | ST100289 | K        | Soil temp layer 3 (ECMWF 100-289cm)       |   2 |   3 |  18 | 151 |\
+  39 | 151  |   0  |   1  | SM000007 | m3 m-3   | Soil moisture layer 0 (ECMWF 0-7cm)       |   2 |   0 |  25 | 151 |\
+  40 | 151  |   1  |   2  | SM007028 | m3 m-3   | Soil moisture layer 1 (ECMWF 7-28cm)      |   2 |   0 |  25 | 151 |\
+  41 | 151  |   2  |   3  | SM028100 | m3 m-3   | Soil moisture layer 2 (ECMWF 28-100cm)    |   2 |   0 |  25 | 151 |\
   42 | 151  |   3  |   4  | SM100289 | m3 m-3   | Soil moisture layer 3 (ECMWF 100-289cm)   |   2 |   0 |  25 | 151 |' \
             "$VTABLE_FILE"
         echo "✅ ECMWF Vtable updated successfully (added level 151 soil layers and fixed SKINTEMP)."
