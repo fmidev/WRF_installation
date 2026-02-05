@@ -120,8 +120,26 @@ calc_q_from_rh <- function(rh, t, p) {
 interpolate_to_hourly <- function(fcst_data, model_name = "unknown") {
   if (is.null(fcst_data) || !is.data.frame(fcst_data) || nrow(fcst_data) == 0) return(fcst_data)
   
+  # Check if lead_time column exists
+  if (!"lead_time" %in% names(fcst_data)) {
+    cat("  - Warning:", model_name, "has no lead_time column, skipping interpolation\n")
+    return(fcst_data)
+  }
+  
+  # Convert lead_time to numeric if it's character (e.g., "3h" -> 3)
+  if (is.character(fcst_data$lead_time)) {
+    fcst_data$lead_time <- as.numeric(gsub("h$", "", fcst_data$lead_time))
+  }
+  
   lead_times <- sort(unique(fcst_data$lead_time))
   if (length(lead_times) < 2) return(fcst_data)
+  
+  # Ensure lead_times are numeric
+  if (!is.numeric(lead_times)) {
+    cat("  - Warning:", model_name, "has non-numeric lead_time values, skipping interpolation\n")
+    return(fcst_data)
+  }
+  
   timestep <- median(diff(lead_times))
   if (timestep == 1) return(fcst_data)
   
@@ -175,12 +193,19 @@ read_forecasts <- function(start_date, end_date, hourly_models, multihourly_mode
     
     for (model in hourly_models) {
       cat("  - Reading", model, "(hourly)\n")
-      fcst_list[[model]] <- read_point_forecast(
+      fcst_data <- read_point_forecast(
         dttm = seq_dttm(start_date, end_date, fcst_freq), fcst_model = model, fcst_type = "det",
         parameter = param, file_path = fcst_dir,
         file_template = paste0("{fcst_model}/{YYYY}/{MM}/FCTABLE_", param, "_{YYYY}{MM}_{HH}.sqlite"),
         lead_time = seq(0, leadtime_max, 1)
       )
+      # Convert lead_time to numeric if it's character (e.g., "3h" -> 3)
+      if (!is.null(fcst_data) && is.data.frame(fcst_data) && "lead_time" %in% names(fcst_data)) {
+        if (is.character(fcst_data$lead_time)) {
+          fcst_data$lead_time <- as.numeric(gsub("h$", "", fcst_data$lead_time))
+        }
+      }
+      fcst_list[[model]] <- fcst_data
     }
     
     for (model in multihourly_models) {
