@@ -6,6 +6,10 @@
 # Date: November 2024
 # ===============================================
 
+# User configurable: Set to true to allow running with poor CPU efficiency
+ALLOW_POOR_CPU_EFFICIENCY=false
+MIN_CPU_EFFICIENCY=90  # Minimum required CPU efficiency (%)
+
 #Load environment
 source /home/wrf/WRF_Model/scripts/env.sh
 
@@ -65,64 +69,78 @@ DY_VALUES+=($inner_dy)
 
 
 # ===============================================
-# Dynamic CPU decomposition calculation
+# CPU decomposition using domain check script
 # ===============================================
-# Goal: Find optimal nproc_x and nproc_y such that:
-# 1. nproc_x * nproc_y <= MAX_CPU
-# 2. Each tile has at least 10 grid points per direction (WRF minimum patch size)
+echo "=========================================="
+echo "Calculating optimal CPU decomposition..."
+echo "=========================================="
 
-calculate_nproc() {
-    local grid_x_d01=$1 grid_y_d01=$2 grid_x_d02=$3 grid_y_d02=$4 max_cpu=$5
-    local min_tile=10
-    
-    # Calculate maximum processors (most restrictive domain constraint)
-    local max_nx=$(( (grid_x_d01/min_tile < grid_x_d02/min_tile ? grid_x_d01/min_tile : grid_x_d02/min_tile) ))
-    local max_ny=$(( (grid_y_d01/min_tile < grid_y_d02/min_tile ? grid_y_d01/min_tile : grid_y_d02/min_tile) ))
-    [[ $max_nx -lt 1 ]] && max_nx=1
-    [[ $max_ny -lt 1 ]] && max_ny=1
-    
-    local best_nx=1 best_ny=1 best_score=999999
-    
-    # Find best decomposition maximizing CPU usage while maintaining aspect ratio
-    for nx in $(seq 1 $max_nx); do
-        for ny in $(seq 1 $max_ny); do
-            local total=$((nx * ny))
-            [[ $total -gt $max_cpu ]] && continue
-            
-            # Verify both domains meet minimum tile size
-            [[ $((grid_x_d01/nx)) -lt $min_tile || $((grid_y_d01/ny)) -lt $min_tile || \
-               $((grid_x_d02/nx)) -lt $min_tile || $((grid_y_d02/ny)) -lt $min_tile ]] && continue
-            
-            # Score: aspect ratio diff + CPU underutilization penalty
-            local score=$(echo "scale=4; sqrt((($grid_x_d02/$nx)/($grid_y_d02/$ny) - $grid_x_d02/$grid_y_d02)^2) + (1 - $total/$max_cpu)" | bc)
-            
-            [[ $(echo "$score < $best_score" | bc) -eq 1 ]] && { best_score=$score; best_nx=$nx; best_ny=$ny; }
-        done
-    done
-    
-    echo "$best_nx $best_ny"
-}
+# Run the domain check script in quiet mode to get nproc values
+CPU_CHECK_SCRIPT="${MAIN_DIR}/check_cpu_usage.sh"
 
-# Get domain dimensions
-GRID_X_D01=${E_WE[0]}
-GRID_Y_D01=${E_SN[0]}
-GRID_X_D02=${E_WE[1]}
-GRID_Y_D02=${E_SN[1]}
+if [ ! -f "$CPU_CHECK_SCRIPT" ]; then
+    echo "ERROR: check_cpu_usage.sh not found at $CPU_CHECK_SCRIPT"
+    exit 1
+fi
 
-# Calculate optimal decomposition considering both domains
-read NPROC_X NPROC_Y <<< $(calculate_nproc $GRID_X_D01 $GRID_Y_D01 $GRID_X_D02 $GRID_Y_D02 $MAX_CPU)
+# Get nproc_x, nproc_y, and efficiency from the check script
+read NPROC_X NPROC_Y CPU_EFFICIENCY <<< $(bash "$CPU_CHECK_SCRIPT" -c $MAX_CPU -f "$DOMAIN_FILE" -q)
+
+if [[ -z "$NPROC_X" || -z "$NPROC_Y" || -z "$CPU_EFFICIENCY" ]]; then
+    echo "ERROR: Failed to calculate CPU decomposition"
+    echo "Run manually: bash $CPU_CHECK_SCRIPT -c $MAX_CPU -f $DOMAIN_FILE"
+    exit 1
+fi
 
 # Calculate optimal CPUs to use
 OPTIMAL_CPUS=$((NPROC_X * NPROC_Y))
 
+echo ""
 echo "Domain Configuration:"
 echo "  Domain 1: ${E_WE[0]} x ${E_SN[0]} grid points"
-echo "  Domain 2: ${E_WE[1]} x ${E_SN[1]} grid points"
+if [ ${#E_WE[@]} -gt 1 ]; then
+    echo "  Domain 2: ${E_WE[1]} x ${E_SN[1]} grid points"
+fi
+echo ""
 echo "MPI Decomposition:"
 echo "  nproc_x = $NPROC_X, nproc_y = $NPROC_Y"
 echo "  Total CPUs = $OPTIMAL_CPUS (max available: $MAX_CPU)"
-echo "  D01 tile size: ~$((GRID_X_D01 / NPROC_X)) x $((GRID_Y_D01 / NPROC_Y)) points"
-echo "  D02 tile size: ~$((GRID_X_D02 / NPROC_X)) x $((GRID_Y_D02 / NPROC_Y)) points"
+echo "  CPU Efficiency = ${CPU_EFFICIENCY}%"
+echo "  D01 tile size: ~$((E_WE[0] / NPROC_X)) x $((E_SN[0] / NPROC_Y)) points"
+if [ ${#E_WE[@]} -gt 1 ]; then
+    echo "  D02 tile size: ~$((E_WE[1] / NPROC_X)) x $((E_SN[1] / NPROC_Y)) points"
+fi
+echo ""
+
+# Check CPU efficiency and stop if too low (unless override flag is set)
+if (( $(echo "$CPU_EFFICIENCY < $MIN_CPU_EFFICIENCY" | bc -l) )); then
+    echo "=========================================="
+    echo "WARNING: Low CPU Efficiency!"
+    echo "=========================================="
+    echo "Current efficiency: ${CPU_EFFICIENCY}%"
+    echo "Required minimum: ${MIN_CPU_EFFICIENCY}%"
+    echo ""
+    
+    if [ "$ALLOW_POOR_CPU_EFFICIENCY" = false ]; then
+        echo "ERROR: CPU efficiency is below threshold."
+        echo ""
+        echo "To see domain suggestions, run:"
+        echo "  bash $CPU_CHECK_SCRIPT -c $MAX_CPU -f $DOMAIN_FILE"
+        echo ""
+        echo "To override this check and run anyway, set:"
+        echo "  ALLOW_POOR_CPU_EFFICIENCY=true"
+        echo "at the top of this script."
+        echo ""
+        exit 1
+    else
+        echo "WARNING: Proceeding with poor CPU efficiency due to ALLOW_POOR_CPU_EFFICIENCY=true"
+        echo ""
+        sleep 3
+    fi
+fi
+
+echo "CPU decomposition validated. Proceeding with WRF setup..."
+echo ""
 
 # Check initial and boundary conditions
 cd ${run_dir}
@@ -300,8 +318,8 @@ EOF
 # Step 1: Run `real.exe` for initialization
 # ===============================================
 
-echo "Running real.exe..."
-time mpirun --bind-to none -np $((MAX_CPU < 10 ? MAX_CPU : 10)) ${run_dir}/real.exe
+echo "Running real.exe with ${OPTIMAL_CPUS} processes..."
+time mpirun --bind-to none -np ${OPTIMAL_CPUS} ${run_dir}/real.exe
 echo "Real.exe completed."
 
 # ===============================================
@@ -320,7 +338,7 @@ fi
 
 echo "Ready to run WRF.exe"
 cd ${run_dir}
-time mpirun --bind-to none -np ${MAX_CPU} ./wrf.exe
+time mpirun --bind-to none -np ${OPTIMAL_CPUS} ./wrf.exe
 if [ ! -f "${run_dir}/wrfout_d02_${eyear}-${emonth}-${eday}_${ehour}:00:00" ]; then
   echo "Error: WRF failed, last output file is missing."
 else

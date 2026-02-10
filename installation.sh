@@ -965,7 +965,7 @@ sed -i "s|^export COUNTRY=.*|export COUNTRY=\"$COUNTRY\"|" "$BASE/scripts/env.sh
 
 # Update all production script paths to source the configured env.sh
 echo "Updating script paths in production scripts..."
-for script in control_run_WRF.sh run_WRF.sh execute_upp.sh run_WRFDA.sh clean_wrf.sh get_obs.sh verification.sh; do
+for script in control_run_WRF.sh run_WPS.sh run_WRF.sh execute_upp.sh run_WRFDA.sh clean_wrf.sh get_obs.sh verification.sh; do
     if [ -f "$BASE/scripts/$script" ]; then
         sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/$script"
     fi

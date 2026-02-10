@@ -80,6 +80,46 @@ Some settings like `max_dom` (number of domains) and `interval_seconds` (boundar
 
 **Note for Mercator Projection Users**: If you're using Mercator projection (`map_proj = 'mercator'`) with data assimilation and local observations, set `TRUELAT1 = 0` in both your domain settings and `namelist.obsproc`. Other values will cause errors in obsproc.
 
+### CPU Efficiency Validation
+
+The workflow includes automatic validation of CPU decomposition to prevent inefficient resource usage. WRF divides the computational domain into tiles for parallel processing, and the decomposition must satisfy specific constraints. Poor domain sizing can result in severely underutilized CPU resources.
+
+**Understanding the Issue**
+
+WRF requires that:
+- (e_we - 1) is evenly divisible by nproc_x
+- (e_sn - 1) is evenly divisible by nproc_y
+- For nested domains: (e_we - 1) and (e_sn - 1) must be divisible by parent_grid_ratio
+- All domains must use the same nproc_x and nproc_y values
+
+If your domain dimensions don't have sufficient factors, WRF may only be able to use a single CPU despite having dozens available. For example, a domain of 270×290 grid points (where 269 is prime) might force serial execution, making a forecast much slower.
+
+**Checking Domain Configuration**
+
+Before running WRF, validate your domain setup:
+
+```bash
+cd $BASE/scripts
+./check_cpu_usage.sh -c 59 -f domain.txt
+```
+
+Replace `59` with your actual CPU count. The script analyzes your domain configuration and reports:
+- Available CPU decomposition options (valid nproc_x and nproc_y values)
+- Optimal decomposition for maximum CPU utilization
+- CPU efficiency percentage
+- Tile sizes per processor
+
+**Automatic check**
+
+The `run_WRF.sh` script automatically validates CPU efficiency before starting a forecast. If efficiency falls below 90%, the run will stop with an error message and suggestions for improvement.
+
+To override this check (not recommended):
+```bash
+# In run_WRF.sh, modify:
+ALLOW_POOR_CPU_EFFICIENCY=false  # Change to true
+MIN_CPU_EFFICIENCY=90            # Adjust threshold if needed
+```
+
 ## Operational Workflow
 
 ### Configuring Your Workflow
