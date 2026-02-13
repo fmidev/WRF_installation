@@ -20,7 +20,7 @@ ui <- page_fluid(
           "btn_harpvis",
           "Open harpVis",
           class = "btn-primary btn-lg w-100",
-          onclick = "window.open('harpvis/', '_blank')"
+          onclick = "window.open('/harpvis/', '_blank')"
         )
       )
     ),
@@ -34,7 +34,7 @@ ui <- page_fluid(
           "btn_wrfviz",
           "Open WRF Visualization",
           class = "btn-success btn-lg w-100",
-          onclick = "window.open('wrf-viz/', '_blank')"
+          onclick = "window.open('/wrf-viz/', '_blank')"
         )
       )
     )

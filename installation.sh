@@ -837,11 +837,50 @@ EOF
     
     # Deploy Landing Page App
     echo "Deploying WRF Portal landing page..."
-    LANDING_APP_DIR="/srv/shiny-server"
-    sudo cp "$GIT_REPO/Shiny/landing_app.R" "$LANDING_APP_DIR/index.R"
-    sudo chown shiny:shiny "$LANDING_APP_DIR/index.R"
+    LANDING_APP_DIR="/srv/shiny-server/landing"
+    sudo mkdir -p "$LANDING_APP_DIR"
+    sudo cp "$GIT_REPO/Shiny/landing_app.R" "$LANDING_APP_DIR/app.R"
+    sudo chown -R shiny:shiny "$LANDING_APP_DIR"
     sudo chmod -R 755 "$LANDING_APP_DIR"
     echo "Landing page deployed successfully."
+    
+    # Configure Shiny Server
+    echo "Configuring Shiny Server..."
+    sudo cat > /tmp/shiny-server.conf << 'SHINY_CONF'
+# Instruct Shiny Server to run applications as the user "shiny"
+run_as shiny;
+
+# Define a server that listens on port 3838
+server {
+  listen 3838;
+
+  # Define a location at the base URL
+  location / {
+    site_dir /srv/shiny-server;
+    log_dir /var/log/shiny-server;
+    directory_index on;
+  }
+}
+SHINY_CONF
+    sudo mv /tmp/shiny-server.conf /etc/shiny-server/shiny-server.conf
+    
+    # Create index.html redirect to landing page
+    sudo cat > /srv/shiny-server/index.html << 'INDEX_HTML'
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="refresh" content="0; url=/landing/" />
+    <title>Redirecting...</title>
+</head>
+<body>
+    <p>Redirecting to <a href="/landing/">WRF Tools</a>...</p>
+</body>
+</html>
+INDEX_HTML
+    sudo chown shiny:shiny /srv/shiny-server/index.html
+    
+    # Remove old conflicting files if they exist
+    sudo rm -f /srv/shiny-server/index.R
 
     # Final Shiny server restart to load all apps
     echo "Restarting Shiny server with all applications..."
@@ -982,8 +1021,6 @@ TEST_MAX_CPU=$((TEST_CPU_END - TEST_CPU_START + 1))
 
 # Common sed substitutions for test scripts
 COMMON_SUBS='-e "s|^# Author:.*|# Author: Mikael Hasu|" -e "s|^# Date:.*|# Date: November 2025|" -e "s|source .*/env.sh|source $TEST_BASE/scripts/env_test.sh|"'
-# Update CPU_SUBS to replace MAX_CPU references
-CPU_SUBS='-e "s|mpirun -np \$((MAX_CPU|mpirun -np \${TEST_MAX_CPU}|g" -e "s|mpirun -np \${MAX_CPU}|mpirun -np \${TEST_MAX_CPU}|g"'
 
 # Create env_test.sh with GEN_BE configuration
 sed -e "s|^# ===============================================|# ===============================================\n# WRF_test Environment Configuration\n# Runs: 00 and 12 UTC (twice daily) - Configured for GEN_BE B matrix creation\n# Author: Mikael Hasu\n# Date: November 2025\n# ===============================================\n\n# Base directories\n#|" \
@@ -992,7 +1029,7 @@ sed -e "s|^# ===============================================|# =================
     -e "s|^export DA_DIR=.*|export DA_DIR=\$TEST_BASE_DIR/DA_input|" \
     -e "s|^export MAIN_DIR=.*|export MAIN_DIR=\$TEST_BASE_DIR/scripts|" \
     -e "s|^export PROD_DIR=.*|export PROD_DIR=\$TEST_BASE_DIR/out|" \
-    -e "s|^export MAX_CPU=.*|export TEST_MAX_CPU=$TEST_MAX_CPU  # CPU allocation for test runs|" \
+    -e "s|^export MAX_CPU=.*|export MAX_CPU=$TEST_MAX_CPU  # CPU allocation for test runs|" \
     -e "s|^export RUN_UPP=.*|export RUN_UPP=false  # No post-processing needed for testing|" \
     -e "s|^export RUN_COPY_GRIB=.*|export RUN_COPY_GRIB=false  # No SmartMet copying for test runs|" \
     -e "s|^export RUN_WRFDA=.*|export RUN_WRFDA=false  # Data assimilation OFF for GEN_BE|" \
@@ -1025,7 +1062,6 @@ eval sed $COMMON_SUBS \
     -e '"s|\${BASE_DIR}/logs/historical|\${TEST_BASE_DIR}/logs/historical|g"' \
     -e '"/^hour=\$1/a\\\n\\\n# Validate input\\\nif [[ \"\$hour\" != \"00\" \&\& \"\$hour\" != \"12\" ]]; then\\\n    echo \"Error: WRF_test runs only at 00 and 12 UTC\"\\\n    echo \"Usage: \$0 <hour>\"\\\n    echo \"Example: \$0 00\"\\\n    exit 1\\\nfi"' \
     -e '"s|WRF Run started|WRF_test Run started|"' \
-    -e '"/WRF_test Run started/a\\\necho \"Note: This is a TEST run using \${TEST_MAX_CPU} CPUs\" >> \${TEST_BASE_DIR}/logs/main.log"' \
     -e '"s|./run_WPS.sh|./run_WPS_test.sh|"' \
     -e '"s|./run_WRF.sh|./run_WRF_test.sh|"' \
     -e '"s|./run_WRFDA.sh|./run_WRFDA_test.sh|"' \
@@ -1049,14 +1085,14 @@ fi
 GENBE_APPEND
 
 # Create run_WPS_test.sh
-eval sed $COMMON_SUBS $CPU_SUBS \
+eval sed $COMMON_SUBS \
     -e '"s|WRF Preprocessing|WRF_test Preprocessing|"' \
     -e '"s|WRF_test run directory created|WRF_test run directory created (testing configuration)|"' \
     -e '"s|DOMAIN_FILE=\"\${MAIN_DIR}/domain.txt\"|DOMAIN_FILE=\"$BASE/scripts/domain.txt\"|"' \
     $BASE/scripts/run_WPS.sh '>' $TEST_BASE/scripts/run_WPS_test.sh
 
 # Create run_WRF_test.sh
-eval sed $COMMON_SUBS $CPU_SUBS \
+eval sed $COMMON_SUBS \
     -e '"s|WRF Model Automation Script|WRF_test Model Script|"' \
     -e '"s|^# ===============================================$|# Purpose: Test new features and configurations\n# ===============================================|"' \
     -e '"s|./run_WRFDA.sh|./run_WRFDA_test.sh|"' \
@@ -1066,7 +1102,7 @@ eval sed $COMMON_SUBS $CPU_SUBS \
     $BASE/scripts/run_WRF.sh '>' $TEST_BASE/scripts/run_WRF_test.sh
 
 # Create run_WRFDA_test.sh
-eval sed $COMMON_SUBS $CPU_SUBS \
+eval sed $COMMON_SUBS \
     -e '"s|WRF Data Assimilation|WRF_test Data Assimilation|"' \
     -e '"s|^# ===============================================$|# Purpose: Test DA modifications and new observation types\n# ===============================================|"' \
     -e '"s|Starting WRF Data|Starting WRF_test Data|"' \
@@ -1229,4 +1265,3 @@ seconds=$((runtime % 60))
 
 echo "Installation finished at $(date)"
 echo "🕒 WRF Installation completed in ${hours}h ${minutes}m ${seconds}s"
-
