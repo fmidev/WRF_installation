@@ -219,7 +219,8 @@ cat << EOF > namelist.input
  parent_grid_ratio          = $(format_array "${PARENT_GRID_RATIO[@]}")
  parent_time_step_ratio     = 1, 3
  feedback                   = 1
- smooth_option              = 0
+ smooth_option              = 2
+ hypsometric_opt            = 2
  nproc_x                    = $NPROC_X
  nproc_y                    = $NPROC_Y
  smooth_cg_topo             = $([ "$BOUNDARY_SOURCE" = "GFS" ] && echo ".true." || echo ".false.")
@@ -240,7 +241,8 @@ cat << EOF > namelist.input
  isftcflx                   = 0,
  ra_lw_physics              = 4,     4,
  ra_sw_physics              = 4,     4,
- radt                       = 10,    10,
+ radt                       = 9,     9,
+ cu_rad_feedback            = .true.,.true.,
  sf_sfclay_physics          = 1,     1,
  sf_surface_physics         = 2,     2,
  bl_pbl_physics             = 1,     1,
@@ -268,7 +270,7 @@ cat << EOF > namelist.input
 
 &dynamics
  hybrid_opt                 = 2,
- etac                       = 0.1,
+ etac                       = 0.2,
  w_damping                  = 1,
  diff_opt                   = 2,      2,
  km_opt                     = 4,      4,

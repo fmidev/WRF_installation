@@ -287,8 +287,8 @@ read maxyear maxmonth maxday maxhour maxmin maxsec <<< $(echo $ob_window_max | t
 # Generate WRFDA namelist
 cat << EOF > namelist.input
 &wrfvar1
- var4d                = false,
- print_detail_grad    = false,
+ var4d                = .false.,
+ print_detail_grad    = .false.,
 /
  &wrfvar2
 /
@@ -311,13 +311,13 @@ cat << EOF > namelist.input
  use_airsobs          = ${use_airs}
 /
 &wrfvar5
- put_rand_seed        = true,
+ put_rand_seed        = .true.,
 /
 &wrfvar6
  max_ext_its          = 1,
  ntmax                = 200,
  eps                  = 0.01,
- orthonorm_gradient   = true,
+ orthonorm_gradient   = .true.,
 /
 &wrfvar7
  cv_options           = 3,
@@ -327,10 +327,11 @@ cat << EOF > namelist.input
 &wrfvar9
 /
 &wrfvar10
- test_transforms      = false,
- test_gradient        = false,
+ test_transforms      = .false.,
+ test_gradient        = .false.,
 /
 &wrfvar11
+ sfc_assi_options     = 2,
 /
 &wrfvar12
 /
@@ -341,18 +342,18 @@ cat << EOF > namelist.input
  rtminit_platform     = ${platform_list},
  rtminit_satid        = ${satid_list},
  rtminit_sensor       = ${sensor_list},
- qc_rad               = true,
- write_iv_rad_ascii   = false,
- write_oa_rad_ascii   = true,
+ qc_rad               = .true.,
+ write_iv_rad_ascii   = .true.,
+ write_oa_rad_ascii   = .true.,
  rtm_option           = 2,
- only_sea_rad         = false,
- use_varbc            = true,
- use_crtm_kmatrix     = true,
+ only_sea_rad         = .false.,
+ use_varbc            = .true.,
+ use_crtm_kmatrix     = .true.,
  crtm_coef_path       = "${BASE_DIR}/CRTM_coef/crtm_coeffs_2.3.0",
  crtm_irland_coef     = 'IGBP.IRland.EmisCoeff.bin',
- thinning_mesh        = 60.0,
- thinning             = true,
- airs_warmest_fov     = true,
+ thinning_mesh        = 30.0,
+ thinning             = .true.,
+ airs_warmest_fov     = .true.,
 /
 &wrfvar15
 /
@@ -412,7 +413,8 @@ grid_fdda                  = 0
  isftcflx                   = 0,
  ra_lw_physics              = 4,   
  ra_sw_physics              = 4,  
- radt                       = 10,
+ radt                       = 9,
+ cu_rad_feedback            = .true.,
  sf_sfclay_physics          = 1,
  sf_surface_physics         = 2,
  bl_pbl_physics             = 1,
@@ -500,6 +502,10 @@ echo "Lateral boundary conditions updated."
 # Step 7: Link DA output files for WRF run
 # ===============================================
 echo "Linking DA output files to run directory..."
-ln -sf $WORK_DIR_DA/wrfvar_output $run_dir/wrfinput_d01
-ln -sf $WORK_DIR_DA/wrfbdy_d01 $run_dir/wrfbdy_d01
-echo "WRFDA cycle completed successfully."
+if [ -f "$WORK_DIR_DA/wrfvar_output" ]; then
+  ln -sf $WORK_DIR_DA/wrfvar_output $run_dir/wrfinput_d01
+  ln -sf $WORK_DIR_DA/wrfbdy_d01 $run_dir/wrfbdy_d01
+  echo "WRFDA cycle completed successfully."
+else
+  echo "Error: wrfvar_output file not found. WRFDA may have failed."
+fi

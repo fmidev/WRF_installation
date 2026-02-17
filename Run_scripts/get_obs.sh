@@ -94,24 +94,42 @@ mkdir -p "${BASE_DIR}/Verification/Data/Obs" || { echo "ERROR: Failed to create 
 
 # Download the files
 cd "$DA_DIR/ob/wrf_obs/${YYYY}${MM}${DD}${HH}" || { echo "ERROR: Failed to change to directory $DA_DIR/ob/wrf_obs/${YYYY}${MM}${DD}${HH}"; exit 1; }
+
+# Define file mapping (download name -> final name)
+declare -A FILE_MAP=(
+    ["gdas.t${HH}z.1bamua.tm00.bufr_d"]="amsua.bufr"
+    ["gdas.t${HH}z.eshrs3.tm00.bufr_d"]="hirs3.bufr"
+    ["gdas.t${HH}z.1bhrs4.tm00.bufr_d"]="hirs4.bufr"
+    ["gdas.t${HH}z.1bmhs.tm00.bufr_d"]="mhs.bufr"
+    ["gdas.t${HH}z.airsev.tm00.bufr_d"]="airs.bufr"
+    ["gdas.t${HH}z.atms.tm00.bufr_d"]="atms.bufr"
+    ["gdas.t${HH}z.mtiasi.tm00.bufr_d"]="iasi.bufr"
+    ["gdas.t${HH}z.sevasr.tm00.bufr_d"]="seviri.bufr"
+    ["gdas.t${HH}z.ssmisu.tm00.bufr_d"]="ssmis.bufr"
+    ["gdas.t${HH}z.gpsro.tm00.bufr_d.nr"]="gpsro.bufr"
+    ["gdas.t${HH}z.prepbufr.nr"]="ob.bufr"
+)
+
 for FILE in "${FILES[@]}"; do
-    URL="${BASE_URL}${FILE}"
-    echo "Downloading ${FILE}..."
-    curl -O "${URL}"
+    FINAL_NAME="${FILE_MAP[$FILE]}"
+    
+    # Check if the final file already exists
+    if [ -f "$FINAL_NAME" ]; then
+        echo "File $FINAL_NAME already exists, skipping download of ${FILE}"
+    else
+        URL="${BASE_URL}${FILE}"
+        echo "Downloading ${FILE}..."
+        curl -O "${URL}"
+        
+        # Rename if download was successful
+        if [ -f "$FILE" ]; then
+            mv "$FILE" "$FINAL_NAME"
+            echo "Renamed $FILE to $FINAL_NAME"
+        else
+            echo "WARNING: Failed to download ${FILE}"
+        fi
+    fi
 done
-
-mv gdas.t${HH}z.1bamua.tm00.bufr_d amsua.bufr
-mv gdas.t${HH}z.eshrs3.tm00.bufr_d hirs3.bufr
-mv gdas.t${HH}z.1bhrs4.tm00.bufr_d hirs4.bufr
-mv gdas.t${HH}z.1bmhs.tm00.bufr_d mhs.bufr
-mv gdas.t${HH}z.airsev.tm00.bufr_d airs.bufr
-mv gdas.t${HH}z.atms.tm00.bufr_d atms.bufr
-mv gdas.t${HH}z.mtiasi.tm00.bufr_d iasi.bufr
-mv gdas.t${HH}z.sevasr.tm00.bufr_d seviri.bufr
-mv gdas.t${HH}z.ssmisu.tm00.bufr_d ssmis.bufr
-mv gdas.t${HH}z.gpsro.tm00.bufr_d.nr gpsro.bufr
-mv gdas.t${HH}z.prepbufr.nr ob.bufr
-
 
 # Make sure obserr.txt exists
 cd "$DA_DIR/ob/obsproc" || { echo "ERROR: Failed to change to directory $DA_DIR/ob/obsproc"; exit 1; }
