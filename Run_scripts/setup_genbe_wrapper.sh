@@ -32,7 +32,9 @@ if [ $FC_COUNT -lt 30 ]; then
 fi
 
 # Get the first and last dates from available forecasts
-START_DATE=$(find ${GENBE_FC_DIR} -type d -name "20*" | sort | head -1 | xargs basename)
+FIRST_DATE=$(find ${GENBE_FC_DIR} -type d -name "20*" | sort | head -1 | xargs basename)
+# Add 24 hours to FIRST_DATE (assumes yyyymmddhh format)
+START_DATE=$(date -u -d "${FIRST_DATE:0:4}-${FIRST_DATE:4:2}-${FIRST_DATE:6:2} ${FIRST_DATE:8:2}:00:00 UTC + 1 day" +%Y%m%d%H)
 END_DATE=$(find ${GENBE_FC_DIR} -type d -name "20*" | sort | tail -1 | xargs basename)
 
 if [ -z "$START_DATE" ] || [ -z "$END_DATE" ]; then
@@ -84,6 +86,7 @@ sed -i "s|^export FCST_RANGE2=.*|export FCST_RANGE2=${GENBE_FCST_RANGE1}|" gen_b
 sed -i "s|^export INTERVAL=.*|export INTERVAL=12|" gen_be_wrapper.ksh
 sed -i "s|^export STRIDE=.*|export STRIDE=1|" gen_be_wrapper.ksh
 sed -i "s|^export USE_RFi=.*|export USE_RFi=true|" gen_be_wrapper.ksh
+sed -i "1i source ${SCRIPT_DIR}/env_test.sh" gen_be_wrapper.ksh
 
 # Make the script executable
 chmod +x gen_be_wrapper.ksh

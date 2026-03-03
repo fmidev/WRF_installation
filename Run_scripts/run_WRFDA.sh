@@ -501,10 +501,11 @@ echo "Lateral boundary conditions updated."
 # ===============================================
 # Step 7: Link DA output files for WRF run
 # ===============================================
-echo "Linking DA output files to run directory..."
+echo "Linking DA output files to run directory and saving VARBC..."
 if [ -f "$WORK_DIR_DA/wrfvar_output" ]; then
   ln -sf $WORK_DIR_DA/wrfvar_output $run_dir/wrfinput_d01
   ln -sf $WORK_DIR_DA/wrfbdy_d01 $run_dir/wrfbdy_d01
+  cp $WORK_DIR_DA/VARBC.out $DA_DIR/varbc/ 
   echo "WRFDA cycle completed successfully."
 else
   echo "Error: wrfvar_output file not found. WRFDA may have failed."

@@ -348,18 +348,14 @@ else
 fi
 
 # ===============================================
-# Step 4: Copy files for next cycle (with DA only)
+# Step 4: Copy files for next cycle
 # ===============================================
-if $RUN_WRFDA; then
-  echo "Copying fg and VARBC files"
-  #First guess files
-  fg_date=$(date -d "$s_date $INTERVAL hours" "+%Y-%m-%d %H:%M:%S")
-  read fgyear fgmonth fgday fghour fgmin fgsec <<< $(echo $fg_date | tr '-' ' ' | tr ':' ' ')
-  cp "$run_dir/wrfout_d01_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00" "$DA_DIR/rc/" || true
-  cp "$run_dir/wrfout_d02_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00" "$DA_DIR/rc/" || true
-  #VARBC file
-  cp "$run_dir/da_wrk/VARBC.out" "$DA_DIR/varbc/" || true
-fi
+echo "Copying fg files"
+#First guess files
+fg_date=$(date -d "$s_date $INTERVAL hours" "+%Y-%m-%d %H:%M:%S")
+read fgyear fgmonth fgday fghour fgmin fgsec <<< $(echo $fg_date | tr '-' ' ' | tr ':' ' ')
+cp $run_dir/wrfout_d01_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00 $DA_DIR/rc/ || :
+cp $run_dir/wrfout_d02_${fgyear}-${fgmonth}-${fgday}_${fghour}:00:00 $DA_DIR/rc/ || :
 
 echo "Cycle ${year}${month}${day}${hour} WRF run finished"
 
