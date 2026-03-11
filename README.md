@@ -60,7 +60,7 @@ The installation takes a few hours, so grab a coffee and let it run.
 
 ## Setting Up Your Domain
 
-Use the [WRF Domain Wizard](https://wrfdomainwizard.net/) to design your model area:
+Use the [WRF Domain Wizard](https://jiririchter.github.io/WRFDomainWizard/) to design your model area:
 
 1. Click "New" and draw your outer domain
 2. Click "Add Nest" to add inner domains with higher resolution
