@@ -8,7 +8,7 @@ export WPS_VERSION="4.6.0"
 export UPP_VERSION="dtc_post_v4.1.0"
 
 # Libraries
-export ZLIB_VERSION="1.3.1"
+export ZLIB_VERSION="1.3.2"
 export OPENMPI_VERSION="5.0.3"
 export SZIP_VERSION="2.1.1"
 export HDF5_VERSION="1.14.4-3"
@@ -302,7 +302,7 @@ install_library() {
 }
 
 # Install libraries
-install_library "https://zlib.net/zlib-${ZLIB_VERSION}.tar.gz" "zlib-${ZLIB_VERSION}" "zlib" "" 
+install_library "https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz" "zlib-${ZLIB_VERSION}" "zlib" "" 
 install_library "https://download.open-mpi.org/release/open-mpi/v${OPENMPI_VERSION%.*}/openmpi-${OPENMPI_VERSION}.tar.gz" "openmpi-${OPENMPI_VERSION}" "openmpi" "--with-zlib=$BASE/libraries/zlib/install" 
 export PATH=$PATH:$BASE/libraries/openmpi/install/bin
 install_library "https://support.hdfgroup.org/ftp/lib-external/szip/${SZIP_VERSION}/src/szip-${SZIP_VERSION}.tar.gz" "szip-${SZIP_VERSION}" "szip" "" 
