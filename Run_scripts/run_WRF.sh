@@ -218,8 +218,8 @@ cat << EOF > namelist.input
  j_parent_start             = $(format_array "${J_PARENT_START[@]}")
  parent_grid_ratio          = $(format_array "${PARENT_GRID_RATIO[@]}")
  parent_time_step_ratio     = 1, 3
- feedback                   = 1
- smooth_option              = 2
+ feedback                   = 0
+ smooth_option              = 0
  hypsometric_opt            = 2
  nproc_x                    = $NPROC_X
  nproc_y                    = $NPROC_Y
