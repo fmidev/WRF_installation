@@ -33,6 +33,57 @@ date >> ${BASE_DIR}/logs/main.log
 # Initialize variables for checking boundary files
 files_found=false
 
+is_valid_grib_file() {
+  local file_path="$1"
+
+  # Must exist and be non-empty.
+  if [ ! -s "$file_path" ]; then
+    return 1
+  fi
+
+  # Prefer a real GRIB decode check when tools are available.
+  if command -v wgrib2 >/dev/null 2>&1; then
+    wgrib2 "$file_path" -s >/dev/null 2>&1
+    return $?
+  fi
+
+  if command -v grib_ls >/dev/null 2>&1; then
+    grib_ls "$file_path" >/dev/null 2>&1
+    return $?
+  fi
+
+  return 0
+}
+
+wait_for_ecmwf_conversion() {
+  local boundary_dir="$1"
+  local conversion_wait_seconds=1800
+  local conversion_check_interval=120
+  local waited_seconds=0
+
+  if [ -f "${boundary_dir}/.converted" ]; then
+    echo "All required ECMWF boundary files are present and valid up to +${LEADTIME}h. Conversion complete." >> ${BASE_DIR}/logs/main.log
+    return 0
+  fi
+
+  echo "All required ECMWF boundary files are present and valid up to +${LEADTIME}h, but conversion marker is missing." >> ${BASE_DIR}/logs/main.log
+  echo "Waiting up to 30 minutes for ${boundary_dir}/.converted (check interval: 2 minutes)." >> ${BASE_DIR}/logs/main.log
+
+  while [ $waited_seconds -lt $conversion_wait_seconds ]; do
+    if [ -f "${boundary_dir}/.converted" ]; then
+      echo "ECMWF conversion marker detected. Continuing execution." >> ${BASE_DIR}/logs/main.log
+      return 0
+    fi
+
+    remaining_minutes=$(( (conversion_wait_seconds - waited_seconds) / 60 ))
+    echo "ECMWF conversion marker not found yet. Retrying in ${conversion_check_interval}s (remaining time: ${remaining_minutes} min)." >> ${BASE_DIR}/logs/main.log
+    sleep $conversion_check_interval
+    waited_seconds=$((waited_seconds + conversion_check_interval))
+  done
+
+  echo "ERROR: ECMWF conversion marker ${boundary_dir}/.converted not found within 30 minutes. Terminating the run." >> ${BASE_DIR}/logs/main.log
+  return 1
+}
 
 # ===============================================
 # Step 1: Check boundary files
@@ -43,41 +94,66 @@ if [ "$RUN_CHECK_BOUNDARY_FILES" = true ]; then
   echo "   Boundary source: ${BOUNDARY_SOURCE:-GFS}" >> ${BASE_DIR}/logs/main.log
 
   for ((i=1; i<=20; i++)); do
+    missing_files=""
+    invalid_files=""
+
     # Check boundary files based on source
     if [ "${BOUNDARY_SOURCE}" = "ECMWF" ]; then
-      # Check ECMWF files
-      file_count=$(find "${DATA_DIR_ECMWF}/$year$month$day$hour" -maxdepth 1 -type f -name "*.grib2" 2>/dev/null | wc -l)
-      
-      # Check if conversion is complete for ECMWF files
-      if [ -f "${DATA_DIR_ECMWF}/$year$month$day$hour/.converted" ]; then
-        conversion_done=true
+      boundary_dir="${DATA_DIR_ECMWF}/$year$month$day$hour"
+
+      for ((fh=0; fh<=LEADTIME; fh+=3)); do
+        expected_pattern="${boundary_dir}/${year}${month}${day}${hour}0000-${fh}h-*-fc.grib2"
+        matched_file=$(compgen -G "$expected_pattern" | head -n1)
+
+        if [ -z "$matched_file" ]; then
+          missing_files+=" f${fh}"
+        elif ! is_valid_grib_file "$matched_file"; then
+          invalid_files+=" ${matched_file}"
+        fi
+      done
+
+      if [ -z "$missing_files" ] && [ -z "$invalid_files" ]; then
+        if wait_for_ecmwf_conversion "$boundary_dir"; then
+          files_found=true
+          break
+        else
+          exit 1
+        fi
       else
-        conversion_done=false
-      fi
-      
-      if [ "$file_count" -ge "$GRIBNUM" ] && [ "$conversion_done" = true ]; then
-        echo "Sufficient ECMWF GRIB files found ($file_count) and conversion complete. Continuing execution." >> ${BASE_DIR}/logs/main.log
-        files_found=true
-        break
-      elif [ "$file_count" -ge "$GRIBNUM" ] && [ "$conversion_done" = false ]; then
-        echo "ECMWF files found but conversion not complete. Waiting..." >> ${BASE_DIR}/logs/main.log
-        sleep 300
-      else
-        echo "Waiting for ECMWF files... (found $file_count, need $GRIBNUM)" >> ${BASE_DIR}/logs/main.log
+        if [ -n "$missing_files" ]; then
+          echo "Waiting for ECMWF files. Missing forecast hours:${missing_files}" >> ${BASE_DIR}/logs/main.log
+        fi
+        if [ -n "$invalid_files" ]; then
+          echo "Waiting for ECMWF files. Invalid/corrupted files:${invalid_files}" >> ${BASE_DIR}/logs/main.log
+        fi
         sleep 300
       fi
     else
       # Check GFS files (default)
-      file_count=$(find "${DATA_DIR_GFS:-$DATA_DIR}/$year$month$day$hour" -maxdepth 1 -type f -name "gfs.t${hour}z.pgrb2.0p25.f*" 2>/dev/null | wc -l)
-      
-      if [ "$file_count" -ge "$GRIBNUM" ]; then
-        # Files are sufficient, proceed
-        echo "Sufficient GFS GRIB files found ($file_count). Continuing execution." >> ${BASE_DIR}/logs/main.log
+      boundary_dir="${DATA_DIR_GFS:-$DATA_DIR}/$year$month$day$hour"
+
+      for ((fh=0; fh<=LEADTIME; fh+=3)); do
+        fhr=$(printf "%03d" "$fh")
+        expected_file="${boundary_dir}/gfs.t${hour}z.pgrb2.0p25.f${fhr}"
+
+        if [ ! -f "$expected_file" ]; then
+          missing_files+=" f${fhr}"
+        elif ! is_valid_grib_file "$expected_file"; then
+          invalid_files+=" ${expected_file}"
+        fi
+      done
+
+      if [ -z "$missing_files" ] && [ -z "$invalid_files" ]; then
+        echo "All required GFS boundary files are present and valid up to +${LEADTIME}h." >> ${BASE_DIR}/logs/main.log
         files_found=true
         break
       else
-        echo "Waiting for GFS files... (found $file_count, need $GRIBNUM)" >> ${BASE_DIR}/logs/main.log
-        # Wait for 5 minutes before retrying
+        if [ -n "$missing_files" ]; then
+          echo "Waiting for GFS files. Missing forecast hours:${missing_files}" >> ${BASE_DIR}/logs/main.log
+        fi
+        if [ -n "$invalid_files" ]; then
+          echo "Waiting for GFS files. Invalid/corrupted files:${invalid_files}" >> ${BASE_DIR}/logs/main.log
+        fi
         sleep 300
       fi
     fi
@@ -85,7 +161,7 @@ if [ "$RUN_CHECK_BOUNDARY_FILES" = true ]; then
 
   # Exit if the required files are not found after retries
   if [ "$files_found" = false ]; then
-    echo "Maximum retries exceeded. Not enough boundary files. Terminating the run!" >> ${BASE_DIR}/logs/main.log
+    echo "Maximum retries exceeded. Required boundary files are still missing or invalid. Terminating the run!" >> ${BASE_DIR}/logs/main.log
     echo "   $(date +"%H:%M %Y%m%d")" >> ${BASE_DIR}/logs/main.log
     exit 1
   fi

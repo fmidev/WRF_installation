@@ -1159,17 +1159,17 @@ fi
 echo "System time zone offset from UTC: ${tz_sign}${tz_hours}:${tz_minutes} (${offset_hours} hours)"
 
 # Adjust each crontab time entry
-# Original crontab entries are for UTC times: 6:15, 12:15, 18:15, 0:15
+
 adjust_crontab_time() {
     local original_hour=$1
     local adjusted_hour=$(( (original_hour + offset_hours + 24) % 24 ))
     echo $adjusted_hour
 }
 
-time_00=$(adjust_crontab_time 6)
-time_06=$(adjust_crontab_time 12)
-time_12=$(adjust_crontab_time 18)
-time_18=$(adjust_crontab_time 00)
+time_00=$(adjust_crontab_time 5)
+time_06=$(adjust_crontab_time 11)
+time_12=$(adjust_crontab_time 17)
+time_18=$(adjust_crontab_time 23)
 
 echo "Adjusted crontab job start times, cycle 00: $time_00:00, cycle 06: $time_06:00, cycle 12: $time_12:00, cycle 18: $time_18:00"
 
@@ -1182,8 +1182,9 @@ sed -i "s|#30 17 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 12 > /h
 sed -i "s|#30 23 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 18 > /home/wrf/WRF_Model/logs/runlog_18.log|#0 $time_18 \* \* \* $BASE/scripts/control_run_WRF.sh 18 > $BASE/logs/runlog_18.log|" "$BASE/scripts/crontab_template"
 
 # Calculate WRF_test crontab times (runs at 00 and 12 UTC only)
-time_test_00=$(adjust_crontab_time 6)
-time_test_12=$(adjust_crontab_time 18) 
+time_test_00=$(adjust_crontab_time 5)
+time_test_12=$(adjust_crontab_time 17)
+
 sed -i "s|#0 6 \* \* \* /home/wrf/WRF_test/scripts/control_run_WRF_test.sh 00|#0 $time_test_00 \* \* \* $TEST_BASE/scripts/control_run_WRF_test.sh 00|" "$BASE/scripts/crontab_template"
 sed -i "s|#0 18 \* \* \* /home/wrf/WRF_test/scripts/control_run_WRF_test.sh 12|#0 $time_test_12 \* \* \* $TEST_BASE/scripts/control_run_WRF_test.sh 12|" "$BASE/scripts/crontab_template"
 sed -i "s|/home/wrf/WRF_test/logs/runlog_00.log|$TEST_BASE/logs/runlog_00.log|" "$BASE/scripts/crontab_template"

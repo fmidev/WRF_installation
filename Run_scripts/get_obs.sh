@@ -93,7 +93,27 @@ done
 mkdir -p "${BASE_DIR}/Verification/Data/Obs" || { echo "ERROR: Failed to create directory ${BASE_DIR}/Verification/Data/Obs"; exit 1; }
 
 # Download the files
+RETRY_DELAY=120  # 2 minutes between retries
+DEADLINE=$(( $(date +%s) + 7200 ))  # 2 hours from now
+
 cd "$DA_DIR/ob/wrf_obs/${YYYY}${MM}${DD}${HH}" || { echo "ERROR: Failed to change to directory $DA_DIR/ob/wrf_obs/${YYYY}${MM}${DD}${HH}"; exit 1; }
+for FILE in "${FILES[@]}"; do
+    URL="${BASE_URL}${FILE}"
+    echo "Downloading ${FILE}..."
+    while true; do
+        HTTP_CODE=$(curl -s -w "%{http_code}" -o "${FILE}" "${URL}")
+        if [ "${HTTP_CODE}" = "200" ]; then
+            echo "  Downloaded ${FILE} successfully (HTTP 200, $(stat -c%s "${FILE}") bytes)"
+            break
+        elif [ $(date +%s) -ge $DEADLINE ]; then
+            echo "  Warning: 2-hour deadline reached. Skipping ${FILE} (last HTTP code: ${HTTP_CODE})"
+            break
+        else
+            echo "  HTTP ${HTTP_CODE} for ${FILE} - data not yet available. Retrying in ${RETRY_DELAY}s... (deadline in $(( (DEADLINE - $(date +%s)) / 60 )) min)"
+            sleep $RETRY_DELAY
+        fi
+    done
+done
 
 # Define file mapping (download name -> final name)
 declare -A FILE_MAP=(

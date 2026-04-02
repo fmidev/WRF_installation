@@ -31,7 +31,6 @@ export COUNTRY="" # Country for country-specific observation processing scripts
 
 # Boundary conditions source: GFS or ECMWF
 export BOUNDARY_SOURCE="GFS"  # Options: GFS, ECMWF
-export GRIBNUM=25 # Number of GRIB files needed (GFS: 25 for 72h at 3h intervals, ECMWF: 25 for 72h at 3h intervals)
 
 ulimit -s unlimited
 
