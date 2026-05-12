@@ -17,7 +17,7 @@ fi
 : "${MODEL_PRODUCER:=ifs}"
 : "${MODEL_VERSION:=0p25}"
 : "${VALID_HOURS:=00|06|12|18}"
-: "${MAX_FORECAST_HOUR:=72}"
+: "${MAX_FORECAST_HOUR:=12}"
 
 # Parse command-line options
 while getopts "dp:v:h:f:" flag; do
@@ -251,11 +251,19 @@ if [ $DOWNLOAD_SUCCESS -gt 0 ]; then
                         temp_file="${grib_file}.tmp"
                         
                         # Convert without verbose output for speed
-                        if wgrib2 "$grib_file" -set_grib_type simple -grib_out "$temp_file" >/dev/null 2>&1; then
-                            mv "$temp_file" "$grib_file"
+                        if wgrib2 "$grib_file" -set_grib_type simple -grib_out res1.grb2 >/dev/null 2>&1; then
+                            # Relabel soil levels
+                            wgrib2 res1.grb2 \
+                                -if ":soil level 0 - soil level 1" -set_lev "0-0.07 m below ground" \
+                                -elseif ":soil level 1 - soil level 2" -set_lev "0.07-0.28 m below ground" \
+                                -elseif ":soil level 2 - soil level 3" -set_lev "0.28-1 m below ground" \
+                                -elseif ":soil level 3 - soil level 4" -set_lev "1-2.89 m below ground" \
+                                -endif -grib res.grb2
+                            mv res.grb2 "$grib_file"
+                            rm -f res1.grb2
                             CONVERTED=$((CONVERTED + 1))
                         else
-                            rm -f "$temp_file"
+                            rm -f res1.grb2 res.grb2
                             FAILED=$((FAILED + 1))
                         fi
                     done
