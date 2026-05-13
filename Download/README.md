@@ -12,7 +12,7 @@ ECMWF open data is published in **GRIB2 format**. The download script retrieves 
 
 ## 1. Patch WPS for ECMWF Compatibility
 
-Stock WPS does not support ECMWF GRIB2 soil layers (level type 151) or the correct SKINTEMP GRIB2 encoding. Two changes are required before running WPS with ECMWF data. **Apply these patches once after compiling WPS.**
+Stock WPS does not support ECMWF GRIB2 soil layers (level type 151) or the correct SKINTEMP GRIB2 encoding. Two changes are required before running WPS with ECMWF data. **Apply these patches once before first use of WPS with ECMWF data.**
 
 ### a) Patch `ungrib/src/rd_grib2.F`
 
