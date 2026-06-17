@@ -30,4 +30,6 @@ if [ -d "$TEST_BASE_DIR" ]; then
     find $TEST_BASE_DIR/DA_input -type f -ctime +2 | xargs -r rm
     find $TEST_BASE_DIR/out -type f -ctime +2 -o -type l -ctime +2 | xargs -r rm
     find $TEST_BASE_DIR/out -mindepth 1 -type d -empty -delete
+    find $TEST_BASE_DIR/genbe_forecasts -type f -ctime +365 | xargs -r rm
+    find $TEST_BASE_DIR/genbe_forecasts -mindepth 1 -type d -empty -delete
 fi
