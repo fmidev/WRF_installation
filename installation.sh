@@ -1425,10 +1425,6 @@ echo "
 ===============================================================================
 "
 
-# Clean up sudo rights
-sudo rm -f /etc/sudoers.d/temp_wrf_install
-
-
 # Calculate and display total runtime
 end_time=$(date +%s)
 runtime=$((end_time - start_time))
