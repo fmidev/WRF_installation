@@ -807,11 +807,32 @@ EOF
 
     # --- CONTINUE WITH SHINY APP DEPLOYMENT AND CONFIGURATION ---
     echo "Setting up Shiny user environment and permissions..."
-    sudo echo "R_LIBS_USER=/home/$USER/R/library/" | sudo tee -a /home/shiny/.Renviron
+
+    # Add shiny to the user's group so it can traverse home and read data dirs
+    # (home dirs are drwxr-x--- owned by $USER:$USER, so group membership is needed)
+    sudo usermod -aG "$USER" shiny
+    echo "Added shiny to group '$USER'"
+
+    # R library path for the shiny user
+    # Use a temp file to avoid the "sudo echo | tee" pitfall
+    echo "R_LIBS_USER=/home/$USER/R/library/" | sudo tee /home/shiny/.Renviron > /dev/null
     sudo chown shiny:shiny /home/shiny/.Renviron
+    sudo chmod 600 /home/shiny/.Renviron
+
+    # Grant shiny read+execute on the R library tree
     sudo setfacl -m u:shiny:rx /home/$USER
     sudo setfacl -R -m u:shiny:rx /home/$USER/R
-    
+
+    # Grant shiny read access to all verification data directories
+    sudo setfacl -m  u:shiny:rx $BASE/Verification
+    sudo setfacl -R -m u:shiny:rx $BASE/Verification
+
+    # Ensure new files created inside Verification are also readable by shiny
+    sudo setfacl -m  d:u:shiny:rx $BASE/Verification
+    sudo setfacl -Rm d:u:shiny:rx $BASE/Verification
+
+    echo "Shiny user permissions configured."
+
     # Deploy harpVis Shiny app
     echo "Deploying harpVis Shiny app..."
     HARPVIS_APP_DIR="/srv/shiny-server/harpvis"
@@ -846,7 +867,7 @@ EOF
     
     # Configure Shiny Server
     echo "Configuring Shiny Server..."
-    sudo cat > /tmp/shiny-server.conf << 'SHINY_CONF'
+    cat > /tmp/shiny-server.conf << 'SHINY_CONF'
 # Instruct Shiny Server to run applications as the user "shiny"
 run_as shiny;
 

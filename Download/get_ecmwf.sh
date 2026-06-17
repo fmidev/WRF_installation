@@ -49,9 +49,48 @@ if [ -d "$BASE/logs" ]; then
     done
 fi
 
+# Lock file to prevent concurrent downloads
+LOCKFILE="$BASE/logs/ecmwf_download.lock"
+MAX_LOCK_AGE_MINUTES=120  # Treat lock as stale after 2 hours
+
 # Logging Function
 log() {
     echo "$(date -u '+%Y-%m-%d %H:%M:%S') $1"
+}
+
+# Release lock on exit
+release_lock() {
+    if [ -f "$LOCKFILE" ] && [ "$(cat "$LOCKFILE" 2>/dev/null)" = "$$" ]; then
+        rm -f "$LOCKFILE"
+        log "Lock released (PID $$)"
+    fi
+}
+
+# Acquire lock, exiting if another download is already in progress
+acquire_lock() {
+    mkdir -p "$BASE/logs"
+    if [ -f "$LOCKFILE" ]; then
+        LOCK_PID=$(cat "$LOCKFILE" 2>/dev/null)
+        LOCK_AGE=$(( ( $(date -u +%s) - $(date -r "$LOCKFILE" +%s 2>/dev/null || echo 0) ) / 60 ))
+
+        if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
+            # Process is still alive
+            if [ "$LOCK_AGE" -ge "$MAX_LOCK_AGE_MINUTES" ]; then
+                log "WARNING: Download appears stuck (running for ${LOCK_AGE} min, PID $LOCK_PID). Removing stale lock."
+                rm -f "$LOCKFILE"
+            else
+                log "Download already in progress (PID $LOCK_PID, running for ${LOCK_AGE} min). Exiting."
+                exit 0
+            fi
+        else
+            log "Removing stale lock file (PID ${LOCK_PID:-unknown} no longer running)."
+            rm -f "$LOCKFILE"
+        fi
+    fi
+
+    echo $$ > "$LOCKFILE"
+    trap release_lock EXIT
+    log "Lock acquired (PID $$)"
 }
 
 # Function to determine the most recent available ECMWF forecast
@@ -153,6 +192,9 @@ if [ -f "$INCOMING_TMP/.converted" ]; then
         rm -f "$INCOMING_TMP/.converted"
     fi
 fi
+
+# Acquire lock to prevent concurrent downloads
+acquire_lock
 
 # Create download directory if not in dry run
 if [ -z "$DRYRUN" ]; then

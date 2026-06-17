@@ -119,7 +119,7 @@ calc_q_from_rh <- function(rh, t, p) {
 # Interpolate 3-hourly data to hourly
 interpolate_to_hourly <- function(fcst_data, model_name = "unknown") {
   if (is.null(fcst_data) || !is.data.frame(fcst_data) || nrow(fcst_data) == 0) return(fcst_data)
-  
+    
   # Check if lead_time column exists
   if (!"lead_time" %in% names(fcst_data)) {
     cat("  - Warning:", model_name, "has no lead_time column, skipping interpolation\n")
@@ -133,7 +133,7 @@ interpolate_to_hourly <- function(fcst_data, model_name = "unknown") {
   
   lead_times <- sort(unique(fcst_data$lead_time))
   if (length(lead_times) < 2) return(fcst_data)
-  
+    
   # Ensure lead_times are numeric
   if (!is.numeric(lead_times)) {
     cat("  - Warning:", model_name, "has non-numeric lead_time values, skipping interpolation\n")
@@ -328,6 +328,92 @@ verify_pcp_period <- function(fcst_list, obs_1h, hours, output_dir) {
   return(FALSE)
 }
 
+# Verify total precipitation accumulated over the full forecast period
+# (sum of all 1-hour increments per SID + fcst_dttm) vs summed observations
+verify_pcp_total <- function(fcst_1h_list, obs_1h, output_dir) {
+  param_name <- "AccPcpTotal"
+  cat("  - Verifying total forecast period accumulation...\n")
+
+  # Sum all hourly increments per (SID, fcst_dttm) for each model
+  total_fcst_list <- lapply(names(fcst_1h_list), function(model) {
+    df <- fcst_1h_list[[model]]
+    if (is.null(df) || nrow(df) == 0) return(NULL)
+    df |>
+      group_by(SID, fcst_dttm) |>
+      summarise(
+        fcst       = sum(fcst, na.rm = TRUE),
+        lead_time  = max(lead_time),
+        valid_dttm = max(valid_dttm),
+        parameter  = param_name,
+        units      = "mm",
+        .groups    = "drop"
+      ) |>
+      as.data.frame()
+  })
+  names(total_fcst_list) <- names(fcst_1h_list)
+  total_fcst_list <- total_fcst_list[!sapply(total_fcst_list, is.null)]
+  if (length(total_fcst_list) == 0) return(FALSE)
+
+  # Determine the valid_dttm window for each (SID, fcst_dttm) across all models
+  fcst_windows <- bind_rows(lapply(fcst_1h_list, function(df) {
+    if (is.null(df) || nrow(df) == 0) return(NULL)
+    df |>
+      group_by(SID, fcst_dttm) |>
+      summarise(min_vdttm = min(valid_dttm), max_vdttm = max(valid_dttm), .groups = "drop")
+  })) |>
+    group_by(SID, fcst_dttm) |>
+    summarise(min_vdttm = min(min_vdttm), max_vdttm = max(max_vdttm), .groups = "drop") |>
+    as.data.frame()
+
+  # Sum observed AccPcp1h within each forecast window per SID
+  obs_total <- obs_1h |>
+    inner_join(fcst_windows, by = "SID") |>
+    filter(valid_dttm >= min_vdttm & valid_dttm <= max_vdttm) |>
+    group_by(SID, fcst_dttm) |>
+    summarise(
+      AccPcpTotal = sum(AccPcp1h, na.rm = TRUE),
+      lon         = first(lon),
+      lat         = first(lat),
+      elev        = first(elev),
+      valid_dttm  = max(valid_dttm),
+      units       = "mm",
+      .groups     = "drop"
+    ) |>
+    as.data.frame()
+
+  if (nrow(obs_total) == 0) {
+    cat("    - No matching observations for total accumulation\n")
+    return(FALSE)
+  }
+
+  fcst_harp <- tryCatch(
+    as_harp_list(total_fcst_list) |> set_units("mm") |> common_cases() |> join_to_fcst(obs_total),
+    error = function(e) { cat("    - Join error:", e$message, "\n"); NULL }
+  )
+  if (is.null(fcst_harp)) return(FALSE)
+
+  for (model in names(fcst_harp)) {
+    df <- fcst_harp[[model]]
+    if (is.data.frame(df) && nrow(df) > 0)
+      fcst_harp[[model]] <- df |> filter(!is.na(fcst) & !is.na(.data[[param_name]]))
+  }
+
+  if (!any(sapply(fcst_harp, function(x) is.data.frame(x) && nrow(x) > 0))) {
+    cat("    - No valid pairs for total accumulation\n")
+    return(FALSE)
+  }
+
+  verif <- tryCatch(
+    det_verify(fcst_harp, !!sym(param_name)),
+    error = function(e) { cat("    - Verify error:", e$message, "\n"); NULL }
+  )
+  if (is.null(verif)) return(FALSE)
+
+  save_point_verif(verif, verif_path = output_dir)
+  cat("    - Saved\n")
+  return(TRUE)
+}
+
 # Verify precipitation
 verify_precipitation <- function(fcst_pcp, obs_pcp, output_dir, start_date, end_date) {
   if (is.null(obs_pcp) || nrow(obs_pcp) == 0) {
@@ -365,8 +451,9 @@ verify_precipitation <- function(fcst_pcp, obs_pcp, output_dir, start_date, end_
   
   if (length(fcst_1h_list) == 0) return(FALSE)
   
-  valid_1h <- verify_pcp_period(fcst_1h_list, obs_pcp, 1, output_dir)
-  
+  valid_1h    <- verify_pcp_period(fcst_1h_list, obs_pcp, 1, output_dir)
+  valid_total <- verify_pcp_total(fcst_1h_list, obs_pcp, output_dir)
+
   valid_12h <- FALSE
   valid_24h <- FALSE
   if (period_days > 3) {
@@ -380,7 +467,7 @@ verify_precipitation <- function(fcst_pcp, obs_pcp, output_dir, start_date, end_
     valid_24h <- verify_pcp_period(fcst_24h_list[!sapply(fcst_24h_list, is.null)], obs_pcp, 24, output_dir)
   }
   
-  return(valid_1h || valid_12h || valid_24h)
+  return(valid_1h || valid_total || valid_12h || valid_24h)
 }
 
 # Verify simple parameter
@@ -416,7 +503,7 @@ verify_and_save <- function(fcst, obs, output_dir, start_date, end_date) {
     result <- verify_simple_param(task$fcst_data, task$obs_data, task$obs_param, task$name, task$preprocess, output_dir)
     return(result$success)
   })
-  
+
   valid_moisture <- verify_moisture(fcst, obs, output_dir)
   
   cat("- Processing precipitation...\n")
