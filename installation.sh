@@ -993,7 +993,7 @@ SHINY_CONF
     sudo mv /tmp/shiny-server.conf /etc/shiny-server/shiny-server.conf
     
     # Create index.html redirect to landing page
-    sudo cat > /srv/shiny-server/index.html << 'INDEX_HTML'
+    sudo tee /srv/shiny-server/index.html > /dev/null << 'INDEX_HTML'
 <!DOCTYPE html>
 <html>
 <head>
