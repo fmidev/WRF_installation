@@ -93,7 +93,8 @@ if [ "$RUN_CHECK_BOUNDARY_FILES" = true ]; then
   echo "   $(date +"%H:%M %Y%m%d")" >> ${BASE_DIR}/logs/main.log
   echo "   Boundary source: ${BOUNDARY_SOURCE:-GFS}" >> ${BASE_DIR}/logs/main.log
 
-  for ((i=1; i<=20; i++)); do
+  i=1
+  while [ "$i" -le 20 ]; do
     missing_files=""
     invalid_files=""
 
@@ -101,7 +102,8 @@ if [ "$RUN_CHECK_BOUNDARY_FILES" = true ]; then
     if [ "${BOUNDARY_SOURCE}" = "ECMWF" ]; then
       boundary_dir="${DATA_DIR_ECMWF}/$year$month$day$hour"
 
-      for ((fh=0; fh<=LEADTIME; fh+=3)); do
+      fh=0
+      while [ "$fh" -le "$LEADTIME" ]; do
         expected_pattern="${boundary_dir}/${year}${month}${day}${hour}0000-${fh}h-*-fc.grib2"
         matched_file=$(compgen -G "$expected_pattern" | head -n1)
 
@@ -110,6 +112,7 @@ if [ "$RUN_CHECK_BOUNDARY_FILES" = true ]; then
         elif ! is_valid_grib_file "$matched_file"; then
           invalid_files+=" ${matched_file}"
         fi
+        fh=$((fh + 3))
       done
 
       if [ -z "$missing_files" ] && [ -z "$invalid_files" ]; then
@@ -132,7 +135,8 @@ if [ "$RUN_CHECK_BOUNDARY_FILES" = true ]; then
       # Check GFS files (default)
       boundary_dir="${DATA_DIR_GFS:-$DATA_DIR}/$year$month$day$hour"
 
-      for ((fh=0; fh<=LEADTIME; fh+=3)); do
+      fh=0
+      while [ "$fh" -le "$LEADTIME" ]; do
         fhr=$(printf "%03d" "$fh")
         expected_file="${boundary_dir}/gfs.t${hour}z.pgrb2.0p25.f${fhr}"
 
@@ -141,6 +145,7 @@ if [ "$RUN_CHECK_BOUNDARY_FILES" = true ]; then
         elif ! is_valid_grib_file "$expected_file"; then
           invalid_files+=" ${expected_file}"
         fi
+        fh=$((fh + 3))
       done
 
       if [ -z "$missing_files" ] && [ -z "$invalid_files" ]; then
@@ -157,6 +162,7 @@ if [ "$RUN_CHECK_BOUNDARY_FILES" = true ]; then
         sleep 300
       fi
     fi
+    i=$((i + 1))
   done
 
   # Exit if the required files are not found after retries

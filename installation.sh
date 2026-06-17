@@ -82,6 +82,27 @@ detect_version_mismatches() {
     check_component_version "WPS" "$installed_wps" "$WPS_VERSION"
 }
 
+# Check whether user R library is compatible with current R runtime and has required packages
+is_r_library_compatible() {
+        local r_lib_dir="/home/$USER/R/library"
+
+        if [ ! -d "$r_lib_dir" ]; then
+                return 1
+        fi
+
+        /usr/bin/Rscript -e "
+            .libPaths('$r_lib_dir')
+            required_pkgs <- c('shiny','jsonlite','remotes','harp','Rgrib2','ncdf4','optparse','DT','plotly','zoo','lubridate','viridis','bslib','rlang','data.table')
+            missing <- required_pkgs[!vapply(required_pkgs, requireNamespace, logical(1), quietly = TRUE)]
+            if (length(missing) > 0) {
+                quit(status = 1)
+            }
+            suppressPackageStartupMessages(library(rlang))
+            suppressPackageStartupMessages(library(data.table))
+            quit(status = 0)
+        " >/dev/null 2>&1
+}
+
 # --- sudo rights for installation ---
 echo "$USER ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/temp_wrf_install > /dev/null
 
@@ -863,16 +884,24 @@ if [ "$INSTALL_VERIFICATION" = true ]; then
     sudo dnf install -y shiny-server-${SHINY_SERVER_VERSION}-x86_64.rpm
 
     # --- R PACKAGE INSTALLATION ---
-    echo "Installing required R packages for verification tools..."
-    mkdir -p ~/R/library
+    echo "Checking compatibility of existing user R library..."
+    R_LIB_DIR="/home/$USER/R/library"
 
-    cat > $BASE/tmp/install_r_packages.R << 'EOF'
+    if is_r_library_compatible; then
+        echo "✅ Existing R library is compatible. Skipping R package reinstallation."
+    else
+        echo "⚠️  Existing R library is missing/incompatible. Rebuilding $R_LIB_DIR ..."
+        rm -rf "$R_LIB_DIR"
+        mkdir -p "$R_LIB_DIR"
+
+        cat > $BASE/tmp/install_r_packages.R << 'EOF'
 # Check if GITHUB_PAT is available
 if (Sys.getenv("GITHUB_PAT") == "") {
   stop("GitHub Personal Access Token not found. Please check your .Renviron file.")
 }
 options(repos = c(CRAN = "https://cloud.r-project.org"))
-.libPaths("~/R/library")
+.libPaths("/home/USER_PLACEHOLDER/R/library")
+install.packages("data.table")
 install.packages("shiny")
 install.packages("jsonlite")
 install.packages("remotes")
@@ -889,13 +918,23 @@ install.packages("viridis")
 install.packages("bslib")
 EOF
 
-    echo "Installing R packages for verification..."
-    Rscript $BASE/tmp/install_r_packages.R > $BASE/install_logs/install_r_packages.log 2>&1
+        sed -i "s|USER_PLACEHOLDER|$USER|g" "$BASE/tmp/install_r_packages.R"
 
-    rm -f $BASE/tmp/install_r_packages.R
+        echo "Installing R packages for verification... (can take up to 1 hour, full output written to $BASE/install_logs/install_r_packages.log)"
+        /usr/bin/Rscript $BASE/tmp/install_r_packages.R > $BASE/install_logs/install_r_packages.log 2>&1
 
-    echo "R packages for verification installed successfully."
-    echo "Your GitHub token has been saved to ~/.Renviron"
+        if [ $? -ne 0 ]; then
+            echo "❌ ERROR: R package installation failed."
+            echo "Check log: $BASE/install_logs/install_r_packages.log"
+            tail -n 50 "$BASE/install_logs/install_r_packages.log"
+            exit 1
+        fi
+
+        rm -f $BASE/tmp/install_r_packages.R
+
+        echo "R packages for verification installed successfully."
+        echo "Your GitHub token has been saved to ~/.Renviron"
+    fi
 
     # --- CONTINUE WITH SHINY APP DEPLOYMENT AND CONFIGURATION ---
     echo "Setting up Shiny user environment and permissions..."
