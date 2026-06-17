@@ -33,6 +33,55 @@ export GIT_REPO=$(pwd)
 start_time=$(date +%s)
 echo "Starting WRF installation at $(date)"
 
+# Get installed library version from symlink target, e.g. zlib -> zlib-1.3.1 returns 1.3.1
+get_installed_lib_version() {
+    local lib_name="$1"
+    local link_path="$BASE/libraries/$lib_name"
+    if [ -L "$link_path" ]; then
+        local target
+        target=$(basename "$(readlink "$link_path")")
+        echo "${target#${lib_name}-}"
+    else
+        echo ""
+    fi
+}
+
+# Detect version differences from existing install tree (no separate config file)
+detect_version_mismatches() {
+    VERSION_MISMATCH_FOUND=false
+    VERSION_MISMATCH_LINES=""
+
+    check_component_version() {
+        local name="$1"
+        local installed="$2"
+        local expected="$3"
+        if [ -n "$installed" ] && [ "$installed" != "$expected" ]; then
+            VERSION_MISMATCH_FOUND=true
+            VERSION_MISMATCH_LINES+="   - $name: $installed -> $expected\n"
+        fi
+    }
+
+    # Library versions from symlinks in $BASE/libraries
+    check_component_version "zlib" "$(get_installed_lib_version zlib)" "$ZLIB_VERSION"
+    check_component_version "openmpi" "$(get_installed_lib_version openmpi)" "$OPENMPI_VERSION"
+    check_component_version "szip" "$(get_installed_lib_version szip)" "$SZIP_VERSION"
+    check_component_version "hdf5" "$(get_installed_lib_version hdf5)" "$HDF5_VERSION"
+    check_component_version "netcdf-c" "$(get_installed_lib_version netcdf-c)" "$NETCDF_C_VERSION"
+    check_component_version "netcdf-fortran" "$(get_installed_lib_version netcdf-fortran)" "$NETCDF_FORTRAN_VERSION"
+    check_component_version "jpeg" "$(get_installed_lib_version jpeg)" "$JPEG_VERSION"
+    check_component_version "libpng" "$(get_installed_lib_version libpng)" "$LIBPNG_VERSION"
+    check_component_version "jasper" "$(get_installed_lib_version jasper)" "$JASPER_VERSION"
+
+    # WRF/WPS versions from tarball names in $BASE/tmp
+    local installed_wrf
+    installed_wrf=$(ls -t "$BASE/tmp"/v*_WRF.tar.gz 2>/dev/null | sed -E 's|.*/v([^/_]+)_WRF.tar.gz|\1|' | head -n1)
+    check_component_version "WRF" "$installed_wrf" "$WRF_VERSION"
+
+    local installed_wps
+    installed_wps=$(ls -t "$BASE/tmp"/v*_WPS.tar.gz 2>/dev/null | sed -E 's|.*/v([^/_]+)_WPS.tar.gz|\1|' | head -n1)
+    check_component_version "WPS" "$installed_wps" "$WPS_VERSION"
+}
+
 # --- sudo rights for installation ---
 echo "$USER ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/temp_wrf_install > /dev/null
 
@@ -64,6 +113,21 @@ fi
 
 # Create the base directory if it doesn't exist
 [ ! -d "$BASE" ] && mkdir -p "$BASE"
+
+# Detect installed-vs-requested version mismatches from filesystem
+FORCE_RECOMPILE=false
+detect_version_mismatches
+if [ "$VERSION_MISMATCH_FOUND" = true ]; then
+    echo ""
+    echo "Version differences detected between installed components and installation.sh:"
+    printf "%b" "$VERSION_MISMATCH_LINES"
+    echo ""
+    echo -n "Rebuild only the mismatched components? (y/n) [n]: "
+    read recompile_choice
+    if [[ "$recompile_choice" =~ ^[Yy]$ ]]; then
+        FORCE_RECOMPILE=true
+    fi
+fi
 
 # Prompt for SmartMet server IP address
 echo -n "Enter the IP address for the SmartMet server where postprocessed WRF grib files are sent. (optional): "
@@ -229,9 +293,23 @@ install_library() {
     local log_dir="$BASE/install_logs"
     local log_file="$log_dir/${generic_name}_install.log"
 
-    if [ -d "$BASE/libraries/$generic_name" ] && [ -L "$BASE/libraries/$generic_name" ]; then
-        echo "✅ $generic_name is already installed. Skipping..."
-        return
+    # If symlink exists, compare installed version against requested version
+    if [ -L "$BASE/libraries/$generic_name" ]; then
+        local installed_dir
+        installed_dir=$(basename "$(readlink "$BASE/libraries/$generic_name")")
+
+        if [ "$installed_dir" = "$version_dir_name" ]; then
+            echo "✅ $generic_name $version_dir_name already installed. Skipping..."
+            return
+        fi
+
+        if [ "$FORCE_RECOMPILE" = "true" ]; then
+            echo "🔄 Reinstalling $generic_name: $installed_dir -> $version_dir_name"
+            rm -f "$BASE/libraries/$generic_name"
+        else
+            echo "⚠️  $generic_name mismatch ($installed_dir vs $version_dir_name), but rebuild not requested. Skipping."
+            return
+        fi
     fi
 
     echo "🔧 Installing $generic_name... (full output written into log file ($log_file))"
@@ -315,27 +393,41 @@ install_library "https://github.com/pnggroup/libpng/archive/refs/tags/v${LIBPNG_
 install_library "https://github.com/jasper-software/jasper/releases/download/version-${JASPER_VERSION}/jasper-${JASPER_VERSION}.tar.gz" "jasper-${JASPER_VERSION}" "jasper" ""
 
 # WRF installation
+installed_wrf=$(ls -t "$BASE/tmp"/v*_WRF.tar.gz 2>/dev/null | sed -E 's|.*/v([^/_]+)_WRF.tar.gz|\1|' | head -n1)
+wrf_mismatch=false
+if [ -n "$installed_wrf" ] && [ "$installed_wrf" != "$WRF_VERSION" ]; then
+    wrf_mismatch=true
+fi
+
+if [ -d "$BASE/WRF" ]; then
+    if [ "$wrf_mismatch" = true ] && [ "$FORCE_RECOMPILE" = "true" ]; then
+        echo "🔄 Recompiling WRF: $installed_wrf -> $WRF_VERSION"
+        rm -rf "$BASE/WRF"
+    elif [ "$wrf_mismatch" = true ]; then
+        echo "⚠️  WRF version mismatch ($installed_wrf vs $WRF_VERSION), rebuild not requested. Skipping WRF compile."
+    else
+        echo "✅ WRF is already installed. Skipping..."
+    fi
+fi
+
 if [ ! -d "$BASE/WRF" ]; then
     echo "🔧 Installing WRF..."
     cd $BASE
     mkdir -p $BASE/tmp
-    
-    # Check if tarball already exists in tmp directory
+
     if [ -f "$BASE/tmp/v${WRF_VERSION}_WRF.tar.gz" ]; then
         echo "📦 WRF tarball already exists in $BASE/tmp. Using existing file..."
-        cp $BASE/tmp/v${WRF_VERSION}_WRF.tar.gz ./v${WRF_VERSION}.tar.gz
+        cp "$BASE/tmp/v${WRF_VERSION}_WRF.tar.gz" "./v${WRF_VERSION}.tar.gz"
     else
         echo "📥 Downloading WRF tarball..."
-        wget --progress=bar:force https://github.com/wrf-model/WRF/releases/download/v${WRF_VERSION}/v${WRF_VERSION}.tar.gz
-        # Save a copy to tmp directory
-        cp v${WRF_VERSION}.tar.gz $BASE/tmp/v${WRF_VERSION}_WRF.tar.gz
+        wget --progress=bar:force "https://github.com/wrf-model/WRF/releases/download/v${WRF_VERSION}/v${WRF_VERSION}.tar.gz"
+        cp "v${WRF_VERSION}.tar.gz" "$BASE/tmp/v${WRF_VERSION}_WRF.tar.gz"
     fi
-    
-    tar -xf v${WRF_VERSION}.tar.gz
-    mv WRFV${WRF_VERSION} WRF
+
+    tar -xf "v${WRF_VERSION}.tar.gz"
+    mv "WRFV${WRF_VERSION}" WRF
     cd WRF
-    
-    # Set all WRF environment variables
+
     export WRF_EM_CORE=1
     export NETCDF=$BASE/libraries/netcdf-c/install
     export NETCDF4=1
@@ -345,63 +437,70 @@ if [ ! -d "$BASE/WRF" ]; then
     export JASPERINC=$BASE/libraries/jasper/install/include
     export WRF_DA_CORE=0
     export WRFIO_NCD_LARGE_FILE_SUPPORT=1
-    
+
     echo "🔧 Configuring WRF..."
-    echo 34 | ./configure # Automatically select dmpar with GNU compilers
-    
+    echo 34 | ./configure
+
     echo "🏗️ Compiling WRF... (full output written to ${BASE}/WRF/compile.log)"
-    # Show progress with a spinner during compilation
     ./compile em_real 2>&1 | tee compile.log | grep --line-buffered -E 'Compil|Error|SUCCESS'
     check_compile_log "compile.log"
 
     cd $BASE
-    rm -f v${WRF_VERSION}.tar.gz
+    rm -f "v${WRF_VERSION}.tar.gz"
 
-    # Check if the critical executables exist
     if [ ! -f "$BASE/WRF/main/wrf.exe" ] || [ ! -f "$BASE/WRF/main/real.exe" ]; then
         echo "❌ ERROR: WRF compilation failed. Could not find wrf.exe or real.exe in $BASE/WRF/main."
         echo "Check the compilation log for errors: $BASE/WRF/compile.log"
-        echo "If you want to recompile WRF, remove the WRF directory and rerun the installation script."
         exit 1
     fi
 
     echo "✅ WRF compiled successfully."
-else
-    echo "✅ WRF is already installed. Skipping..."
-    
-    # Check if executables exist in existing installation
-    if [ ! -f "$BASE/WRF/main/wrf.exe" ] || [ ! -f "$BASE/WRF/main/real.exe" ]; then
-        echo "❌ ERROR: Existing WRF installation appears to be incomplete. Could not find wrf.exe or real.exe in $BASE/WRF/main."
-        echo "Consider removing the WRF directory and rerunning the installation script."
-        exit 1
-    fi
+fi
+
+if [ -d "$BASE/WRF" ] && { [ ! -f "$BASE/WRF/main/wrf.exe" ] || [ ! -f "$BASE/WRF/main/real.exe" ]; }; then
+    echo "❌ ERROR: Existing WRF installation appears to be incomplete. Could not find wrf.exe or real.exe in $BASE/WRF/main."
+    echo "Consider removing the WRF directory and rerunning the installation script."
+    exit 1
 fi
 
 # WPS installation
+installed_wps=$(ls -t "$BASE/tmp"/v*_WPS.tar.gz 2>/dev/null | sed -E 's|.*/v([^/_]+)_WPS.tar.gz|\1|' | head -n1)
+wps_mismatch=false
+if [ -n "$installed_wps" ] && [ "$installed_wps" != "$WPS_VERSION" ]; then
+    wps_mismatch=true
+fi
+
+if [ -d "$BASE/WPS" ]; then
+    if [ "$wps_mismatch" = true ] && [ "$FORCE_RECOMPILE" = "true" ]; then
+        echo "🔄 Recompiling WPS: $installed_wps -> $WPS_VERSION"
+        rm -rf "$BASE/WPS"
+    elif [ "$wps_mismatch" = true ]; then
+        echo "⚠️  WPS version mismatch ($installed_wps vs $WPS_VERSION), rebuild not requested. Skipping WPS compile."
+    else
+        echo "✅ WPS is already installed. Skipping..."
+    fi
+fi
+
 if [ ! -d "$BASE/WPS" ]; then
     echo "🔧 Installing WPS..."
     cd $BASE
-    
-    # Check if tarball already exists in tmp directory
+
     if [ -f "$BASE/tmp/v${WPS_VERSION}_WPS.tar.gz" ]; then
         echo "📦 WPS tarball already exists in $BASE/tmp. Using existing file..."
-        cp $BASE/tmp/v${WPS_VERSION}_WPS.tar.gz ./v${WPS_VERSION}.tar.gz
+        cp "$BASE/tmp/v${WPS_VERSION}_WPS.tar.gz" "./v${WPS_VERSION}.tar.gz"
     else
         echo "📥 Downloading WPS tarball..."
-        wget --progress=bar:force https://github.com/wrf-model/WPS/archive/refs/tags/v${WPS_VERSION}.tar.gz
-        # Save a copy to tmp directory
-        cp v${WPS_VERSION}.tar.gz $BASE/tmp/v${WPS_VERSION}_WPS.tar.gz
+        wget --progress=bar:force "https://github.com/wrf-model/WPS/archive/refs/tags/v${WPS_VERSION}.tar.gz"
+        cp "v${WPS_VERSION}.tar.gz" "$BASE/tmp/v${WPS_VERSION}_WPS.tar.gz"
     fi
-    
-    tar -xf v${WPS_VERSION}.tar.gz
-    mv WPS-${WPS_VERSION}/ WPS
+
+    tar -xf "v${WPS_VERSION}.tar.gz"
+    mv "WPS-${WPS_VERSION}/" WPS
     cd WPS
 
-    # Patch rd_grib2.F to support ECMWF soil layers (level type 151)
     echo "🔧 Patching rd_grib2.F for ECMWF soil layers..."
     RD_GRIB2_FILE="ungrib/src/rd_grib2.F"
     if [ -f "$RD_GRIB2_FILE" ]; then
-        # First patch: Add level type 151 handling
         sed -i '/!MGD         if (debug_level .gt. 50) write(6,\*) .my_field is now .,my_field/a\
 \
 ! Level type 151 - depth below land surface (ECMWF soil layers)\
@@ -427,7 +526,6 @@ if [ ! -d "$BASE/WPS" ]; then
                   cycle MATCH_LOOP\
                 endif\
               endif' "$RD_GRIB2_FILE"
-        # Second patch: Adjust level value for METGRID.TBL
         sed -i '/Misc near ground\/surface levels/{N;/level=200100\./a\
               elseif(gfld%ipdtmpl(10).eq.151) then\
                  ! Depth below land surface (ECMWF soil layers)\
@@ -439,7 +537,6 @@ if [ ! -d "$BASE/WPS" ]; then
                  ! Use standard surface level (200100) for METGRID.TBL compatibility\
                  level = 200100.
 }' "$RD_GRIB2_FILE"
-        
         echo "✅ rd_grib2.F patched successfully for ECMWF soil layers"
     else
         echo "⚠️  WARNING: rd_grib2.F not found at $RD_GRIB2_FILE"
@@ -452,7 +549,7 @@ if [ ! -d "$BASE/WPS" ]; then
     export NETCDF=$BASE/libraries/netcdf-c/install
 
     echo "🔧 Configuring WPS..."
-    echo 3 | ./configure # Automatically select dmpar with GNU compilers
+    echo 3 | ./configure
     sed -i '/COMPRESSION_LIBS/s|=.*|= -L${BASE}/libraries/jasper/install/lib -L${BASE}/libraries/libpng/install/lib -L${BASE}/libraries/zlib/install/lib -ljasper -lpng -lz|' configure.wps
     sed -i '/COMPRESSION_INC/s|=.*|= -I${BASE}/libraries/jasper/install/include -I${BASE}/libraries/libpng/install/include -I${BASE}/libraries/zlib/install/include|' configure.wps
     echo "🏗️ Compiling WPS... (full output written to ${BASE}/WPS/compile.log)"
@@ -460,26 +557,21 @@ if [ ! -d "$BASE/WPS" ]; then
     check_compile_log "compile.log"
 
     cd $BASE
-    rm -f v${WPS_VERSION}.tar.gz
+    rm -f "v${WPS_VERSION}.tar.gz"
 
-    # Check if the critical executables exist
     if [ ! -f "$BASE/WPS/geogrid.exe" ] || [ ! -f "$BASE/WPS/metgrid.exe" ] || [ ! -f "$BASE/WPS/ungrib.exe" ]; then
-        echo "❌ ERROR: WPS compilation failed. Could not find one or more of the required executables (geogrid.exe, metgrid.exe, ungrib.exe) in $BASE/WPS."
+        echo "❌ ERROR: WPS compilation failed. Could not find one or more of geogrid.exe, metgrid.exe, ungrib.exe in $BASE/WPS."
         echo "Check the compilation log for errors: $BASE/WPS/compile.log"
-        echo "If you want to recompile WPS, remove the WPS directory and rerun the installation script."
         exit 1
     fi
 
     echo "✅ WPS compiled successfully."
-else
-    echo "✅ WPS is already installed. Skipping..."
-    
-    # Check if executables exist in existing installation
-    if [ ! -f "$BASE/WPS/geogrid.exe" ] || [ ! -f "$BASE/WPS/metgrid.exe" ] || [ ! -f "$BASE/WPS/ungrib.exe" ]; then
-        echo "❌ ERROR: Existing WPS installation appears to be incomplete. Could not find one or more of the required executables (geogrid.exe, metgrid.exe, ungrib.exe) in $BASE/WPS."
-        echo "Consider removing the WPS directory and rerunning the installation script."
-        exit 1
-    fi
+fi
+
+if [ -d "$BASE/WPS" ] && { [ ! -f "$BASE/WPS/geogrid.exe" ] || [ ! -f "$BASE/WPS/metgrid.exe" ] || [ ! -f "$BASE/WPS/ungrib.exe" ]; }; then
+    echo "❌ ERROR: Existing WPS installation appears to be incomplete. Could not find one or more of geogrid.exe, metgrid.exe, ungrib.exe in $BASE/WPS."
+    echo "Consider removing the WPS directory and rerunning the installation script."
+    exit 1
 fi
 
 # Update ECMWF Vtable
@@ -808,6 +900,21 @@ EOF
     # --- CONTINUE WITH SHINY APP DEPLOYMENT AND CONFIGURATION ---
     echo "Setting up Shiny user environment and permissions..."
 
+    # Check if Shiny server is already running and stop it
+    if sudo systemctl is-active --quiet shiny-server; then
+        echo "Stopping existing Shiny server..."
+        sudo systemctl stop shiny-server
+        echo "✅ Shiny server stopped."
+    fi
+
+    # Remove old app directories if they exist
+    echo "Cleaning up old Shiny app directories..."
+    sudo rm -rf /srv/shiny-server/harpvis
+    sudo rm -rf /srv/shiny-server/wrf-viz
+    sudo rm -rf /srv/shiny-server/landing
+    sudo rm -f /srv/shiny-server/index.html
+    echo "✅ Old app directories removed."
+
     # Add shiny to the user's group so it can traverse home and read data dirs
     # (home dirs are drwxr-x--- owned by $USER:$USER, so group membership is needed)
     sudo usermod -aG "$USER" shiny
@@ -911,14 +1018,33 @@ fi
 
 # Setup git repository to track configuration and script files
 setup_git_repository() {
-    echo "🔧 Setting up git repository to track configuration and script files..."
-    
-    # Create a git repository in the BASE directory
     cd $BASE
-    git init
     
-    # Create a .gitignore file that ignores everything except specific directories/files
-    cat > .gitignore << EOL
+    # Check if git repository already exists
+    if [ -d ".git" ]; then
+        echo "🔧 Git repository already exists. Creating new commit after reinstall..."
+        
+        # Add the specified directories and files
+        git add scripts/
+        git add UPP_wrk/parm/
+        git add UPP_wrk/postprd/run_unipost
+        git add Verification/scripts/
+        
+        # Create a new commit if there are changes
+        if git diff --cached --quiet; then
+            echo "ℹ️  No changes to commit"
+        else
+            git commit -m "Reinstall: updating WRF configuration and script files"
+            echo "✅ New commit created successfully"
+        fi
+    else
+        echo "🔧 Setting up new git repository to track configuration and script files..."
+        
+        # Create a git repository in the BASE directory
+        git init
+        
+        # Create a .gitignore file that ignores everything except specific directories/files
+        cat > .gitignore << EOL
 # Ignore everything by default
 /*
 
@@ -943,18 +1069,20 @@ setup_git_repository() {
 *.swp
 EOL
 
-    # Add the specified directories and files
-    git add scripts/
-    git add UPP_wrk/parm/
-    git add UPP_wrk/postprd/run_unipost
-    git add Verification/scripts/
+        # Add the specified directories and files
+        git add scripts/
+        git add UPP_wrk/parm/
+        git add UPP_wrk/postprd/run_unipost
+        git add Verification/scripts/
+        
+        # Commit the initial state
+        git config --local user.name "WRF admin"
+        git config --local user.email "<>"
+        git commit -m "Initial commit: tracking WRF configuration and script files"
+        
+        echo "✅ Git repository created successfully at $BASE"
+    fi
     
-    # Commit the initial state
-    git config --local user.name "WRF admin"
-    git config --local user.email "<>"
-    git commit -m "Initial commit: tracking WRF configuration and script files"
-    
-    echo "✅ Git repository set up successfully at $BASE"
     echo "   Tracking: scripts/, UPP_wrk/parm/, UPP_wrk/postprd/run_unipost, and Verification/scripts/"
 }
 
@@ -1211,7 +1339,20 @@ sed -i "s|#0 18 \* \* \* /home/wrf/WRF_test/scripts/control_run_WRF_test.sh 12|#
 sed -i "s|/home/wrf/WRF_test/logs/runlog_00.log|$TEST_BASE/logs/runlog_00.log|" "$BASE/scripts/crontab_template"
 sed -i "s|/home/wrf/WRF_test/logs/runlog_12.log|$TEST_BASE/logs/runlog_12.log|" "$BASE/scripts/crontab_template"
 
-crontab $BASE/scripts/crontab_template
+if crontab -l >/dev/null 2>&1; then
+    echo "Existing crontab detected."
+    echo -n "Do you want to replace current crontab with template from $BASE/scripts/crontab_template? (y/n) [n]: "
+    read update_crontab_choice
+    if [[ "$update_crontab_choice" =~ ^[Yy]$ ]]; then
+        crontab "$BASE/scripts/crontab_template"
+        echo "✅ Crontab updated from template."
+    else
+        echo "ℹ️  Kept existing crontab unchanged."
+    fi
+else
+    crontab "$BASE/scripts/crontab_template"
+    echo "✅ No existing crontab found. Template installed."
+fi
 
 echo "Crontab for WRF set up successfully but run commands are not active by default."
 echo "Remember to activate them by running 'crontab -e' and uncommenting the lines."
@@ -1236,6 +1377,15 @@ echo "
 - SmartMet server IP: $SMARTMET_IP
 - Verification tools: $([ "$INSTALL_VERIFICATION" = true ] && echo "Installed" || echo "Not installed")$([ "$INSTALL_VERIFICATION" = true ] && echo "
 - WRF verification and visualization app portal : http://localhost:3838/")
+- Installed versions detected from $BASE/libraries symlinks and $BASE/tmp tarball names
+
+📝 RE-INSTALLATION NOTES:
+- Script automatically detects version differences from existing files/symlinks
+- Prompts you to recompile only if versions have changed
+- Skips unchanged components to save time
+- Git history preserved across re-installations
+- Easy updates when new versions are released in installation.sh
+
 
 🔍 POST-INSTALLATION CHECKLIST (what needs to be done manually):
 1. Define your domain:
@@ -1277,6 +1427,7 @@ echo "
 
 # Clean up sudo rights
 sudo rm -f /etc/sudoers.d/temp_wrf_install
+
 
 # Calculate and display total runtime
 end_time=$(date +%s)
