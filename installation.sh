@@ -255,11 +255,11 @@ if [ -z "$github_token" ]; then
 else
     echo "GitHub token provided. Verification tools will be installed."
     export INSTALL_VERIFICATION=true
-    # Set up the GitHub token in the user's .Renviron file
+    # Set up the GitHub token and R library path in the user's .Renviron file
     echo "Setting up GitHub token in .Renviron file..."
-    echo "GITHUB_PAT=$github_token" > ~/.Renviron
+    printf "GITHUB_PAT=%s\nR_LIBS_USER=/home/%s/R/library\n" "$github_token" "$USER" > ~/.Renviron
     chmod 600 ~/.Renviron
-    echo "GitHub token saved to ~/.Renviron"
+    echo "GitHub token and R_LIBS_USER saved to ~/.Renviron"
 fi
 
 # Create necessary directories
@@ -936,6 +936,12 @@ EOF
         echo "Your GitHub token has been saved to ~/.Renviron"
     fi
 
+    # Ensure R_LIBS_USER is set in .Renviron
+    if ! grep -q "R_LIBS_USER=" ~/.Renviron 2>/dev/null; then
+        echo "R_LIBS_USER=/home/$USER/R/library" >> ~/.Renviron
+        echo "R_LIBS_USER added to ~/.Renviron"
+    fi    
+
     # --- CONTINUE WITH SHINY APP DEPLOYMENT AND CONFIGURATION ---
     echo "Setting up Shiny user environment and permissions..."
 
@@ -1207,8 +1213,19 @@ TEST_CPU_START=$MAX_CPU
 TEST_CPU_END=$((CPU_COUNT - 1))
 TEST_MAX_CPU=$((TEST_CPU_END - TEST_CPU_START + 1))
 
-# Common sed substitutions for test scripts
-COMMON_SUBS='-e "s|^# Author:.*|# Author: Mikael Hasu|" -e "s|^# Date:.*|# Date: November 2025|" -e "s|source .*/env.sh|source $TEST_BASE/scripts/env_test.sh|"'
+# Generate a test script from the production version with common substitutions.
+generate_test_script() {
+    local source_script="$1"
+    local target_script="$2"
+    shift 2
+
+    sed \
+        -e "s|^# Author:.*|# Author: Mikael Hasu|" \
+        -e "s|^# Date:.*|# Date: November 2025|" \
+        -e "s|source .*/env.sh|source $TEST_BASE/scripts/env_test.sh|" \
+        "$@" \
+        "$source_script" > "$target_script"
+}
 
 # Create env_test.sh with GEN_BE configuration
 sed -e "s|^# ===============================================|# ===============================================\n# WRF_test Environment Configuration\n# Runs: 00 and 12 UTC (twice daily) - Configured for GEN_BE B matrix creation\n# Author: Mikael Hasu\n# Date: November 2025\n# ===============================================\n\n# Base directories\n#|" \
@@ -1244,18 +1261,27 @@ export GENBE_FCST_RANGE2=24  # Second forecast range (hours)
 GENBE_EOF
 
 # Create control_run_WRF_test.sh with GEN_BE support
-eval sed $COMMON_SUBS \
-    -e '"s|WRF Control Script|WRF_test Control Script|"' \
-    -e '"s|\${BASE_DIR}/logs/main|\${TEST_BASE_DIR}/logs/main|g"' \
-    -e '"s|\${BASE_DIR}/logs/historical|\${TEST_BASE_DIR}/logs/historical|g"' \
-    -e '"/^hour=\$1/a\\\n\\\n# Validate input\\\nif [[ \"\$hour\" != \"00\" \&\& \"\$hour\" != \"12\" ]]; then\\\n    echo \"Error: WRF_test runs only at 00 and 12 UTC\"\\\n    echo \"Usage: \$0 <hour>\"\\\n    echo \"Example: \$0 00\"\\\n    exit 1\\\nfi"' \
-    -e '"s|WRF Run started|WRF_test Run started|"' \
-    -e '"s|./run_WPS.sh|./run_WPS_test.sh|"' \
-    -e '"s|./run_WRF.sh|./run_WRF_test.sh|"' \
-    -e '"s|./run_WRFDA.sh|./run_WRFDA_test.sh|"' \
-    -e '"s|Using production observations|Using production observations from main DA_input directory|"' \
-    -e '"s|./verification.sh|./verification_test.sh|g"' \
-    $BASE/scripts/control_run_WRF.sh '>' $TEST_BASE/scripts/control_run_WRF_test.sh
+generate_test_script "$BASE/scripts/control_run_WRF.sh" "$TEST_BASE/scripts/control_run_WRF_test.sh" \
+    -e "s|WRF Control Script|WRF_test Control Script|" \
+    -e "s|\${BASE_DIR}/logs/main|\${TEST_BASE_DIR}/logs/main|g" \
+    -e "s|\${BASE_DIR}/logs/historical|\${TEST_BASE_DIR}/logs/historical|g" \
+    -e "s|WRF Run started|WRF_test Run started|" \
+    -e "s|./get_obs.sh|./get_obs_test.sh|" \
+    -e "s|./run_WPS.sh|./run_WPS_test.sh|" \
+    -e "s|./run_WRF.sh|./run_WRF_test.sh|" \
+    -e "s|./run_WRFDA.sh|./run_WRFDA_test.sh|" \
+    -e "s|Using production observations|Using production observations from main DA_input directory|" \
+    -e "s|./verification.sh|./verification_test.sh|g"
+
+sed -i '/^hour=\$1$/a\
+\
+# Validate input\
+if [[ "$hour" != "00" && "$hour" != "12" ]]; then\
+    echo "Error: WRF_test runs only at 00 and 12 UTC"\
+    echo "Usage: $0 <hour>"\
+    echo "Example: $0 00"\
+    exit 1\
+fi' "$TEST_BASE/scripts/control_run_WRF_test.sh"
 
 # Add GEN_BE forecast saving after WRF run
 cat >> $TEST_BASE/scripts/control_run_WRF_test.sh << 'GENBE_APPEND'
@@ -1273,36 +1299,37 @@ fi
 GENBE_APPEND
 
 # Create run_WPS_test.sh
-eval sed $COMMON_SUBS \
-    -e '"s|WRF Preprocessing|WRF_test Preprocessing|"' \
-    -e '"s|WRF_test run directory created|WRF_test run directory created (testing configuration)|"' \
-    -e '"s|DOMAIN_FILE=\"\${MAIN_DIR}/domain.txt\"|DOMAIN_FILE=\"$BASE/scripts/domain.txt\"|"' \
-    $BASE/scripts/run_WPS.sh '>' $TEST_BASE/scripts/run_WPS_test.sh
+generate_test_script "$BASE/scripts/run_WPS.sh" "$TEST_BASE/scripts/run_WPS_test.sh" \
+    -e "s|WRF Preprocessing|WRF_test Preprocessing|" \
+    -e "s|WRF_test run directory created|WRF_test run directory created (testing configuration)|" \
+    -e "s|DOMAIN_FILE=\"\${MAIN_DIR}/domain.txt\"|DOMAIN_FILE=\"$BASE/scripts/domain.txt\"|"
 
 # Create run_WRF_test.sh
-eval sed $COMMON_SUBS \
-    -e '"s|WRF Model Automation Script|WRF_test Model Script|"' \
-    -e '"s|^# ===============================================$|# Purpose: Test new features and configurations\n# ===============================================|"' \
-    -e '"s|./run_WRFDA.sh|./run_WRFDA_test.sh|"' \
-    -e '"s|Ready to set up WRF|Ready to set up WRF_test|"' \
-    -e '"s|Running model without|Running WRF_test model without|"' \
-    -e '"s|DOMAIN_FILE=\"\${MAIN_DIR}/domain.txt\"|DOMAIN_FILE=\"$BASE/scripts/domain.txt\"|"' \
-    $BASE/scripts/run_WRF.sh '>' $TEST_BASE/scripts/run_WRF_test.sh
+generate_test_script "$BASE/scripts/run_WRF.sh" "$TEST_BASE/scripts/run_WRF_test.sh" \
+    -e "s|WRF Model Automation Script|WRF_test Model Script|" \
+    -e "s|./run_WRFDA.sh|./run_WRFDA_test.sh|" \
+    -e "s|Ready to set up WRF|Ready to set up WRF_test|" \
+    -e "s|Running model without|Running WRF_test model without|" \
+    -e "s|DOMAIN_FILE=\"\${MAIN_DIR}/domain.txt\"|DOMAIN_FILE=\"$BASE/scripts/domain.txt\"|"
+
+sed -i '/^# WRF_test Model Script$/a\
+# Purpose: Test new features and configurations' "$TEST_BASE/scripts/run_WRF_test.sh"
 
 # Create run_WRFDA_test.sh
-eval sed $COMMON_SUBS \
-    -e '"s|WRF Data Assimilation|WRF_test Data Assimilation|"' \
-    -e '"s|^# ===============================================$|# Purpose: Test DA modifications and new observation types\n# ===============================================|"' \
-    -e '"s|Starting WRF Data|Starting WRF_test Data|"' \
-    -e '"s|DOMAIN_FILE=\"\${MAIN_DIR}/domain.txt\"|DOMAIN_FILE=\"$BASE/scripts/domain.txt\"|"' \
-    $BASE/scripts/run_WRFDA.sh '>' $TEST_BASE/scripts/run_WRFDA_test.sh
+generate_test_script "$BASE/scripts/run_WRFDA.sh" "$TEST_BASE/scripts/run_WRFDA_test.sh" \
+    -e "s|WRF Data Assimilation|WRF_test Data Assimilation|" \
+    -e "s|Starting WRF Data|Starting WRF_test Data|" \
+    -e "s|DOMAIN_FILE=\"\${MAIN_DIR}/domain.txt\"|DOMAIN_FILE=\"$BASE/scripts/domain.txt\"|"
+
+sed -i '/^# WRF_test Data Assimilation$/a\
+# Purpose: Test DA modifications and new observation types' "$TEST_BASE/scripts/run_WRFDA_test.sh"
 
 # Create get_obs_test.sh if source exists
-[ -f "$BASE/scripts/get_obs.sh" ] && eval sed $COMMON_SUBS \
-    -e '"s|Download observations for WRF DA|Download observations for WRF_test DA|"' \
-    $BASE/scripts/get_obs.sh '>' $TEST_BASE/scripts/get_obs_test.sh
+[ -f "$BASE/scripts/get_obs.sh" ] && generate_test_script "$BASE/scripts/get_obs.sh" "$TEST_BASE/scripts/get_obs_test.sh" \
+    -e "s|Download observations for WRF DA|Download observations for WRF_test DA|"
 
 # Copy additional files to WRF_test
+[ -f "$BASE/scripts/check_cpu_usage.sh" ] && cp $BASE/scripts/check_cpu_usage.sh $TEST_BASE/scripts/
 [ -f "$BASE/scripts/save_genbe_forecasts.sh" ] && mv $BASE/scripts/save_genbe_forecasts.sh $TEST_BASE/scripts/
 [ -f "$BASE/scripts/setup_genbe_wrapper.sh" ] && mv $BASE/scripts/setup_genbe_wrapper.sh $TEST_BASE/scripts/
 [ -f "$BASE/scripts/convert_to_little_r.py" ] && cp $BASE/scripts/convert_to_little_r.py $TEST_BASE/scripts/

@@ -133,7 +133,7 @@ if [ "$RUN_CHECK_BOUNDARY_FILES" = true ]; then
       fi
     else
       # Check GFS files (default)
-      boundary_dir="${DATA_DIR_GFS:-$DATA_DIR}/$year$month$day$hour"
+      boundary_dir="${DATA_DIR_GFS}/$year$month$day$hour"
 
       fh=0
       while [ "$fh" -le "$LEADTIME" ]; do
