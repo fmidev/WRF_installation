@@ -25,7 +25,7 @@ export WRFDA_DIR=$BASE_DIR/WRFDA
 export NETCDF4=1
 export WRFIO_NCD_LARGE_FILE_SUPPORT=1
 export LEADTIME=72 # Forecast lead time in hours (if changing this, also change the lastfhr in the UPP_wrk/postprd/run_unipost)
-export INTERVAL=6 # Interval between the cycles in hours (needed for WRFDA)
+export INTERVAL=6 # Interval between the cycles in hours (needed for WRFDA and verification)
 export MAX_CPU=20  # Number of CPU cores to use
 export COUNTRY="" # Country for country-specific observation processing scripts
 
