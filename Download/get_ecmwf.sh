@@ -17,7 +17,7 @@ fi
 : "${MODEL_PRODUCER:=ifs}"
 : "${MODEL_VERSION:=0p25}"
 : "${VALID_HOURS:=00|06|12|18}"
-: "${MAX_FORECAST_HOUR:=12}"
+: "${MAX_FORECAST_HOUR:=72}"
 
 # Parse command-line options
 while getopts "dp:v:h:f:" flag; do
@@ -107,11 +107,9 @@ get_latest_forecast_time() {
     # Try each date and cycle combination
     for check_date in "${dates[@]}"; do
         for check_hour in "${cycles[@]}"; do
-            # Determine MODEL_TYPE based on cycle time
+            # ECMWF IFS Cycle 50r1 discontinued the old scda stream.
+            # Atmospheric forecasts for 00/06/12/18z now use oper.
             local check_type="oper"
-            if [ "$check_hour" = "06" ] || [ "$check_hour" = "18" ]; then
-                check_type="scda"
-            fi
             
             # Build test URL for 0-hour file
             local test_url="https://data.ecmwf.int/forecasts/${check_date}/${check_hour}z/${MODEL_PRODUCER}/${MODEL_VERSION}/${check_type}/${check_date}${check_hour}0000-0h-${check_type}-fc.grib2"
