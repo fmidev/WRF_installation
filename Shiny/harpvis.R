@@ -47,12 +47,47 @@ obs_dir  <- "/wrf/WRF_Model/Verification/SQlite_tables/Obs"
   setdiff(names(df), meta)[1]
 }
 
+# read_point_forecast() returns a bare data.frame (not a harp_list) when only
+# one model is requested; as.list() on a data.frame shreds it into columns.
+# Normalise to a list keyed by fcst_model so downstream code is uniform.
+.to_model_list <- function(hl) {
+  if (is.null(hl)) return(NULL)
+  if (is.data.frame(hl)) {
+    mod <- if ("fcst_model" %in% names(hl)) unique(hl$fcst_model)[1] else "model"
+    return(setNames(list(hl), mod))
+  }
+  as.list(hl)
+}
+
 # ── Directory-scanning helpers for dynamic UI dropdowns ────────────────────────
 
 # Available model names (subdirectories of fcst_dir)
 scan_models <- function() {
   dirs <- list.dirs(fcst_dir, full.names = FALSE, recursive = FALSE)
   sort(dirs[nchar(dirs) > 0])
+}
+
+# Model names that actually have FCTABLE files for the given parameter
+# (td2m/rh2m require q2m + t2m + psfc; pcp_accum reuses pcp files).
+scan_models_for_param <- function(param) {
+  models <- scan_models()
+  fcst_params <- switch(param,
+    td2m      = c("q2m", "t2m", "psfc"),
+    rh2m      = c("q2m", "t2m", "psfc"),
+    pcp_accum = "pcp",
+    param
+  )
+  has_files <- function(model, fp) {
+    length(list.files(
+      file.path(fcst_dir, model),
+      pattern   = paste0("FCTABLE_", fp, "_[0-9]{6}_[0-9]{2}\\.sqlite"),
+      recursive = TRUE
+    )) > 0
+  }
+  keep <- vapply(models, function(model) {
+    all(vapply(fcst_params, has_files, logical(1), model = model))
+  }, logical(1))
+  models[keep]
 }
 
 # All distinct forecast start times (epoch → YYYYMMDDHH) found in SQLite files
@@ -168,9 +203,9 @@ read_ts_data <- function(param, models, fcst_dt, lead_max) {
   obs_col   <- NULL
 
   if (param %in% c("td2m", "rh2m")) {
-    hl_q <- read_fcst("q2m")
-    hl_t <- read_fcst("t2m")
-    hl_p <- read_fcst("psfc")
+    hl_q <- .to_model_list(read_fcst("q2m"))
+    hl_t <- .to_model_list(read_fcst("t2m"))
+    hl_p <- .to_model_list(read_fcst("psfc"))
     if (is.null(hl_q)) stop("Could not read q2m forecast data")
     if (is.null(hl_t)) stop("Could not read t2m forecast data")
     if (is.null(hl_p)) stop("Could not read psfc forecast data")
@@ -221,7 +256,7 @@ read_ts_data <- function(param, models, fcst_dt, lead_max) {
     # Convert cumulative pcp (from forecast start) to 1-hour increments,
     # matching the logic used in verify_parameters.R and the obs AccPcp1h values.
     diff_pcp <- function(hl) {
-      lapply(as.list(hl), function(df) {
+      lapply(.to_model_list(hl), function(df) {
         if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) return(df)
         fc <- .fcst_col(df)
         if (is.null(fc) || is.na(fc)) return(df)
@@ -243,7 +278,7 @@ read_ts_data <- function(param, models, fcst_dt, lead_max) {
       pcp_accum = diff_pcp(set_units(fcst_hl, "mm")),
       fcst_hl
     )
-    fcst_hl <- as.list(fcst_hl)   # strip to plain list for uniform handling below
+    fcst_hl <- .to_model_list(fcst_hl)   # normalise to a per-model list
   }
 
   # Drop models with no data
@@ -395,6 +430,18 @@ server <- function(input, output, session) {
 
   # ── Time Series ─────────────────────────────────────────────────────────────
   ts_error <- shiny::reactiveVal(NULL)
+
+  # Restrict model choices to those that actually have data for the selected parameter
+  shiny::observe({
+    param   <- input$ts_param
+    shiny::req(param)
+    models  <- scan_models_for_param(param)
+    current <- shiny::isolate(input$ts_models)
+    shiny::updateSelectInput(session, "ts_models",
+      choices  = models,
+      selected = if (length(intersect(current, models)) > 0) intersect(current, models) else models
+    )
+  })
 
   # Update forecast-date choices whenever param or models selection changes
   shiny::observe({
