@@ -26,7 +26,21 @@ parse_and_validate_args <- function() {
     make_option(c("-n", "--multihourly_models"), type="character", default="gfs",
                 help="Comma-separated list of 3-hourly models [default= %default]"),
     make_option(c("-f", "--fcst_freq"), type="character", default="6h",
-                help="Forecast initialization frequency (e.g., 6h, 12h) [default= %default]")
+                help="Forecast initialization frequency (e.g., 6h, 12h) [default= %default]"),
+    make_option(c("--thresh_t2m"), type="character", default="-10,0,10,20,25,30",
+                help="Comma-separated T2m thresholds (degC) for threshold scores [default= %default]"),
+    make_option(c("--thresh_wind"), type="character", default="5,10,15,20",
+                help="Comma-separated wind speed thresholds (m/s) for threshold scores [default= %default]"),
+    make_option(c("--thresh_pcp"), type="character", default="0.1,1,5,10,20",
+                help="Comma-separated precipitation thresholds (mm) for threshold scores [default= %default]"),
+    make_option(c("--thresh_psfc"), type="character", default="980,990,1000,1010,1020",
+                help="Comma-separated surface pressure thresholds (hPa) for threshold scores [default= %default]"),
+    make_option(c("--thresh_td2m"), type="character", default="-10,-5,0,5,10,15",
+                help="Comma-separated dew point thresholds (degC) for threshold scores [default= %default]"),
+    make_option(c("--thresh_rh2m"), type="character", default="50,70,80,90,95",
+                help="Comma-separated relative humidity thresholds (percent) for threshold scores [default= %default]"),
+    make_option(c("--thresh_q2m"), type="character", default="0.002,0.004,0.006,0.008,0.010",
+                help="Comma-separated specific humidity thresholds (kg/kg) for threshold scores [default= %default]")
   )
   opt <- parse_args(OptionParser(option_list=option_list))
   if (is.null(opt$start_date) || is.null(opt$end_date) ||
@@ -36,6 +50,15 @@ parse_and_validate_args <- function() {
   
   opt$hourly_models <- if (nchar(opt$hourly_models) > 0) strsplit(opt$hourly_models, ",")[[1]] else character(0)
   opt$multihourly_models <- if (nchar(opt$multihourly_models) > 0) strsplit(opt$multihourly_models, ",")[[1]] else character(0)
+
+  parse_thresh <- function(x) if (nchar(x) > 0) as.numeric(strsplit(x, ",")[[1]]) else NULL
+  opt$thresh_t2m  <- parse_thresh(opt$thresh_t2m)
+  opt$thresh_wind <- parse_thresh(opt$thresh_wind)
+  opt$thresh_pcp  <- parse_thresh(opt$thresh_pcp)
+  opt$thresh_psfc <- parse_thresh(opt$thresh_psfc)
+  opt$thresh_td2m <- parse_thresh(opt$thresh_td2m)
+  opt$thresh_rh2m <- parse_thresh(opt$thresh_rh2m)
+  opt$thresh_q2m  <- parse_thresh(opt$thresh_q2m)
   
   # Create subdirectory name if not provided
   if (is.null(opt$subdir) || nchar(opt$subdir) == 0) {
@@ -295,7 +318,7 @@ accumulate_precipitation <- function(fcst_1h_list, hours) {
 }
 
 # Verify precipitation for specific accumulation period
-verify_pcp_period <- function(fcst_list, obs_1h, hours, output_dir) {
+verify_pcp_period <- function(fcst_list, obs_1h, hours, output_dir, thresholds = NULL) {
   param_name <- paste0("AccPcp", hours, "h")
   cat("  - Verifying", hours, "-hour accumulation...\n")
   
@@ -320,7 +343,7 @@ verify_pcp_period <- function(fcst_list, obs_1h, hours, output_dir) {
   }
   
   if (any(sapply(fcst_harp, function(x) is.data.frame(x) && nrow(x) > 0))) {
-    verif <- det_verify(fcst_harp, !!sym(param_name))
+    verif <- det_verify(fcst_harp, !!sym(param_name), thresholds = thresholds)
     save_point_verif(verif, verif_path = file.path(output_dir))
     cat("    - Saved\n")
     return(TRUE)
@@ -330,7 +353,7 @@ verify_pcp_period <- function(fcst_list, obs_1h, hours, output_dir) {
 
 # Verify total precipitation accumulated over the full forecast period
 # (sum of all 1-hour increments per SID + fcst_dttm) vs summed observations
-verify_pcp_total <- function(fcst_1h_list, obs_1h, output_dir) {
+verify_pcp_total <- function(fcst_1h_list, obs_1h, output_dir, thresholds = NULL) {
   param_name <- "AccPcpTotal"
   cat("  - Verifying total forecast period accumulation...\n")
 
@@ -404,7 +427,7 @@ verify_pcp_total <- function(fcst_1h_list, obs_1h, output_dir) {
   }
 
   verif <- tryCatch(
-    det_verify(fcst_harp, !!sym(param_name)),
+    det_verify(fcst_harp, !!sym(param_name), thresholds = thresholds),
     error = function(e) { cat("    - Verify error:", e$message, "\n"); NULL }
   )
   if (is.null(verif)) return(FALSE)
@@ -415,7 +438,7 @@ verify_pcp_total <- function(fcst_1h_list, obs_1h, output_dir) {
 }
 
 # Verify precipitation
-verify_precipitation <- function(fcst_pcp, obs_pcp, output_dir, start_date, end_date) {
+verify_precipitation <- function(fcst_pcp, obs_pcp, output_dir, start_date, end_date, thresholds = NULL) {
   if (is.null(obs_pcp) || nrow(obs_pcp) == 0) {
     cat("  - No precipitation observations\n")
     return(FALSE)
@@ -451,8 +474,8 @@ verify_precipitation <- function(fcst_pcp, obs_pcp, output_dir, start_date, end_
   
   if (length(fcst_1h_list) == 0) return(FALSE)
   
-  valid_1h    <- verify_pcp_period(fcst_1h_list, obs_pcp, 1, output_dir)
-  valid_total <- verify_pcp_total(fcst_1h_list, obs_pcp, output_dir)
+  valid_1h    <- verify_pcp_period(fcst_1h_list, obs_pcp, 1, output_dir, thresholds = thresholds)
+  valid_total <- verify_pcp_total(fcst_1h_list, obs_pcp, output_dir, thresholds = thresholds)
 
   valid_12h <- FALSE
   valid_24h <- FALSE
@@ -460,24 +483,24 @@ verify_precipitation <- function(fcst_pcp, obs_pcp, output_dir, start_date, end_
     cat("  - Including 12h and 24h accumulation\n")
     fcst_12h_list <- accumulate_precipitation(fcst_1h_list, 12)
     names(fcst_12h_list) <- names(fcst_1h_list)
-    valid_12h <- verify_pcp_period(fcst_12h_list[!sapply(fcst_12h_list, is.null)], obs_pcp, 12, output_dir)
+    valid_12h <- verify_pcp_period(fcst_12h_list[!sapply(fcst_12h_list, is.null)], obs_pcp, 12, output_dir, thresholds = thresholds)
     
     fcst_24h_list <- accumulate_precipitation(fcst_1h_list, 24)
     names(fcst_24h_list) <- names(fcst_1h_list)
-    valid_24h <- verify_pcp_period(fcst_24h_list[!sapply(fcst_24h_list, is.null)], obs_pcp, 24, output_dir)
+    valid_24h <- verify_pcp_period(fcst_24h_list[!sapply(fcst_24h_list, is.null)], obs_pcp, 24, output_dir, thresholds = thresholds)
   }
   
   return(valid_1h || valid_total || valid_12h || valid_24h)
 }
 
 # Verify simple parameter
-verify_simple_param <- function(fcst_data, obs_data, obs_param, param_name, preprocess_func = NULL, output_dir) {
+verify_simple_param <- function(fcst_data, obs_data, obs_param, param_name, preprocess_func = NULL, output_dir, thresholds = NULL) {
   cat("- Verifying", param_name, "...\n")
   if (!is.null(preprocess_func)) fcst_data <- preprocess_func(fcst_data)
   fcst_joined <- fcst_data |> common_cases() |> join_to_fcst(obs_data)
   
   if (any(sapply(fcst_joined, function(x) is.data.frame(x) && nrow(x) > 0))) {
-    verif <- det_verify(fcst_joined, !!sym(obs_param))
+    verif <- det_verify(fcst_joined, !!sym(obs_param), thresholds = thresholds)
     save_point_verif(verif, verif_path = file.path(output_dir))
     cat("  - Saved\n")
     return(list(success = TRUE, data = fcst_joined))
@@ -492,22 +515,24 @@ verify_and_save <- function(fcst, obs, output_dir, start_date, end_date) {
   
   verif_tasks <- list(
     list(name = "Temperature", fcst_data = fcst$t2m, obs_data = obs$T2m, obs_param = "T2m",
-         preprocess = function(x) scale_param(x, -273.15, "degC")),
+         preprocess = function(x) scale_param(x, -273.15, "degC"), thresholds = opt$thresh_t2m),
     list(name = "Pressure", fcst_data = fcst$psfc, obs_data = obs$Pressure, obs_param = "Ps",
-         preprocess = function(x) scale_param(x, 0.01, "hPa", mult = TRUE)),
+         preprocess = function(x) scale_param(x, 0.01, "hPa", mult = TRUE), thresholds = opt$thresh_psfc),
     list(name = "Wind Speed", fcst_data = fcst$ws10m, obs_data = obs$WindSpeed, obs_param = "S10m",
-         preprocess = function(x) set_units(x, "m/s"))
+         preprocess = function(x) set_units(x, "m/s"), thresholds = opt$thresh_wind)
   )
   
   valid_results <- sapply(verif_tasks, function(task) {
-    result <- verify_simple_param(task$fcst_data, task$obs_data, task$obs_param, task$name, task$preprocess, output_dir)
+    result <- verify_simple_param(task$fcst_data, task$obs_data, task$obs_param, task$name, task$preprocess, output_dir, thresholds = task$thresholds)
     return(result$success)
   })
 
-  valid_moisture <- verify_moisture(fcst, obs, output_dir)
+  valid_moisture <- verify_moisture(fcst, obs, output_dir, thresholds = list(
+    Td2m = opt$thresh_td2m, RH2m = opt$thresh_rh2m, Q2m = opt$thresh_q2m
+  ))
   
   cat("- Processing precipitation...\n")
-  valid_pcp <- verify_precipitation(fcst$pcp, obs$AccPcp1h, output_dir, start_date, end_date)
+  valid_pcp <- verify_precipitation(fcst$pcp, obs$AccPcp1h, output_dir, start_date, end_date, thresholds = opt$thresh_pcp)
   
   if (!any(valid_results) && !valid_moisture && !valid_pcp) {
     cat("No valid forecast-observation pairs found. Exiting.\n")
@@ -549,7 +574,7 @@ prepare_moisture_fcst <- function(fcst) {
 }
 
 # Verify moisture parameters
-verify_moisture <- function(fcst, obs, output_dir) {
+verify_moisture <- function(fcst, obs, output_dir, thresholds = list(Td2m = NULL, RH2m = NULL, Q2m = NULL)) {
   cat("- Processing moisture...\n")
   
   fcst_moisture <- prepare_moisture_fcst(fcst)
@@ -563,14 +588,14 @@ verify_moisture <- function(fcst, obs, output_dir) {
   obs_complete <- complete_moisture_obs(obs, fcst_moisture)
   
   moisture_params <- list(
-    list(param = "Td2m", desc = "Dew Point", calc_func = calc_td_from_q, units = "degC", offset = -273.15),
-    list(param = "RH2m", desc = "Relative Humidity", calc_func = calc_rh_from_q, units = "percent", offset = 0),
-    list(param = "Q2m", desc = "Specific Humidity", calc_func = NULL, units = "kg/kg", offset = 0)
+    list(param = "Td2m", desc = "Dew Point", calc_func = calc_td_from_q, units = "degC", offset = -273.15, thresholds = thresholds$Td2m),
+    list(param = "RH2m", desc = "Relative Humidity", calc_func = calc_rh_from_q, units = "percent", offset = 0, thresholds = thresholds$RH2m),
+    list(param = "Q2m", desc = "Specific Humidity", calc_func = NULL, units = "kg/kg", offset = 0, thresholds = thresholds$Q2m)
   )
   
   valid_results <- sapply(moisture_params, function(mp) {
     verify_moisture_param(fcst_moisture, obs_complete[[mp$param]], mp$param, mp$desc, 
-                          mp$calc_func, mp$units, mp$offset, output_dir)
+                          mp$calc_func, mp$units, mp$offset, output_dir, thresholds = mp$thresholds)
   })
   
   if (!any(valid_results)) {
@@ -648,7 +673,7 @@ complete_moisture_obs <- function(obs, fcst_moisture) {
 }
 
 # Verify moisture parameter
-verify_moisture_param <- function(fcst_moisture, obs_data, param, param_desc, calc_func, units, offset, output_dir) {
+verify_moisture_param <- function(fcst_moisture, obs_data, param, param_desc, calc_func, units, offset, output_dir, thresholds = NULL) {
   if (is.null(obs_data) || nrow(obs_data) == 0) return(FALSE)
   
   cat("  - Verifying", param_desc, "\n")
@@ -688,7 +713,7 @@ verify_moisture_param <- function(fcst_moisture, obs_data, param, param_desc, ca
   
   if (!any(sapply(fcst_list, function(x) is.data.frame(x) && nrow(x) > 0))) return(FALSE)
 
-  verif <- tryCatch(det_verify(fcst_list, !!sym(param)), error = function(e) NULL)
+  verif <- tryCatch(det_verify(fcst_list, !!sym(param), thresholds = thresholds), error = function(e) NULL)
   if (is.null(verif)) return(FALSE)
 
   save_point_verif(verif, verif_path = file.path(output_dir))
