@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Load environment
-source /home/wrf/WRF_Model/scripts/env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
 
 # ===============================================
 # Execute UPP postprocessing tool

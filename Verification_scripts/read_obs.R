@@ -83,6 +83,11 @@ read_csv_obs <- function(file_name, dttm, parameter = NULL, ...) {
 }
 
 # Main function
+base_dir <- Sys.getenv("BASE_DIR")
+if (base_dir == "") {
+  stop("BASE_DIR is not set. Run this script through the installed WRF environment.")
+}
+
 process_observations <- function(current_date) {
   if (nchar(current_date) != 10) {
     stop("Current date should be in yyyymmddHH format, E.g. 2023103100")
@@ -90,7 +95,7 @@ process_observations <- function(current_date) {
   
   # Setup paths
   year <- substring(current_date, 1, 4)
-  sqlite_dir <- "/wrf/WRF_Model/Verification/SQlite_tables/Obs"
+  sqlite_dir <- file.path(base_dir, "Verification/SQlite_tables/Obs")
   
   # Ensure directory exists
   if (!dir.exists(sqlite_dir)) {
@@ -110,7 +115,7 @@ process_observations <- function(current_date) {
     dttm = current_dttm,
     parameter = NULL,
     file_format = "csv_obs",
-    file_path = "/wrf/WRF_Model/Verification/Data/Obs",
+    file_path = file.path(base_dir, "Verification/Data/Obs"),
     file_template = "local_obs{YYYY}{MM}{DD}{HH}00_verif.csv",
     return_data = TRUE
   )

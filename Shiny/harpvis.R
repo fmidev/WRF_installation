@@ -4,10 +4,14 @@ library(harp)
 library(dplyr)
 library(RSQLite)
 
+base_dir <- Sys.getenv("BASE_DIR")
+if (base_dir == "") {
+  stop("BASE_DIR is not set in the Shiny Server environment.")
+}
 
 # ── Shiny options ──────────────────────────────────────────────────────────────
 shinyOptions(
-  app_start_dir = "/wrf/WRF_Model/Verification/Results",
+  app_start_dir = file.path(base_dir, "Verification/Results"),
   full_dir_navigation = TRUE,
   online              = TRUE,
   theme               = "white"
@@ -25,8 +29,8 @@ base_server <- source("server.R", local = TRUE)$value
 setwd(old_wd)
 
 # ── Data paths ─────────────────────────────────────────────────────────────────
-fcst_dir <- "/wrf/WRF_Model/Verification/SQlite_tables/FCtables"
-obs_dir  <- "/wrf/WRF_Model/Verification/SQlite_tables/Obs"
+fcst_dir <- file.path(base_dir, "Verification/SQlite_tables/FCtables")
+obs_dir  <- file.path(base_dir, "Verification/SQlite_tables/Obs")
 
 # ── Moisture helpers ───────────────────────────────────────────────────────────
 .es         <- function(t) 611.2 * exp(17.67 * (t - 273.15) / (t - 29.65))
@@ -163,7 +167,7 @@ scan_stations <- function(param, models, fcst_dttm_str) {
   sids <- sort(unique(sids))
   # Look up station names from local stationlist.csv and label as "Name (SID)"
   sl <- tryCatch(
-    read.csv("/wrf/WRF_Model/Verification/Data/Static/stationlist.csv",
+    read.csv(file.path(base_dir, "Verification/Data/Static/stationlist.csv"),
              stringsAsFactors = FALSE),
     error = function(e) NULL
   )

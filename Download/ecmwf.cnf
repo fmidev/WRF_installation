@@ -17,4 +17,4 @@ VALID_HOURS="00|06|12|18"
 #VALID_HOURS="00|12"
 
 # Destination for WRF processing (optional)
-WRF_COPY_DEST=/home/wrf/WRF_Model/ECMWF/
+WRF_COPY_DEST=${BASE_DIR}/ECMWF/

@@ -15,7 +15,8 @@ month=$2
 day=$3
 cycle=$4
 
-source /home/wrf/WRF_Model/scripts/env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
 
 # Define date
 CURRENT_DATE="${year}${month}${day}${cycle}"

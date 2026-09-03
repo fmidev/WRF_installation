@@ -7,11 +7,17 @@
 # ===============================================
 #
 
-# Load configuration if available
-CONFIG_FILE="ecmwf.cnf"
-if [ -f "/home/wrf/WRF_Model/scripts/$CONFIG_FILE" ]; then
-    . /home/wrf/WRF_Model/scripts/$CONFIG_FILE
+# Load the installed environment from the script directory.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/env.sh" ]; then
+    source "$SCRIPT_DIR/env.sh"
+else
+    echo "ERROR: Installed env.sh not found beside $0" >&2
+    exit 1
 fi
+
+CONFIG_FILE="${BASE_DIR}/scripts/ecmwf.cnf"
+[ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
 
 # Default Configuration
 : "${MODEL_PRODUCER:=ifs}"
@@ -31,7 +37,7 @@ while getopts "dp:v:h:f:" flag; do
 done
 
 # Constants and Variables
-BASE="/home/wrf/WRF_Model"
+BASE="$BASE_DIR"
 CURRENT_DATE=$(date -u +%Y%m%d)
 CURRENT_HOUR=$(date -u +%H)
 LOGFILE="$BASE/logs/ecmwf_${CURRENT_HOUR}.log"

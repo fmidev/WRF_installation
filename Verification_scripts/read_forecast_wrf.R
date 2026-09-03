@@ -20,6 +20,11 @@ if (!(run_type %in% c("test", "prod"))) {
 library(harp)
 library(ncdf4)
 
+base_dir <- Sys.getenv("BASE_DIR")
+if (base_dir == "") {
+  stop("BASE_DIR is not set. Run this script through the installed WRF environment.")
+}
+
 # Function to inspect NetCDF file contents and verify variables
 inspect_netcdf <- function(file_path) {
   tryCatch({
@@ -39,10 +44,10 @@ inspect_netcdf <- function(file_path) {
 }
 
 # Set up paths and configuration for forecast processing
-station_list <- read.csv("/wrf/WRF_Model/Verification/Data/Static/stationlist.csv")
-file_path <- "/wrf/WRF_Model/Verification/Data/Forecast" 
+station_list <- read.csv(file.path(base_dir, "Verification/Data/Static/stationlist.csv"))
+file_path <- file.path(base_dir, "Verification/Data/Forecast")
 template <- "{fcst_model}_{YYYY}{MM}{DD}{HH}"
-sql_folder <- "/wrf/WRF_Model/Verification/SQlite_tables/FCtables"
+sql_folder <- file.path(base_dir, "Verification/SQlite_tables/FCtables")
 
 # Set model name based on run_type
 if (run_type == "test") {

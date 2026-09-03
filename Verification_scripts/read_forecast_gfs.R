@@ -12,6 +12,11 @@ datetime = args[1]
 # Load required libraries for forecast processing and GRIB handling
 library(harp)
 
+base_dir <- Sys.getenv("BASE_DIR")
+if (base_dir == "") {
+  stop("BASE_DIR is not set. Run this script through the installed WRF environment.")
+}
+
 # Function to inspect GRIB file contents and verify variables
 inspect_grib <- function(file_path) {
   tryCatch({
@@ -32,10 +37,10 @@ inspect_grib <- function(file_path) {
 }
 
 # Set up paths and configuration for forecast processing
-station_list <- read.csv("/wrf/WRF_Model/Verification/Data/Static/stationlist.csv")
-file_path <- "/wrf/WRF_Model/Verification/Data/Forecast" 
+station_list <- read.csv(file.path(base_dir, "Verification/Data/Static/stationlist.csv"))
+file_path <- file.path(base_dir, "Verification/Data/Forecast")
 template <- "{fcst_model}_{YYYY}{MM}{DD}{HH}"
-sql_folder <- "/wrf/WRF_Model/Verification/SQlite_tables/FCtables"
+sql_folder <- file.path(base_dir, "Verification/SQlite_tables/FCtables")
 fcst_model <- "gfs"
 forecast_file <- paste0(file_path, "/", fcst_model, "_", datetime)
 

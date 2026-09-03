@@ -7,9 +7,17 @@
 # ===============================================
 #
 
-# Load configuration if available
-CONFIG_FILE="gfs.cnf"
-. /home/wrf/WRF_Model/scripts/$CONFIG_FILE
+# Load the installed environment from the script directory.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/env.sh" ]; then
+    source "$SCRIPT_DIR/env.sh"
+else
+    echo "ERROR: Installed env.sh not found beside $0" >&2
+    exit 1
+fi
+
+CONFIG_FILE="${BASE_DIR}/scripts/gfs.cnf"
+[ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
 
 # Default Configuration
 : "${AREA:=world}"
@@ -38,7 +46,7 @@ done
 
 # Constants and Variables
 STEP=6
-BASE="/home/wrf/WRF_Model"
+BASE="$BASE_DIR"
 TMP="$BASE/tmp/gfs_${AREA}_${RESOLUTION}_$(date -u +%Y%m%d%H%M)"
 LOGFILE="$BASE/logs/gfs_${AREA}_$(date -u +%H).log"
 OUTNAME="$(date -u +%Y%m%d%H%M)_gfs_$AREA"

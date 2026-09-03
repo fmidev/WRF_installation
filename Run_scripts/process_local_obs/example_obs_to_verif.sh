@@ -1,10 +1,13 @@
 #!/bin/bash
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$SCRIPT_DIR/env.sh"
+
 station_url="https://..."
 data_url="https://..."
-station_file="/home/wrf/WRF_Model/Verification/Data/Static/stations.csv"
-working_file="/home/wrf/WRF_Model/Verification/Data/Obs/obs_from_db.csv"
-output_file="/home/wrf/WRF_Model/Verification/Data/Obs/obs_to_verif.csv"
+station_file="${BASE_DIR}/Verification/Data/Static/stations.csv"
+working_file="${BASE_DIR}/Verification/Data/Obs/obs_from_db.csv"
+output_file="${BASE_DIR}/Verification/Data/Obs/obs_to_verif.csv"
 
 echo "getting station data from db";
 echo "SID,lat,lon,elev,name" > $station_file

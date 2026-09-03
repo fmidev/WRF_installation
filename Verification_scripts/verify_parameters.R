@@ -10,6 +10,11 @@ suppressPackageStartupMessages({
   library(lubridate)
 })
 
+base_dir <- Sys.getenv("BASE_DIR")
+if (base_dir == "") {
+  stop("BASE_DIR is not set. Run this script through the installed WRF environment.")
+}
+
 # Parse and validate command-line arguments
 parse_and_validate_args <- function() {
   option_list <- list(
@@ -17,7 +22,7 @@ parse_and_validate_args <- function() {
                 help="Start date in format YYYYMMDDHH", metavar="YYYYMMDDHH"),
     make_option(c("-e", "--end_date"), type="character", default=NULL, 
                 help="End date in format YYYYMMDDHH", metavar="YYYYMMDDHH"),
-    make_option(c("-o", "--output_dir"), type="character", default="/wrf/WRF_Model/Verification/Results", 
+    make_option(c("-o", "--output_dir"), type="character", default=file.path(base_dir, "Verification/Results"),
                 help="Output directory for verification results [default= %default]"),
     make_option(c("-d", "--subdir"), type="character", default=NULL,
                 help="Subdirectory name under output_dir for this verification run [default= start_date-end_date]"),
@@ -732,8 +737,8 @@ cat("  - Hourly:", if (length(opt$hourly_models) > 0) paste(opt$hourly_models, c
 cat("  - 3-hourly (interpolated):", if (length(opt$multihourly_models) > 0) paste(opt$multihourly_models, collapse = ", ") else "none", "\n")
 cat("Parameters: T2m, Pressure, Moisture (Td/RH/Q), Wind Speed, Precipitation (1h/12h/24h)\n")
 
-fcst_dir <- "/wrf/WRF_Model/Verification/SQlite_tables/FCtables"
-obs_dir  <- "/wrf/WRF_Model/Verification/SQlite_tables/Obs"
+fcst_dir <- file.path(base_dir, "Verification/SQlite_tables/FCtables")
+obs_dir  <- file.path(base_dir, "Verification/SQlite_tables/Obs")
 
 fcst <- read_forecasts(opt$start_date, opt$end_date, opt$hourly_models, opt$multihourly_models, fcst_dir, opt$fcst_freq)
 print_forecast_summary(fcst)

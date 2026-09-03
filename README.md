@@ -76,7 +76,7 @@ Just save your downloaded `namelist.wps` file as `domain.txt` in the scripts dir
 - Grid spacing (`dx`, `dy`)
 - Map projection settings (`map_proj`, `ref_lat`, `ref_lon`, etc.)
 
-Some settings like `max_dom` (number of domains) and `interval_seconds` (boundary update frequency) are hardcoded in the scripts and can be edited if needed.
+The scripts currently generate a two-domain configuration with `max_dom = 2` and a 3-hour boundary interval. These values are set in `run_WPS.sh`; they are not read from `domain.txt`.
 
 **Note for Mercator Projection Users**: If you're using Mercator projection (`map_proj = 'mercator'`) with data assimilation and local observations, set `TRUELAT1 = 0` in both your domain settings and `namelist.obsproc`. Other values will cause errors in obsproc.
 
@@ -100,7 +100,7 @@ Before running WRF, validate your domain setup:
 
 ```bash
 cd $BASE/scripts
-./check_cpu_usage.sh -c 59 -f domain.txt
+bash ./check_cpu_usage.sh -c 59 -f domain.txt
 ```
 
 Replace `59` with your actual CPU count. The script analyzes your domain configuration and reports:
@@ -134,8 +134,8 @@ The `env.sh` script (`$BASE/scripts/env.sh`) is your central configuration file 
 **Run Configuration**
 - `LEADTIME`: Forecast length in hours (default: 72)
 - `INTERVAL`: Time between cycles in hours (default: 6)
-- `MAX_CPU`: Number of CPU cores to use (default: Defined based on the system)
-- `GRIBNUM`: Number of 3-hourly GFS files required (default: 25 (for WRF runs up to 75 hours))
+- `MAX_CPU`: Maximum number of CPU cores to use (default: defined from the system)
+- `BOUNDARY_SOURCE`: Boundary data source, either `GFS` or `ECMWF` (default: `GFS`)
 
 **Workflow Switches** - Turn components on/off:
 ```bash
@@ -153,16 +153,23 @@ These switches let you customize what runs in each cycle. Just set anything to `
 
 ### Downloading Boundary Data
 
-WRF needs boundary conditions from a global model. We use GFS or ECMWF data in GRIB format:
+WRF needs boundary conditions from a global model. The workflow supports GFS and ECMWF data in GRIB format.
 
+For GFS, run the installed downloader (if smartmet data is NOT used):
 ```bash
-Download/get_gfs.sh
-Download/get_ecmwf.sh
+bash $BASE/scripts/get_gfs.sh
 ```
 
-Configure the download in `.cnf`
+Configure the download in `$BASE/scripts/gfs.cnf`. The default configuration downloads 0.25-degree GFS data for the Nordics and stores it under `$BASE/GFS/`.
 
-The script downloads the latest available GFS or ECMWF run and saves it to `$BASE/MODEL/`. The operational workflow is not downloading boundaries as default. The user have to setup it by themselves.
+For ECMWF, run the installed downloader:
+```bash
+bash $BASE/scripts/get_ecmwf.sh
+```
+
+Configure it in `$BASE/scripts/ecmwf.cnf`, set `BOUNDARY_SOURCE="ECMWF"` in `env.sh`, and note the WPS ECMWF patches described in [Download/README.md](Download/README.md). ECMWF files are stored under `$BASE/ECMWF/` and must have the `.converted` marker before a run continues.
+
+The operational workflow does not download boundary data automatically. Set up the appropriate downloader and schedule it separately. Before a run, `control_run_WRF.sh` checks that all required files exist, are non-empty, and can be decoded by `wgrib2` or `grib_ls` when available.
 
 ### Running WPS (Preprocessing)
 
@@ -277,7 +284,7 @@ The `verification.sh` script:
 ./verification.sh 2024 09 10 00
 ```
 
-The system automatically runs weekly and monthly verification on Wednesday at 12 UTC.
+Verification runs when enabled in `env.sh` and called by `control_run_WRF.sh`, or when started manually.
 
 **Viewing Results - Shiny Server Web Applications**
 
@@ -347,7 +354,7 @@ Cron runs test forecasts twice daily:
 
 **Deploying to Production**
 
-Once you've tested changes successfully, you can deploy them to production. The `deploy_test_to_prod.sh` script helps with this (Not working properly yet, still under development), but review changes carefully before deploying!
+Once you've tested changes successfully, review them carefully before copying them to production. `deploy_test_to_prod.sh` exists to automate this process, but is still under development and not yet working correctly.
 
 
 ### Automated Operations
@@ -372,10 +379,12 @@ This runs everything:
 
 **Automated Scheduling**
 
-The installation sets up cron jobs for automatic forecasting. By default, WRF runs every 6 hours:
+The repository includes `Run_scripts/crontab_template` with commented examples for production runs at 00, 06, 12, and 18 UTC, test runs at 00 and 12 UTC, and daily cleanup. The example commands run after the target cycle is expected to be available; adjust the paths and times for your system before enabling them.
 
-```
-00 00,06,12,18 * * * cd /home/wrf/WRF_Model/scripts && ./control_run_WRF.sh ...
+For example:
+```bash
+crontab -e
+# Then uncomment the required entries from /home/wrf/WRF_installation/Run_scripts/crontab_template
 ```
 
 **Cleaning Old Files**
@@ -405,7 +414,7 @@ For optimal data assimilation performance, you should generate domain-specific b
 
 **Collecting Forecasts**
 
-The `WRF_test` system will save 12-hour and 24-hour forecasts from each run as default. You need at least one month of data.
+The `WRF_test` system saves 12-hour and 24-hour forecasts from each run by default. Collect at least one month of data before generating error covariances.
 
 **Generating Statistics**
 

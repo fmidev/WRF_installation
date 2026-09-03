@@ -1,7 +1,7 @@
 #!/bin/bash 
 
 # Base directory
-export BASE_DIR=/home/wrf/WRF_Model
+export BASE_DIR=${BASE_DIR:-/home/$USER/WRF_Model}
 export LIB_DIR=$BASE_DIR/libraries
 
 # Library paths

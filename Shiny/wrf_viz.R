@@ -4,6 +4,12 @@ library(plotly)
 library(viridis)
 library(lubridate)
 
+base_dir <- Sys.getenv("BASE_DIR")
+if (base_dir == "") {
+  stop("BASE_DIR is not set in the Shiny Server environment.")
+}
+default_output_dir <- file.path(base_dir, "out")
+
 ui <- fluidPage(
   theme = bslib::bs_theme(bootswatch = "flatly"),
   titlePanel("WRF Output Visualizer"),
@@ -12,7 +18,7 @@ ui <- fluidPage(
     sidebarPanel(
       width = 3,
       h4("Forecast Selection"),
-      textInput("base_dir", "WRF Output Directory:", value = "/wrf/WRF_Model/out"),
+      textInput("base_dir", "WRF Output Directory:", value = default_output_dir),
       actionButton("refresh_files", "Scan Directory", class = "btn-primary"),
       br(), br(),
       uiOutput("date_selector"),

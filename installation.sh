@@ -189,7 +189,8 @@ if [ "$#" -lt 4 ]; then
     exit 1
 fi
 
-source BASE_PLACEHOLDER/scripts/env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
 
 # Input variables
 YYYY=$1  # Year
@@ -211,7 +212,6 @@ exit 0
 EOF
     # Replace placeholders with actual values
     sed -i "s|COUNTRY_PLACEHOLDER|$COUNTRY|g" "$BASE/scripts/process_local_obs_${COUNTRY}.sh"
-    sed -i "s|BASE_PLACEHOLDER|$BASE|g" "$BASE/scripts/process_local_obs_${COUNTRY}.sh"
     chmod +x "$BASE/scripts/process_local_obs_${COUNTRY}.sh"
     echo "Created template: $BASE/scripts/process_local_obs_${COUNTRY}.sh"
 fi
@@ -1000,9 +1000,6 @@ EOF
     sudo mkdir -p "$WRF_VIZ_APP_DIR"
     sudo cp "$GIT_REPO/Shiny/wrf_viz.R" "$WRF_VIZ_APP_DIR/app.R"
     
-    # Update the default WRF output directory path in the app
-    sudo sed -i "s|/wrf/WRF_Model/out|$BASE/out|g" "$WRF_VIZ_APP_DIR/app.R"
-    
     # Set proper permissions
     sudo chown -R shiny:shiny "$WRF_VIZ_APP_DIR"
     sudo chmod -R 755 "$WRF_VIZ_APP_DIR"
@@ -1036,6 +1033,7 @@ server {
 }
 SHINY_CONF
     sudo mv /tmp/shiny-server.conf /etc/shiny-server/shiny-server.conf
+    sudo sed -i "/run_as shiny;/a\\env BASE_DIR \"$BASE\";" /etc/shiny-server/shiny-server.conf
     
     # Create index.html redirect to landing page
     sudo tee /srv/shiny-server/index.html > /dev/null << 'INDEX_HTML'
@@ -1184,6 +1182,8 @@ fi
 # Copy and update scripts
 echo "Copying run scripts into the scripts directory..."
 cp $GIT_REPO/Run_scripts/* $BASE/scripts/ 2>/dev/null || true
+cp $GIT_REPO/Download/get_gfs.sh $GIT_REPO/Download/get_ecmwf.sh \
+    $GIT_REPO/Download/gfs.cnf $GIT_REPO/Download/ecmwf.cnf $BASE/scripts/ 2>/dev/null || true
 chmod -R +x $BASE/scripts/
 
 # Update SmartMet IP address in production scripts
@@ -1195,14 +1195,6 @@ echo "Configuring env.sh..."
 sed -i "s|^export BASE_DIR=.*|export BASE_DIR=$BASE|" "$BASE/scripts/env.sh"
 sed -i "s|^export MAX_CPU=.*|export MAX_CPU=$MAX_CPU|" "$BASE/scripts/env.sh"
 sed -i "s|^export COUNTRY=.*|export COUNTRY=\"$COUNTRY\"|" "$BASE/scripts/env.sh"
-
-# Update all production script paths to source the configured env.sh
-echo "Updating script paths in production scripts..."
-for script in control_run_WRF.sh run_WPS.sh run_WRF.sh execute_upp.sh run_WRFDA.sh clean_wrf.sh get_obs.sh verification.sh; do
-    if [ -f "$BASE/scripts/$script" ]; then
-        sed -i "s|^source .*|source $BASE/scripts/env.sh|" "$BASE/scripts/$script"
-    fi
-done
 
 echo "✅ Production scripts configured successfully"
 
@@ -1342,13 +1334,6 @@ echo "✅ WRF_test scripts created successfully"
 echo "Copying verification R scripts into the Verification directory..."
 rsync -av --exclude='app.R' "$GIT_REPO/Verification_scripts/" "$BASE/Verification/scripts/"
 
-# Update paths in R verification scripts
-echo "Updating paths in R verification scripts..."
-for r_script in $BASE/Verification/scripts/*.R; do
-    # Replace all occurrences of default WRF path with the actual BASE path
-    sed -i "s|/wrf/WRF_Model|$BASE|g" "$r_script"
-done
-
 echo "✅ Verification scripts configured successfully"
 
 # Crontab setup with improved timezone handling
@@ -1390,20 +1375,19 @@ echo "Adjusted crontab job start times, cycle 00: $time_00:00, cycle 06: $time_0
 
 # Update the crontab template with all replacements at once
 echo "Updating crontab settings in $BASE/scripts/crontab_template"
-sed -i "s|#30 \* \* \* \* /home/wrf/WRF_Model/scripts/clean_wrf.sh|#30 \* \* \* \* $BASE/scripts/clean_wrf.sh|" "$BASE/scripts/crontab_template"
-sed -i "s|#30 5 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 00 > /home/wrf/WRF_Model/logs/runlog_00.log|#0 $time_00 \* \* \* $BASE/scripts/control_run_WRF.sh 00 > $BASE/logs/runlog_00.log|" "$BASE/scripts/crontab_template"
-sed -i "s|#30 11 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 06 > /home/wrf/WRF_Model/logs/runlog_06.log|#0 $time_06 \* \* \* $BASE/scripts/control_run_WRF.sh 06 > $BASE/logs/runlog_06.log|" "$BASE/scripts/crontab_template"
-sed -i "s|#30 17 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 12 > /home/wrf/WRF_Model/logs/runlog_12.log|#0 $time_12 \* \* \* $BASE/scripts/control_run_WRF.sh 12 > $BASE/logs/runlog_12.log|" "$BASE/scripts/crontab_template"
-sed -i "s|#30 23 \* \* \* /home/wrf/WRF_Model/scripts/control_run_WRF.sh 18 > /home/wrf/WRF_Model/logs/runlog_18.log|#0 $time_18 \* \* \* $BASE/scripts/control_run_WRF.sh 18 > $BASE/logs/runlog_18.log|" "$BASE/scripts/crontab_template"
+sed -i "s|@BASE_DIR@|$BASE|g; s|#30 \* \* \* \*|#30 \* \* \* \*|" "$BASE/scripts/crontab_template"
+sed -i "s|#30 5 \* \* \*|#0 $time_00 \* \* \*|" "$BASE/scripts/crontab_template"
+sed -i "s|#30 11 \* \* \*|#0 $time_06 \* \* \*|" "$BASE/scripts/crontab_template"
+sed -i "s|#30 17 \* \* \*|#0 $time_12 \* \* \*|" "$BASE/scripts/crontab_template"
+sed -i "s|#30 23 \* \* \*|#0 $time_18 \* \* \*|" "$BASE/scripts/crontab_template"
 
 # Calculate WRF_test crontab times (runs at 00 and 12 UTC only)
 time_test_00=$(adjust_crontab_time 5)
 time_test_12=$(adjust_crontab_time 17)
 
-sed -i "s|#0 6 \* \* \* /home/wrf/WRF_test/scripts/control_run_WRF_test.sh 00|#0 $time_test_00 \* \* \* $TEST_BASE/scripts/control_run_WRF_test.sh 00|" "$BASE/scripts/crontab_template"
-sed -i "s|#0 18 \* \* \* /home/wrf/WRF_test/scripts/control_run_WRF_test.sh 12|#0 $time_test_12 \* \* \* $TEST_BASE/scripts/control_run_WRF_test.sh 12|" "$BASE/scripts/crontab_template"
-sed -i "s|/home/wrf/WRF_test/logs/runlog_00.log|$TEST_BASE/logs/runlog_00.log|" "$BASE/scripts/crontab_template"
-sed -i "s|/home/wrf/WRF_test/logs/runlog_12.log|$TEST_BASE/logs/runlog_12.log|" "$BASE/scripts/crontab_template"
+sed -i "s|@TEST_BASE_DIR@|$TEST_BASE|g" "$BASE/scripts/crontab_template"
+sed -i "s|#0 6 \* \* \*|#0 $time_test_00 \* \* \*|" "$BASE/scripts/crontab_template"
+sed -i "s|#0 18 \* \* \*|#0 $time_test_12 \* \* \*|" "$BASE/scripts/crontab_template"
 
 if crontab -l >/dev/null 2>&1; then
     echo "Existing crontab detected."

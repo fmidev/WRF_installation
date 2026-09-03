@@ -7,7 +7,8 @@
 # ===============================================
 
 # Load environment
-source /home/wrf/WRF_Model/scripts/env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
 
 # Script inputs
 year=$1; month=$2; day=$3; hour=$4

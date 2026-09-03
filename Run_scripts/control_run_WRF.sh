@@ -7,7 +7,8 @@
 # ===============================================
 
 # Load environment
-source /home/wrf/WRF_Model/scripts/env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/env.sh"
 
 # Set the date based on the UTC hour for daily runs
 hour=$1
