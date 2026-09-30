@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Package version configuration
-# Change these values to upgrade to newer versions
+# Change these values to upgrade to newer versions, NOT UPP, it should stay 4.1.0
 # Core components
 export WRF_VERSION="4.7.1"
 export WPS_VERSION="4.6.0"
