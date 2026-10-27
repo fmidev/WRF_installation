@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# The Rocky 10 entry point sets this profile before invoking this shared installer.
+export WRF_INSTALL_OS_PROFILE="${WRF_INSTALL_OS_PROFILE:-rocky9}"
+
 # Package version configuration
 # Change these values to upgrade to newer versions, NOT UPP, it should stay 4.1.0
 # Core components
@@ -27,7 +30,8 @@ export RSTUDIO_DESKTOP_VERSION="2024.12.1-563"
 #Shiny server
 export SHINY_SERVER_VERSION="1.5.23.1030"
 
-export GIT_REPO=$(pwd)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export GIT_REPO="$SCRIPT_DIR"
 
 # Start timing the installation
 start_time=$(date +%s)
@@ -272,15 +276,64 @@ TEST_BASE=$(dirname $BASE)/WRF_test
 mkdir -p $TEST_BASE/{scripts,out,logs,DA_input/{be,ob/{raw_obs,obsproc},rc,varbc},genbe_forecasts}
 
 # Install required system packages
-echo "Installing required packages..."
-sudo dnf config-manager --set-enabled crb
-sudo dnf makecache -y -q
-sudo dnf install -y epel-release gcc gfortran g++ emacs wget tar perl libxml2-devel \
-    m4 chrony libcurl-devel csh ksh rsync cmake time bc awscli
-sudo dnf update -y
+echo "Installing required packages for profile: $WRF_INSTALL_OS_PROFILE"
+if [ "$WRF_INSTALL_OS_PROFILE" = "rocky10" ]; then
+    # Rocky 10 uses GCC 14 and DNF 5. Use RPM package names rather than
+    # executable names, and verify every required package after enabling CRB
+    # and EPEL 10 so repository gaps fail before the multi-hour source builds.
+    sudo dnf install -y dnf-plugins-core
+    sudo dnf config-manager --set-enabled crb
+    if ! sudo dnf install -y epel-release; then
+        sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm
+    fi
+    sudo dnf makecache -y -q
+    sudo dnf update -y
 
-# Install verification-related system packages
-sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco wgrib2 openssl-devel 
+    rocky10_required_packages=(
+        gcc gcc-c++ gcc-gfortran make git patch diffutils findutils file which
+        wget tar perl m4 cmake rsync tcsh ksh time bc chrony cronie acl
+        libxml2-devel libcurl-devel openssl-devel sqlite sqlite-devel
+        eccodes eccodes-devel proj proj-devel netcdf-devel R nco wgrib2
+    )
+    rocky10_optional_packages=(emacs htop awscli)
+
+    rocky10_package_available() {
+        local package="$1"
+        rpm -q "$package" >/dev/null 2>&1 ||
+            dnf repoquery --available --qf '%{name}' "$package" 2>/dev/null |
+                grep -Fxq "$package"
+    }
+
+    missing_packages=()
+    for package in "${rocky10_required_packages[@]}"; do
+        if ! rocky10_package_available "$package"; then
+            missing_packages+=("$package")
+        fi
+    done
+    if [ "${#missing_packages[@]}" -gt 0 ]; then
+        echo "ERROR: Required Rocky Linux 10 packages are unavailable: ${missing_packages[*]}"
+        echo "Enabled repositories:"
+        dnf repolist
+        exit 1
+    fi
+    sudo dnf install -y "${rocky10_required_packages[@]}"
+    for package in "${rocky10_optional_packages[@]}"; do
+        if rocky10_package_available "$package"; then
+            sudo dnf install -y "$package"
+        else
+            echo "WARNING: Optional Rocky Linux 10 package '$package' is unavailable; continuing without it."
+        fi
+    done
+else
+    sudo dnf config-manager --set-enabled crb
+    sudo dnf makecache -y -q
+    sudo dnf install -y epel-release gcc gfortran g++ emacs wget tar perl libxml2-devel \
+        m4 chrony libcurl-devel csh ksh rsync cmake time bc awscli
+    sudo dnf update -y
+
+    # Install verification-related system packages
+    sudo dnf install -y htop jasper-devel eccodes eccodes-devel proj proj-devel netcdf-devel sqlite sqlite-devel R nco wgrib2 openssl-devel
+fi
 
 # Detect number of CPU cores and save four for test runs and one extra
 CPU_COUNT=$(nproc)
