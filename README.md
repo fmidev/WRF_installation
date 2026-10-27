@@ -23,7 +23,7 @@ Before starting, please check:
   - 100-200 GB for model files (varies with domain size)
   - 300 GB minimum for testing
   - 1 TB+ recommended for operational use
-- **OS**: Linux (Installation is only tested on RHEL/Rocky Linux)
+- **OS**: Rocky Linux 9 or Rocky Linux 10 on x86_64
 
 For detailed WRF documentation, see the [WRF User's Guide](https://www2.mmm.ucar.edu/wrf/users/wrf_users_guide/build/html/index.html)
 
@@ -41,10 +41,20 @@ sudo dnf install git
 git clone https://github.com/fmidev/WRF_installation.git
 cd WRF_installation
 
-# Run the installer
+# Rocky Linux 9
 chmod +x installation.sh
 ./installation.sh
+
+# Rocky Linux 10
+chmod +x installation_rocky10.sh
+./installation_rocky10.sh
 ```
+
+Use the installer matching the host's major Rocky Linux version. The Rocky 10
+installer validates the operating system and architecture, enables CRB and
+EPEL 10, installs the GCC 14 compiler packages using their Rocky RPM names
+(`gcc`, `gcc-c++`, and `gcc-gfortran`), and checks that required scientific
+packages are available before starting the source builds.
 
 The script will:
 - Install system dependencies (compilers, libraries)
@@ -424,5 +434,4 @@ After collecting enough data, run:
 ```
 
 This script uses WRF's gen_be tools to compute background error statistics and creates a new `be.dat` file for your domain.
-
 
